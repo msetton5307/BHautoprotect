@@ -1,6 +1,6 @@
 # Overview
 
-This is an auto warranty/extended service contract platform called "BH Auto Protect" that provides both a public-facing quote generation system and a comprehensive back-office CRM for managing leads, policies, and the sales process. The system enables customers to get instant warranty quotes through a multi-step form while providing agents with tools to manage the complete lead-to-policy lifecycle.
+This is an auto warranty/extended service contract platform called "BH Auto Protect" that provides a public-facing quote generation system. The simplified system enables customers to get instant warranty quotes through a multi-step form and submit leads directly through the website without any authentication requirements. This is a streamlined version focused on lead capture and quote generation.
 
 # User Preferences
 
@@ -35,10 +35,11 @@ Preferred communication style: Simple, everyday language.
 - **Plan Comparison**: Side-by-side comparison of coverage tiers
 - **Real-time Estimates**: Instant quote generation for customer-facing forms
 
-## Multi-Surface Architecture
-- **Public Landing**: Customer-facing quote flow with progressive form completion
-- **CRM Dashboard**: Agent interface with Kanban boards, lead management, and reporting
-- **Conditional Routing**: Different UI surfaces based on authentication status
+## Application Architecture 
+- **Public Landing Page**: Professional marketing site with call-to-action for quotes
+- **Quote Flow**: Multi-step form for vehicle information and coverage preferences
+- **Lead Capture**: Backend API endpoints for processing quote requests and storing leads
+- **No Authentication**: Simplified public-only interface without user accounts
 
 # External Dependencies
 
@@ -46,9 +47,9 @@ Preferred communication style: Simple, everyday language.
 - **Neon PostgreSQL**: Serverless PostgreSQL database with connection pooling
 - **Drizzle Kit**: Database migrations and schema management
 
-## Authentication & Sessions
-- **Replit Auth**: OAuth-based authentication system
-- **Session Management**: PostgreSQL session storage with automatic cleanup
+## Simplified Architecture (No Authentication)
+- **Public Access**: All pages accessible without login requirements
+- **Direct API Access**: Quote and lead submission endpoints available publicly
 
 ## UI & Styling
 - **Radix UI**: Accessible component primitives for complex UI patterns
