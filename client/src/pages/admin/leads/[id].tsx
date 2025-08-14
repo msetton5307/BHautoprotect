@@ -85,10 +85,15 @@ export default function AdminLeadDetail() {
 
   const createQuoteMutation = useMutation({
     mutationFn: (quoteData: any) =>
-      fetch(`/api/admin/leads/${id}/quotes`, {
+      fetch(`/api/leads/${id}/coverage`, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify(quoteData),
+        body: JSON.stringify({
+          plan: quoteData.plan,
+          deductible: quoteData.deductible,
+          termMonths: quoteData.termMonths,
+          priceMonthly: quoteData.priceMonthly / 100,
+        }),
       }).then(res => {
         if (!res.ok) throw new Error('Failed to create quote');
         return res.json();
