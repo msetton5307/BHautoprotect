@@ -14,6 +14,7 @@ import AdminPolicies from "@/pages/admin/policies";
 import AdminClaims from "@/pages/admin/claims";
 import About from "@/pages/about";
 import FAQ from "@/pages/faq";
+import Claims from "@/pages/claims";
 
 function Router() {
   return (
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/quote" component={Quote} />
       <Route path="/about" component={About} />
       <Route path="/faq" component={FAQ} />
+      <Route path="/claims" component={Claims} />
       <Route path="/legal/privacy" component={PrivacyPage} />
       <Route path="/admin/leads/:id" component={AdminLeadDetail} />
       <Route path="/admin/leads" component={AdminLeads} />

@@ -40,8 +40,10 @@ export default function AdminClaims() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>ID</TableHead>
-                    <TableHead>Policy ID</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Message</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
@@ -49,15 +51,17 @@ export default function AdminClaims() {
                 <TableBody>
                   {claims.map((claim: any) => (
                     <TableRow key={claim.id}>
-                      <TableCell>{claim.id}</TableCell>
-                      <TableCell>{claim.policyId}</TableCell>
+                      <TableCell>{claim.firstName} {claim.lastName}</TableCell>
+                      <TableCell>{claim.email}</TableCell>
+                      <TableCell>{claim.phone}</TableCell>
+                      <TableCell className="max-w-xs truncate">{claim.message}</TableCell>
                       <TableCell className="capitalize">{claim.status.replace(/_/g, ' ')}</TableCell>
                       <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))}
                   {claims.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4 text-gray-500">
+                      <TableCell colSpan={6} className="text-center py-4 text-gray-500">
                         No claims found
                       </TableCell>
                     </TableRow>

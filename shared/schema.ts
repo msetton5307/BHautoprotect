@@ -100,12 +100,13 @@ export const policies = pgTable("policies", {
 
 export const claims = pgTable("claims", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  policyId: varchar("policy_id").references(() => policies.id, { onDelete: 'cascade' }).notNull(),
+  policyId: varchar("policy_id").references(() => policies.id, { onDelete: 'cascade' }),
   status: claimStatusEnum("status").default('new'),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  email: varchar("email"),
-  phone: varchar("phone"),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  email: varchar("email").notNull(),
+  phone: varchar("phone").notNull(),
+  message: text("message").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
