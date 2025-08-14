@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertVehicleSchema } from "@shared/schema";
+import { insertLeadSchema, insertVehicleSchema, insertClaimSchema } from "@shared/schema";
 import { calculateQuote } from "../client/src/lib/pricing";
 
 const ADMIN_USER = { username: "admin", password: "password" } as const;
@@ -365,6 +365,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error updating lead:', error);
       res.status(400).json({ message: 'Invalid lead data' });
+    }
+  });
+
+  // Public claim submission endpoint
+  app.post('/api/claims', async (req, res) => {
+    try {
+      const claimData = insertClaimSchema.parse(req.body);
+      const claim = await storage.createClaim(claimData);
+      res.json({ data: claim, message: 'Claim submitted successfully' });
+    } catch (error) {
+      console.error('Error submitting claim:', error);
+      res.status(400).json({ message: 'Invalid claim data' });
     }
   });
 
