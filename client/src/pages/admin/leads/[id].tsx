@@ -540,7 +540,7 @@ export default function AdminLeadDetail() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="powertrain">Powertrain</SelectItem>
+                          <SelectItem value="basic">Basic</SelectItem>
                           <SelectItem value="gold">Gold</SelectItem>
                           <SelectItem value="platinum">Platinum</SelectItem>
                         </SelectContent>

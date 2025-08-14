@@ -6,7 +6,7 @@ export interface VehicleInfo {
 }
 
 export interface CoverageInfo {
-  plan: "powertrain" | "gold" | "platinum";
+  plan: "basic" | "gold" | "platinum";
   deductible: number;
 }
 
@@ -39,7 +39,7 @@ export function calculateQuote(
   // Base monthly price by coverage plan in dollars
   let basePrice = 0;
   switch (coverage.plan) {
-    case "powertrain":
+    case "basic":
       basePrice = 60;
       break;
     case "gold":
