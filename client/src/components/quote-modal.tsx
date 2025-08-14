@@ -8,9 +8,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
-import { X, ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { US_STATES } from "@/lib/constants";
 
 interface QuoteModalProps {
   isOpen: boolean;
@@ -36,7 +37,6 @@ interface QuoteData {
     state: string;
   };
   coverage: {
-    deductible: string;
     payment: string;
     addOns: string[];
   };
@@ -67,7 +67,6 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
       state: '',
     },
     coverage: {
-      deductible: '',
       payment: 'monthly',
       addOns: [],
     },
@@ -132,27 +131,50 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
         vin: '',
         usage: 'personal',
       },
-      owner: {
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        zip: '',
-        state: '',
-      },
-      coverage: {
-        deductible: '',
-        payment: 'monthly',
-        addOns: [],
-      },
-      consent: {
-        tcpa: false,
-        terms: false,
-      },
-    });
+    owner: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      zip: '',
+      state: '',
+    },
+    coverage: {
+      payment: 'monthly',
+      addOns: [],
+    },
+    consent: {
+      tcpa: false,
+      terms: false,
+    },
+  });
   };
 
   const nextStep = () => {
+    if (currentStep === 1) {
+      const { year, make, model, odometer } = quoteData.vehicle;
+      if (!year || !make || !model || !odometer) {
+        toast({
+          title: "Missing Vehicle Information",
+          description: "Please complete all required vehicle fields.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (currentStep === 2) {
+      const { firstName, lastName, email, phone, zip, state } = quoteData.owner;
+      if (!firstName || !lastName || !email || !phone || !zip || !state) {
+        toast({
+          title: "Missing Contact Information",
+          description: "Please complete all required contact fields.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     }
@@ -211,12 +233,7 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <div className="flex justify-between items-center">
-            <DialogTitle>Get Your Free Quote</DialogTitle>
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
+          <DialogTitle>Get Your Free Quote</DialogTitle>
           
           {/* Progress Bar */}
           <div className="mt-6">
@@ -264,69 +281,52 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="year">Year</Label>
-                  <Select value={quoteData.vehicle.year} onValueChange={(value) => handleVehicleChange('year', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2023">2023</SelectItem>
-                      <SelectItem value="2022">2022</SelectItem>
-                      <SelectItem value="2021">2021</SelectItem>
-                      <SelectItem value="2020">2020</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="year"
+                    type="number"
+                    placeholder="e.g., 2020"
+                    value={quoteData.vehicle.year}
+                    onChange={(e) => handleVehicleChange('year', e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
                   <Label htmlFor="make">Make</Label>
-                  <Select value={quoteData.vehicle.make} onValueChange={(value) => handleVehicleChange('make', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Make" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="toyota">Toyota</SelectItem>
-                      <SelectItem value="honda">Honda</SelectItem>
-                      <SelectItem value="ford">Ford</SelectItem>
-                      <SelectItem value="chevrolet">Chevrolet</SelectItem>
-                      <SelectItem value="nissan">Nissan</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="make"
+                    placeholder="e.g., Toyota"
+                    value={quoteData.vehicle.make}
+                    onChange={(e) => handleVehicleChange('make', e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
                   <Label htmlFor="model">Model</Label>
-                  <Select value={quoteData.vehicle.model} onValueChange={(value) => handleVehicleChange('model', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="camry">Camry</SelectItem>
-                      <SelectItem value="corolla">Corolla</SelectItem>
-                      <SelectItem value="accord">Accord</SelectItem>
-                      <SelectItem value="civic">Civic</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    id="model"
+                    placeholder="e.g., Camry"
+                    value={quoteData.vehicle.model}
+                    onChange={(e) => handleVehicleChange('model', e.target.value)}
+                    required
+                  />
                 </div>
                 <div>
-                  <Label htmlFor="trim">Trim</Label>
-                  <Select value={quoteData.vehicle.trim} onValueChange={(value) => handleVehicleChange('trim', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select Trim" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="le">LE</SelectItem>
-                      <SelectItem value="se">SE</SelectItem>
-                      <SelectItem value="xle">XLE</SelectItem>
-                      <SelectItem value="limited">Limited</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Label htmlFor="trim">Trim (Optional)</Label>
+                  <Input
+                    id="trim"
+                    placeholder="e.g., XLE"
+                    value={quoteData.vehicle.trim}
+                    onChange={(e) => handleVehicleChange('trim', e.target.value)}
+                  />
                 </div>
                 <div className="md:col-span-2">
                   <Label htmlFor="odometer">Odometer Reading</Label>
-                  <Input 
-                    type="number" 
-                    placeholder="e.g., 45000" 
+                  <Input
+                    type="number"
+                    placeholder="e.g., 45000"
                     value={quoteData.vehicle.odometer}
                     onChange={(e) => handleVehicleChange('odometer', e.target.value)}
+                    required
                   />
                 </div>
                 <div className="md:col-span-2">
@@ -367,52 +367,58 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="firstName">First Name</Label>
-                  <Input 
+                  <Input
                     value={quoteData.owner.firstName}
                     onChange={(e) => handleOwnerChange('firstName', e.target.value)}
+                    required
                   />
                 </div>
                 <div>
                   <Label htmlFor="lastName">Last Name</Label>
-                  <Input 
+                  <Input
                     value={quoteData.owner.lastName}
                     onChange={(e) => handleOwnerChange('lastName', e.target.value)}
+                    required
                   />
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input 
-                    type="email" 
+                  <Input
+                    type="email"
                     value={quoteData.owner.email}
                     onChange={(e) => handleOwnerChange('email', e.target.value)}
+                    required
                   />
                 </div>
                 <div>
                   <Label htmlFor="phone">Phone</Label>
-                  <Input 
-                    type="tel" 
+                  <Input
+                    type="tel"
                     value={quoteData.owner.phone}
                     onChange={(e) => handleOwnerChange('phone', e.target.value)}
+                    required
                   />
                 </div>
                 <div>
                   <Label htmlFor="zip">ZIP Code</Label>
-                  <Input 
+                  <Input
                     value={quoteData.owner.zip}
                     onChange={(e) => handleOwnerChange('zip', e.target.value)}
+                    required
                   />
                 </div>
                 <div>
                   <Label htmlFor="state">State</Label>
-                  <Select value={quoteData.owner.state} onValueChange={(value) => handleOwnerChange('state', value)}>
+                  <Select value={quoteData.owner.state} onValueChange={(value) => handleOwnerChange('state', value)} required>
                     <SelectTrigger>
                       <SelectValue placeholder="Select State" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="CA">California</SelectItem>
-                      <SelectItem value="TX">Texas</SelectItem>
-                      <SelectItem value="FL">Florida</SelectItem>
-                      <SelectItem value="NY">New York</SelectItem>
+                      {US_STATES.map((state) => (
+                        <SelectItem key={state.value} value={state.value}>
+                          {state.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -426,34 +432,9 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
               <h3 className="text-xl font-semibold mb-6">Coverage Preferences</h3>
               <div className="space-y-6">
                 <div>
-                  <Label className="text-sm font-medium mb-3 block">Choose Your Deductible</Label>
-                  <RadioGroup 
-                    value={quoteData.coverage.deductible} 
-                    onValueChange={(value) => handleCoverageChange('deductible', value)}
-                    className="grid grid-cols-3 gap-4"
-                  >
-                    <div className="flex flex-col items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <RadioGroupItem value="100" id="deductible-100" className="mb-2" />
-                      <Label htmlFor="deductible-100" className="font-semibold">Low Deductible</Label>
-                      <span className="text-sm text-gray-500">Higher premium</span>
-                    </div>
-                    <div className="flex flex-col items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <RadioGroupItem value="250" id="deductible-250" className="mb-2" />
-                      <Label htmlFor="deductible-250" className="font-semibold">Standard Deductible</Label>
-                      <span className="text-sm text-gray-500">Balanced</span>
-                    </div>
-                    <div className="flex flex-col items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-                      <RadioGroupItem value="500" id="deductible-500" className="mb-2" />
-                      <Label htmlFor="deductible-500" className="font-semibold">High Deductible</Label>
-                      <span className="text-sm text-gray-500">Lower premium</span>
-                    </div>
-                  </RadioGroup>
-                </div>
-                
-                <div>
                   <Label className="text-sm font-medium mb-3 block">Payment Preference</Label>
-                  <RadioGroup 
-                    value={quoteData.coverage.payment} 
+                  <RadioGroup
+                    value={quoteData.coverage.payment}
                     onValueChange={(value) => handleCoverageChange('payment', value)}
                     className="grid grid-cols-2 gap-4"
                   >
@@ -472,7 +453,7 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
                   <h4 className="font-semibold mb-3">Consent & Terms</h4>
                   <div className="space-y-3">
                     <div className="flex items-start">
-                      <Checkbox 
+                      <Checkbox
                         id="tcpa"
                         checked={quoteData.consent.tcpa}
                         onCheckedChange={(checked) => handleConsentChange('tcpa', !!checked)}
@@ -483,7 +464,7 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
                       </Label>
                     </div>
                     <div className="flex items-start">
-                      <Checkbox 
+                      <Checkbox
                         id="terms"
                         checked={quoteData.consent.terms}
                         onCheckedChange={(checked) => handleConsentChange('terms', !!checked)}
