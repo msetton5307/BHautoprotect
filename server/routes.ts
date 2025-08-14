@@ -71,7 +71,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/leads', async (req, res) => {
     try {
       const leadData = insertLeadSchema.parse(req.body.lead);
-      const vehicleData = insertVehicleSchema.parse(req.body.vehicle);
+      // The client doesn't include a leadId when submitting vehicle info.
+      // We validate the vehicle data without the leadId and add it after
+      // creating the lead.
+      const vehicleData = insertVehicleSchema
+        .omit({ leadId: true })
+        .parse(req.body.vehicle);
       
       // Create lead
       const lead = await storage.createLead({
