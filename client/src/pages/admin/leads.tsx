@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ export default function AdminLeads() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortField, setSortField] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [hideDuplicates, setHideDuplicates] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -63,6 +64,34 @@ export default function AdminLeads() {
 
   const leads = leadsData?.data || [];
 
+  const duplicateIds = useMemo(() => {
+    const emails = new Map<string, string>();
+    const phones = new Map<string, string>();
+    const dups = new Set<string>();
+    for (const item of leads) {
+      const lead = item.lead;
+      if (lead.email) {
+        const existing = emails.get(lead.email);
+        if (existing) {
+          dups.add(lead.id);
+          dups.add(existing);
+        } else {
+          emails.set(lead.email, lead.id);
+        }
+      }
+      if (lead.phone) {
+        const existing = phones.get(lead.phone);
+        if (existing) {
+          dups.add(lead.id);
+          dups.add(existing);
+        } else {
+          phones.set(lead.phone, lead.id);
+        }
+      }
+    }
+    return dups;
+  }, [leads]);
+
   // Filter leads based on search and status
   const filteredLeads = leads.filter((item: any) => {
     const lead = item.lead;
@@ -89,8 +118,9 @@ export default function AdminLeads() {
 
     const matchesSearch = values.includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
+    const isDuplicate = duplicateIds.has(lead.id);
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && (!hideDuplicates || !isDuplicate);
   });
 
   const getValue = (item: any, field: string) => {
@@ -175,7 +205,7 @@ export default function AdminLeads() {
       <AdminNav />
       {/* Header */}
       <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="px-2">
           <div className="flex justify-between items-center py-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 flex items-center">
@@ -185,6 +215,12 @@ export default function AdminLeads() {
               <p className="text-gray-600">Track and manage all customer leads</p>
             </div>
             <div className="flex space-x-4">
+              <Button
+                variant={hideDuplicates ? "default" : "outline"}
+                onClick={() => setHideDuplicates(!hideDuplicates)}
+              >
+                {hideDuplicates ? "Show Duplicates" : "Hide Duplicates"}
+              </Button>
               <Button variant="outline" asChild>
                 <Link href="/admin">Dashboard</Link>
               </Button>
@@ -199,7 +235,7 @@ export default function AdminLeads() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="px-2 py-8">
         {/* Filters */}
         <Card className="mb-6">
           <CardHeader>
