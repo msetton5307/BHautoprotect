@@ -17,7 +17,7 @@ export default function Quote() {
             Get Your Free Auto Warranty Quote
           </h1>
           <p className="text-xl text-gray-600 mb-8">
-            Complete our simple form to receive personalized coverage options and pricing
+            Complete our simple form to receive personalized coverage options
           </p>
           
           {!isQuoteModalOpen && (

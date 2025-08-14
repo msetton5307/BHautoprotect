@@ -516,12 +516,7 @@ export default function LeadDetailsPage() {
                             {quote.status}
                           </Badge>
                         </div>
-                        <p className="text-sm font-medium">
-                          ${quote.priceMonthly / 100}/month
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Total: ${quote.priceTotal / 100}
-                        </p>
+                        <p className="text-sm text-gray-500">Details unavailable</p>
                       </div>
                     ))}
                   </CardContent>

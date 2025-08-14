@@ -26,14 +26,9 @@ Preferred communication style: Simple, everyday language.
 - **Normalized Schema**: Comprehensive database schema with proper relationships and foreign keys
 - **Lead Management**: Complete lead lifecycle from initial contact through policy binding
 - **Vehicle Data**: Detailed vehicle information including VIN, odometer, make/model
-- **Quote System**: Multiple plan tiers (Powertrain, Gold, Platinum) with pricing flexibility
+- **Quote System**: Multiple plan tiers (Powertrain, Gold, Platinum)
 - **Policy Management**: Full policy lifecycle including payments and documents
 - **Audit Trail**: Comprehensive logging of user actions and data changes
-
-## Pricing Engine
-- **Dynamic Calculation**: Rule-based pricing engine with vehicle age, mileage, and location factors
-- **Plan Comparison**: Side-by-side comparison of coverage tiers
-- **Real-time Estimates**: Instant quote generation for customer-facing forms
 
 ## Application Architecture 
 - **Public Landing Page**: Professional marketing site with call-to-action for quotes

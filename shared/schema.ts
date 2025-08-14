@@ -58,8 +58,6 @@ export const quotes = pgTable("quotes", {
   plan: planTypeEnum("plan").notNull(),
   deductible: integer("deductible").notNull(),
   termMonths: integer("term_months").default(36),
-  priceTotal: integer("price_total").notNull(), // in cents
-  priceMonthly: integer("price_monthly").notNull(), // in cents
   fees: integer("fees").default(0),
   taxes: integer("taxes").default(0),
   status: quoteStatusEnum("status").default('draft'),
