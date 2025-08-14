@@ -2,12 +2,18 @@ import {
   leads,
   vehicles,
   quotes,
+  notes,
+  policies,
   type Lead,
   type InsertLead,
   type Vehicle,
   type InsertVehicle,
   type Quote,
   type InsertQuote,
+  type Note,
+  type InsertNote,
+  type Policy,
+  type InsertPolicy,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -26,6 +32,14 @@ export interface IStorage {
   // Quote operations
   getQuotesByLeadId(leadId: string): Promise<Quote[]>;
   createQuote(quote: InsertQuote): Promise<Quote>;
+
+  // Note operations
+  getNotesByLeadId(leadId: string): Promise<Note[]>;
+  createNote(note: InsertNote): Promise<Note>;
+
+  // Policy operations
+  createPolicy(policy: InsertPolicy): Promise<Policy>;
+  getPolicies(): Promise<Policy[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -65,6 +79,32 @@ export class DatabaseStorage implements IStorage {
   async createQuote(quoteData: InsertQuote): Promise<Quote> {
     const [quote] = await db.insert(quotes).values(quoteData).returning();
     return quote;
+  }
+
+  // Note operations
+  async getNotesByLeadId(leadId: string): Promise<Note[]> {
+    const result = await db
+      .select()
+      .from(notes)
+      .where(eq(notes.leadId, leadId))
+      .orderBy(desc(notes.createdAt));
+    return result;
+  }
+
+  async createNote(noteData: InsertNote): Promise<Note> {
+    const [note] = await db.insert(notes).values(noteData).returning();
+    return note;
+  }
+
+  // Policy operations
+  async createPolicy(policyData: InsertPolicy): Promise<Policy> {
+    const [policy] = await db.insert(policies).values(policyData).returning();
+    return policy;
+  }
+
+  async getPolicies(): Promise<Policy[]> {
+    const result = await db.select().from(policies).orderBy(desc(policies.createdAt));
+    return result;
   }
 }
 

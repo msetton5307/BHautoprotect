@@ -68,6 +68,28 @@ export const quotes = pgTable("quotes", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const notes = pgTable("notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const policies = pgTable("policies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'set null' }).notNull(),
+  package: varchar("package"),
+  expirationMiles: integer("expiration_miles"),
+  expirationDate: timestamp("expiration_date"),
+  deductible: integer("deductible"),
+  totalPremium: integer("total_premium"),
+  downPayment: integer("down_payment"),
+  policyStartDate: timestamp("policy_start_date"),
+  monthlyPayment: integer("monthly_payment"),
+  totalPayments: integer("total_payments"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const leadsRelations = relations(leads, ({ one, many }) => ({
   vehicle: one(vehicles),
@@ -88,6 +110,20 @@ export const quotesRelations = relations(quotes, ({ one }) => ({
   }),
 }));
 
+export const notesRelations = relations(notes, ({ one }) => ({
+  lead: one(leads, {
+    fields: [notes.leadId],
+    references: [leads.id],
+  }),
+}));
+
+export const policiesRelations = relations(policies, ({ one }) => ({
+  lead: one(leads, {
+    fields: [policies.leadId],
+    references: [leads.id],
+  }),
+}));
+
 // Schemas for validation
 export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
@@ -104,6 +140,16 @@ export const insertQuoteSchema = createInsertSchema(quotes).omit({
   createdAt: true,
 });
 
+export const insertNoteSchema = createInsertSchema(notes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPolicySchema = createInsertSchema(policies).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -111,3 +157,7 @@ export type Vehicle = typeof vehicles.$inferSelect;
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
+export type Note = typeof notes.$inferSelect;
+export type InsertNote = z.infer<typeof insertNoteSchema>;
+export type Policy = typeof policies.$inferSelect;
+export type InsertPolicy = z.infer<typeof insertPolicySchema>;
