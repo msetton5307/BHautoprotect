@@ -273,215 +273,222 @@ export default function AdminLeadDetail() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            {/* Customer Information */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <User className="h-5 w-5 mr-2" />
-                  Customer Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>First Name</Label>
-                    <Input value={lead.firstName || ''} readOnly />
-                  </div>
-                  <div>
-                    <Label>Last Name</Label>
-                    <Input value={lead.lastName || ''} readOnly />
-                  </div>
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <div className="flex items-center">
-                    <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                    <Input value={lead.email || 'Not provided'} readOnly />
-                  </div>
-                </div>
-                <div>
-                  <Label>Phone</Label>
-                  <div className="flex items-center">
-                    <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                    <Input value={lead.phone || 'Not provided'} readOnly />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>ZIP Code</Label>
-                    <Input value={lead.zip || ''} readOnly />
-                  </div>
-                  <div>
-                    <Label>State</Label>
-                    <Input value={lead.state || ''} readOnly />
-                  </div>
-                </div>
-                <div>
-                  <Label>Source</Label>
-                  <Input value={lead.source || 'web'} readOnly />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Accordion type="multiple" className="w-full">
-              <AccordionItem value="policy">
-                <AccordionTrigger>Policy Information</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label>Package</Label>
-                        <Input
-                          value={policyForm.package}
-                          onChange={(e) => setPolicyForm({ ...policyForm, package: e.target.value })}
-                          placeholder="--- Please Select ---"
-                        />
-                      </div>
-                      <div>
-                        <Label>Expiration Miles</Label>
-                        <Input
-                          value={policyForm.expirationMiles}
-                          onChange={(e) => setPolicyForm({ ...policyForm, expirationMiles: e.target.value })}
-                          placeholder="Expiration Miles"
-                        />
-                      </div>
-                      <div>
-                        <Label>Expiration Date</Label>
-                        <Input
-                          type="date"
-                          value={policyForm.expirationDate}
-                          onChange={(e) => setPolicyForm({ ...policyForm, expirationDate: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Deductible</Label>
-                        <Input
-                          value={policyForm.deductible}
-                          onChange={(e) => setPolicyForm({ ...policyForm, deductible: e.target.value })}
-                          placeholder="Deductible"
-                        />
-                      </div>
-                      <div>
-                        <Label>Total Premium</Label>
-                        <Input
-                          value={policyForm.totalPremium}
-                          onChange={(e) => setPolicyForm({ ...policyForm, totalPremium: e.target.value })}
-                          placeholder="Total Premium"
-                        />
-                      </div>
-                      <div>
-                        <Label>Down Payment</Label>
-                        <Input
-                          value={policyForm.downPayment}
-                          onChange={(e) => setPolicyForm({ ...policyForm, downPayment: e.target.value })}
-                          placeholder="Down Payment"
-                        />
-                      </div>
-                      <div>
-                        <Label>Policy Start Date</Label>
-                        <Input
-                          type="date"
-                          value={policyForm.policyStartDate}
-                          onChange={(e) => setPolicyForm({ ...policyForm, policyStartDate: e.target.value })}
-                        />
-                      </div>
-                      <div>
-                        <Label>Monthly Payment</Label>
-                        <Input
-                          value={policyForm.monthlyPayment}
-                          onChange={(e) => setPolicyForm({ ...policyForm, monthlyPayment: e.target.value })}
-                          placeholder="Monthly Payment"
-                        />
-                      </div>
-                      <div>
-                        <Label>Total Payments</Label>
-                        <Input
-                          value={policyForm.totalPayments}
-                          onChange={(e) => setPolicyForm({ ...policyForm, totalPayments: e.target.value })}
-                          placeholder="Total Payments"
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      onClick={() => convertLeadMutation.mutate(policyForm)}
-                      disabled={convertLeadMutation.isPending}
-                    >
-                      {convertLeadMutation.isPending ? 'Converting...' : 'Convert to Policy'}
-                    </Button>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="vehicle">
-                <AccordionTrigger>Vehicle Information</AccordionTrigger>
-                <AccordionContent>
-                  {vehicle ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Accordion type="single" collapsible>
+                <AccordionItem value="lead">
+                  <AccordionTrigger className="flex items-center">
+                    <User className="h-5 w-5 mr-2" />
+                    Lead Information
+                  </AccordionTrigger>
+                  <AccordionContent>
                     <div className="space-y-4">
+                      <div>
+                        <Label>Lead ID</Label>
+                        <Input value={lead.id} readOnly />
+                      </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label>Year</Label>
-                          <Input value={vehicle.year} readOnly />
+                          <Label>First Name</Label>
+                          <Input value={lead.firstName || ''} readOnly />
                         </div>
                         <div>
-                          <Label>Make</Label>
-                          <Input value={vehicle.make} readOnly />
+                          <Label>Last Name</Label>
+                          <Input value={lead.lastName || ''} readOnly />
                         </div>
                       </div>
                       <div>
-                        <Label>Model</Label>
-                        <Input value={vehicle.model} readOnly />
+                        <Label>Email</Label>
+                        <div className="flex items-center">
+                          <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                          <Input value={lead.email || 'Not provided'} readOnly />
+                        </div>
                       </div>
                       <div>
-                        <Label>Mileage</Label>
-                        <Input value={`${vehicle.odometer.toLocaleString()}`} readOnly />
+                        <Label>Phone</Label>
+                        <div className="flex items-center">
+                          <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                          <Input value={lead.phone || 'Not provided'} readOnly />
+                        </div>
                       </div>
-                      {vehicle.vin && (
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <Label>Vin</Label>
-                          <Input value={vehicle.vin} readOnly />
+                          <Label>ZIP Code</Label>
+                          <Input value={lead.zip || ''} readOnly />
                         </div>
-                      )}
+                        <div>
+                          <Label>State</Label>
+                          <Input value={lead.state || ''} readOnly />
+                        </div>
+                      </div>
                       <div>
-                        <Label>Registered State</Label>
-                        <Input value={lead.state || ''} readOnly />
+                        <Label>Source</Label>
+                        <Input value={lead.source || 'web'} readOnly />
                       </div>
                     </div>
-                  ) : (
-                    <div className="text-sm text-gray-500">No vehicle information available</div>
-                  )}
-                </AccordionContent>
-              </AccordionItem>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
-              <AccordionItem value="notes">
-                <AccordionTrigger>Notes</AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      {notes && notes.length > 0 ? (
-                        notes.map((note: any) => (
-                          <div key={note.id} className="border rounded p-2 text-sm">
-                            {note.content}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-sm text-gray-500">No notes yet</div>
-                      )}
+              <Accordion type="multiple" className="space-y-4">
+                <AccordionItem value="policy">
+                  <AccordionTrigger>Policy Information</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Package</Label>
+                          <Input
+                            value={policyForm.package}
+                            onChange={(e) => setPolicyForm({ ...policyForm, package: e.target.value })}
+                            placeholder="--- Please Select ---"
+                          />
+                        </div>
+                        <div>
+                          <Label>Expiration Miles</Label>
+                          <Input
+                            value={policyForm.expirationMiles}
+                            onChange={(e) => setPolicyForm({ ...policyForm, expirationMiles: e.target.value })}
+                            placeholder="Expiration Miles"
+                          />
+                        </div>
+                        <div>
+                          <Label>Expiration Date</Label>
+                          <Input
+                            type="date"
+                            value={policyForm.expirationDate}
+                            onChange={(e) => setPolicyForm({ ...policyForm, expirationDate: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Deductible</Label>
+                          <Input
+                            value={policyForm.deductible}
+                            onChange={(e) => setPolicyForm({ ...policyForm, deductible: e.target.value })}
+                            placeholder="Deductible"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Premium</Label>
+                          <Input
+                            value={policyForm.totalPremium}
+                            onChange={(e) => setPolicyForm({ ...policyForm, totalPremium: e.target.value })}
+                            placeholder="Total Premium"
+                          />
+                        </div>
+                        <div>
+                          <Label>Down Payment</Label>
+                          <Input
+                            value={policyForm.downPayment}
+                            onChange={(e) => setPolicyForm({ ...policyForm, downPayment: e.target.value })}
+                            placeholder="Down Payment"
+                          />
+                        </div>
+                        <div>
+                          <Label>Policy Start Date</Label>
+                          <Input
+                            type="date"
+                            value={policyForm.policyStartDate}
+                            onChange={(e) => setPolicyForm({ ...policyForm, policyStartDate: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Monthly Payment</Label>
+                          <Input
+                            value={policyForm.monthlyPayment}
+                            onChange={(e) => setPolicyForm({ ...policyForm, monthlyPayment: e.target.value })}
+                            placeholder="Monthly Payment"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Payments</Label>
+                          <Input
+                            value={policyForm.totalPayments}
+                            onChange={(e) => setPolicyForm({ ...policyForm, totalPayments: e.target.value })}
+                            placeholder="Total Payments"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() => convertLeadMutation.mutate(policyForm)}
+                        disabled={convertLeadMutation.isPending}
+                      >
+                        {convertLeadMutation.isPending ? 'Converting...' : 'Convert to Policy'}
+                      </Button>
                     </div>
-                    <Textarea
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      placeholder="Add a new note"
-                    />
-                    <Button
-                      onClick={() => addNoteMutation.mutate(newNote)}
-                      disabled={addNoteMutation.isPending || !newNote.trim()}
-                    >
-                      {addNoteMutation.isPending ? 'Saving...' : 'Add Note'}
-                    </Button>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="vehicle">
+                  <AccordionTrigger>Vehicle Information</AccordionTrigger>
+                  <AccordionContent>
+                    {vehicle ? (
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <Label>Year</Label>
+                            <Input value={vehicle.year} readOnly />
+                          </div>
+                          <div>
+                            <Label>Make</Label>
+                            <Input value={vehicle.make} readOnly />
+                          </div>
+                        </div>
+                        <div>
+                          <Label>Model</Label>
+                          <Input value={vehicle.model} readOnly />
+                        </div>
+                        <div>
+                          <Label>Mileage</Label>
+                          <Input value={`${vehicle.odometer.toLocaleString()}`} readOnly />
+                        </div>
+                        {vehicle.vin && (
+                          <div>
+                            <Label>Vin</Label>
+                            <Input value={vehicle.vin} readOnly />
+                          </div>
+                        )}
+                        <div>
+                          <Label>Registered State</Label>
+                          <Input value={lead.state || ''} readOnly />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">No vehicle information available</div>
+                    )}
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="notes">
+                  <AccordionTrigger>Notes</AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        {notes && notes.length > 0 ? (
+                          notes.map((note: any) => (
+                            <div key={note.id} className="border rounded p-2 text-sm">
+                              {note.content}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-sm text-gray-500">No notes yet</div>
+                        )}
+                      </div>
+                      <Textarea
+                        value={newNote}
+                        onChange={(e) => setNewNote(e.target.value)}
+                        placeholder="Add a new note"
+                      />
+                      <Button
+                        onClick={() => addNoteMutation.mutate(newNote)}
+                        disabled={addNoteMutation.isPending || !newNote.trim()}
+                      >
+                        {addNoteMutation.isPending ? 'Saving...' : 'Add Note'}
+                      </Button>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </div>
 
             {/* Lead Management */}
             <Card>
