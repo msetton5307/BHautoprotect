@@ -1,9 +1,30 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertVehicleSchema, insertQuoteSchema } from "@shared/schema";
+import { insertLeadSchema, insertVehicleSchema } from "@shared/schema";
 import { calculateQuote } from "../client/src/lib/pricing";
+
+const ADMIN_USER = { username: "admin", password: "password" } as const;
+
+const basicAuth: RequestHandler = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    res.set("WWW-Authenticate", 'Basic realm="Admin"');
+    return res.status(401).send("Authentication required");
+  }
+  const [type, credentials] = authHeader.split(" ");
+  if (type !== "Basic" || !credentials) {
+    res.set("WWW-Authenticate", 'Basic realm="Admin"');
+    return res.status(401).send("Invalid authorization header");
+  }
+  const [user, pass] = Buffer.from(credentials, "base64").toString().split(":");
+  if (user === ADMIN_USER.username && pass === ADMIN_USER.password) {
+    return next();
+  }
+  res.set("WWW-Authenticate", 'Basic realm="Admin"');
+  return res.status(401).send("Invalid credentials");
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -81,6 +102,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching leads:", error);
       res.status(500).json({ message: "Failed to fetch leads" });
+    }
+  });
+
+  // Simple admin dashboard protected with basic auth
+  app.get('/admin', basicAuth, async (req, res) => {
+    try {
+      const leads = await storage.getLeads({});
+      let content = '';
+      for (const lead of leads) {
+        const vehicle = await storage.getVehicleByLeadId(lead.id);
+        content += `\n<div style="border:1px solid #ccc;padding:10px;margin-bottom:10px;">\n` +
+          `<h2>${lead.firstName ?? ''} ${lead.lastName ?? ''}</h2>\n` +
+          `<p>Email: ${lead.email ?? ''}</p>\n` +
+          `<p>Phone: ${lead.phone ?? ''}</p>\n` +
+          (vehicle ? `<p>Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model}</p>\n` : '') +
+          `<form method="POST" action="/api/leads/${lead.id}/coverage">\n` +
+          `<label>Plan: <select name="plan">\n` +
+          `<option value="powertrain">powertrain</option>\n` +
+          `<option value="gold">gold</option>\n` +
+          `<option value="platinum">platinum</option>\n` +
+          `</select></label>\n` +
+          `<label>Deductible: <input type="number" name="deductible" value="100" /></label>\n` +
+          `<label>Monthly Price ($): <input type="number" step="0.01" name="priceMonthly" value="100" /></label>\n` +
+          `<input type="hidden" name="termMonths" value="36" />\n` +
+          `<button type="submit">Assign Coverage</button>\n` +
+          `</form>\n</div>`;
+      }
+
+      const html = `<!DOCTYPE html><html><head><title>Admin Dashboard</title></head><body><h1>Lead Management</h1>${content}</body></html>`;
+      res.send(html);
+    } catch (error) {
+      console.error('Error rendering admin dashboard:', error);
+      res.status(500).send('Failed to load admin dashboard');
+    }
+  });
+
+  // Assign coverage plan to a lead
+  app.post('/api/leads/:id/coverage', basicAuth, async (req, res) => {
+    const schema = z.object({
+      plan: z.enum(['powertrain', 'gold', 'platinum']),
+      deductible: z.coerce.number(),
+      termMonths: z.coerce.number().default(36),
+      priceMonthly: z.coerce.number(),
+    });
+
+    try {
+      const leadId = req.params.id;
+      const data = schema.parse(req.body);
+      const priceMonthlyCents = Math.round(data.priceMonthly * 100);
+      await storage.createQuote({
+        leadId,
+        plan: data.plan,
+        deductible: data.deductible,
+        termMonths: data.termMonths,
+        priceMonthly: priceMonthlyCents,
+        priceTotal: priceMonthlyCents * data.termMonths,
+      });
+      res.redirect('/admin');
+    } catch (error) {
+      console.error('Error assigning coverage:', error);
+      res.status(400).send('Invalid coverage data');
     }
   });
 
