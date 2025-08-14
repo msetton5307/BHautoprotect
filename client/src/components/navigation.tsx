@@ -17,14 +17,30 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
           </div>
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-4">
-              <a href="#" className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium">Coverage Plans</a>
-              <a href="#" className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium">About</a>
-              <a href="#" className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium">FAQ</a>
-              <Button 
+              <a
+                href="#"
+                className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
+              >
+                Coverage Plans
+              </a>
+              <a
+                href="/about"
+                className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
+              >
+                About
+              </a>
+              <a
+                href="/faq"
+                className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
+              >
+                FAQ
+              </a>
+              <Button
                 className="bg-primary text-white hover:bg-secondary"
                 size="sm"
+                onClick={onGetQuote}
               >
-                <a href="/api/login">Agent Login</a>
+                Get Quote
               </Button>
             </div>
           </div>
