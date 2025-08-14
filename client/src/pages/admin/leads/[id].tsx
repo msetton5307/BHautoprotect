@@ -244,27 +244,6 @@ export default function AdminLeadDetail() {
               >
                 {convertLeadMutation.isPending ? 'Converting...' : 'Convert To Policy'}
               </Button>
-              <Select
-                value={lead.status}
-                onValueChange={(value) => updateLeadMutation.mutate({ status: value })}
-              >
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="--- Please Select ---" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="quoted">Quoted</SelectItem>
-                  <SelectItem value="callback">Callback</SelectItem>
-                  <SelectItem value="left-message">Left Message</SelectItem>
-                  <SelectItem value="no-contact">No Contact</SelectItem>
-                  <SelectItem value="wrong-number">Wrong Number</SelectItem>
-                  <SelectItem value="fake-lead">Fake Lead</SelectItem>
-                  <SelectItem value="not-interested">Not Interested</SelectItem>
-                  <SelectItem value="duplicate-lead">Duplicate Lead</SelectItem>
-                  <SelectItem value="dnc">DNC</SelectItem>
-                  <SelectItem value="sold">Sold</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </div>
@@ -289,8 +268,35 @@ export default function AdminLeadDetail() {
                   <AccordionContent>
                     <div className="space-y-4">
                       <div>
-                        <Label>Lead ID</Label>
+                        <Label>ID</Label>
                         <Input value={lead.id} readOnly />
+                        <input type="hidden" value={lead.id} />
+                      </div>
+                      <div>
+                        <Label>Status</Label>
+                        <Select
+                          value={lead.status}
+                          onValueChange={(value) =>
+                            updateLeadMutation.mutate({ status: value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="--- Please Select ---" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="new">New</SelectItem>
+                            <SelectItem value="quoted">Quoted</SelectItem>
+                            <SelectItem value="callback">Callback</SelectItem>
+                            <SelectItem value="left-message">Left Message</SelectItem>
+                            <SelectItem value="no-contact">No Contact</SelectItem>
+                            <SelectItem value="wrong-number">Wrong Number</SelectItem>
+                            <SelectItem value="fake-lead">Fake Lead</SelectItem>
+                            <SelectItem value="not-interested">Not Interested</SelectItem>
+                            <SelectItem value="duplicate-lead">Duplicate Lead</SelectItem>
+                            <SelectItem value="dnc">DNC</SelectItem>
+                            <SelectItem value="sold">Sold</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -306,29 +312,119 @@ export default function AdminLeadDetail() {
                         <Label>Email</Label>
                         <div className="flex items-center">
                           <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                          <Input value={lead.email || 'Not provided'} readOnly />
+                          <Input value={lead.email || ''} readOnly />
                         </div>
                       </div>
                       <div>
                         <Label>Phone</Label>
                         <div className="flex items-center">
                           <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                          <Input value={lead.phone || 'Not provided'} readOnly />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label>ZIP Code</Label>
-                          <Input value={lead.zip || ''} readOnly />
-                        </div>
-                        <div>
-                          <Label>State</Label>
-                          <Input value={lead.state || ''} readOnly />
+                          <Input value={lead.phone || ''} readOnly />
                         </div>
                       </div>
                       <div>
-                        <Label>Source</Label>
-                        <Input value={lead.source || 'web'} readOnly />
+                        <Label>Phone Type</Label>
+                        <Input value={lead.phoneType || ''} readOnly />
+                      </div>
+                      <div>
+                        <Label>Shipping Address (Line 1)</Label>
+                        <Input value={lead.shippingAddress || ''} readOnly />
+                        <input type="hidden" value={lead.shippingAddress2 || ''} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label>Shipping City</Label>
+                          <Input value={lead.shippingCity || ''} readOnly />
+                        </div>
+                        <div>
+                          <Label>Shipping State</Label>
+                          <Input value={lead.shippingState || ''} readOnly />
+                        </div>
+                        <div>
+                          <Label>Shipping Zipcode</Label>
+                          <Input value={lead.shippingZip || ''} readOnly />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Billing Address (Line 1)</Label>
+                        <Input value={lead.billingAddress || ''} readOnly />
+                        <input type="hidden" value={lead.billingAddress2 || ''} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <Label>Billing City</Label>
+                          <Input value={lead.billingCity || ''} readOnly />
+                        </div>
+                        <div>
+                          <Label>Billing State</Label>
+                          <Input value={lead.billingState || ''} readOnly />
+                        </div>
+                        <div>
+                          <Label>Billing Zipcode</Label>
+                          <Input value={lead.billingZip || ''} readOnly />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Newsletter</Label>
+                        <Select value={lead.newsletter ? 'Yes' : 'No'} disabled>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="No">No</SelectItem>
+                            <SelectItem value="Yes">Yes</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Referrer</Label>
+                        <Input value={lead.referrer || ''} readOnly />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>UID</Label>
+                          <Input value={lead.uid || ''} readOnly />
+                        </div>
+                        <div>
+                          <Label>IP Address</Label>
+                          <Input value={lead.ipAddress || ''} readOnly />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Sales Person</Label>
+                        <Input value={lead.salespersonUserId || ''} readOnly />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>Date Created</Label>
+                          <Input value={lead.dateCreated || lead.createdAt || ''} readOnly />
+                        </div>
+                        <div>
+                          <Label>Last Updated</Label>
+                          <Input value={lead.lastUpdated || ''} readOnly />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Date Created</Label>
+                        <Input value={lead.dateCreated || lead.createdAt || ''} readOnly />
+                      </div>
+                      <div>
+                        <Label>Sent to Vanillasoft</Label>
+                        <Input value={lead.sentToVanillasoft ? 'Yes' : 'No'} readOnly />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label>SID</Label>
+                          <Input value={lead.sid || ''} readOnly />
+                        </div>
+                        <div>
+                          <Label>SID2</Label>
+                          <Input value={lead.sid2 || ''} readOnly />
+                        </div>
+                      </div>
+                      <div>
+                        <Label>Converted By</Label>
+                        <Input value={lead.convertedBy || ''} readOnly />
                       </div>
                     </div>
                   </AccordionContent>
