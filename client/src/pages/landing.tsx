@@ -30,20 +30,13 @@ export default function Landing() {
                 Get instant quotes, compare plans, and secure coverage for your vehicle's major components. 
                 Trusted by over 100,000 customers nationwide.
               </p>
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button 
-                  size="lg" 
-                  className="bg-white text-primary hover:bg-gray-100"
+              <div className="flex justify-center sm:justify-start">
+                <Button
+                  size="lg"
+                  className="bg-white text-primary hover:bg-gray-100 px-8 py-6 text-lg"
                   onClick={openQuoteModal}
                 >
                   Get My Free Quote
-                </Button>
-                <Button 
-                  size="lg" 
-                  variant="outline" 
-                  className="border-white text-white hover:bg-white hover:text-primary"
-                >
-                  Learn More
                 </Button>
               </div>
             </div>
@@ -64,23 +57,23 @@ export default function Landing() {
           <div className="text-center mb-8">
             <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Trusted By Industry Leaders</h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 items-center justify-items-center opacity-60">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 items-center justify-items-center opacity-90">
             <div className="flex items-center justify-center h-12">
-              <span className="text-2xl font-bold text-gray-400">A+ Rating</span>
+              <span className="text-2xl font-bold text-gray-600">A+ Rating</span>
             </div>
             <div className="flex items-center justify-center h-12">
               <Shield className="w-8 h-8 text-green-500 mr-2" />
-              <span className="font-semibold text-gray-600">Secure</span>
+              <span className="font-semibold text-gray-700">Secure</span>
             </div>
             <div className="flex items-center justify-center h-12">
-              <span className="text-xl font-bold text-gray-400">ASE Certified</span>
+              <span className="text-xl font-bold text-gray-600">ASE Certified</span>
             </div>
             <div className="flex items-center justify-center h-12">
               <Award className="w-8 h-8 text-yellow-500 mr-2" />
-              <span className="font-semibold text-gray-600">Award Winner</span>
+              <span className="font-semibold text-gray-700">Award Winner</span>
             </div>
             <div className="flex items-center justify-center h-12">
-              <span className="text-xl font-bold text-gray-400">BBB A+</span>
+              <span className="text-xl font-bold text-gray-600">BBB A+</span>
             </div>
           </div>
         </div>
