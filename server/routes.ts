@@ -111,74 +111,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Simple admin dashboard protected with basic auth
-  app.get('/admin', basicAuth, async (req, res) => {
+  // Admin dashboard route - authentication handled here, React handles rendering
+  app.get('/admin', basicAuth, (_req, _res, next) => {
+    // pass through to Vite's middleware which will serve the SPA
+    next();
+  });
+
+  // Retrieve basic metadata for a lead
+  app.get('/api/leads/:id/meta', basicAuth, (req, res) => {
+    const meta = leadMeta[req.params.id] || { tags: [], priority: 'low' };
+    res.json({ data: meta, message: 'Lead metadata retrieved successfully' });
+  });
+
+  // Retrieve vehicle information for a lead
+  app.get('/api/leads/:id/vehicle', basicAuth, async (req, res) => {
     try {
-      const leads = await storage.getLeads({});
-      const customers: { lead: any; quotes: any[] }[] = [];
-
-      let leadContent = '';
-      for (const lead of leads) {
-        const vehicle = await storage.getVehicleByLeadId(lead.id);
-        const quotes = await storage.getQuotesByLeadId(lead.id);
-        if (quotes.length) {
-          customers.push({ lead, quotes });
-        }
-        const meta = leadMeta[lead.id] || { tags: [], priority: 'low' };
-        leadContent += `\n<div style="border:1px solid #ccc;padding:10px;margin-bottom:10px;">\n` +
-          `<h2>${lead.firstName ?? ''} ${lead.lastName ?? ''}</h2>\n` +
-          `<p>Email: ${lead.email ?? ''}</p>\n` +
-          `<p>Phone: ${lead.phone ?? ''}</p>\n` +
-          (vehicle ? `<p>Vehicle: ${vehicle.year} ${vehicle.make} ${vehicle.model}</p>\n` : '') +
-          `<form method="POST" action="/api/leads/${lead.id}/coverage">\n` +
-          `<label>Plan: <select name="plan">\n` +
-          `<option value="powertrain">powertrain</option>\n` +
-          `<option value="gold">gold</option>\n` +
-          `<option value="platinum">platinum</option>\n` +
-          `</select></label>\n` +
-          `<label>Deductible: <input type="number" name="deductible" value="100" /></label>\n` +
-          `<label>Monthly Price ($): <input type="number" step="0.01" name="priceMonthly" value="100" /></label>\n` +
-          `<input type="hidden" name="termMonths" value="36" />\n` +
-          `<button type="submit">Assign Coverage</button>\n` +
-          `</form>\n` +
-          `<form method="POST" action="/api/leads/${lead.id}/meta" style="margin-top:5px;">\n` +
-          `<label>Tags (comma separated): <input type="text" name="tags" value="${meta.tags.join(', ')}" /></label>\n` +
-          `<label>Priority: <select name="priority">\n` +
-          `<option value="low"${meta.priority==='low'?' selected':''}>low</option>\n` +
-          `<option value="medium"${meta.priority==='medium'?' selected':''}>medium</option>\n` +
-          `<option value="high"${meta.priority==='high'?' selected':''}>high</option>\n` +
-          `</select></label>\n` +
-          `<button type="submit">Save Meta</button>\n` +
-          `</form>\n` +
-          `<button disabled style="margin-top:5px;">Send Quote (todo)</button>\n` +
-          `</div>`;
-      }
-
-      let customerContent = '';
-      for (const c of customers) {
-        const q = c.quotes[0];
-        customerContent += `\n<div style="border:1px solid #ccc;padding:10px;margin-bottom:10px;">\n` +
-          `<h2>${c.lead.firstName ?? ''} ${c.lead.lastName ?? ''}</h2>\n` +
-          `<p>Plan: ${q.plan}</p>\n` +
-          `<p>Monthly Price: $${(q.priceMonthly / 100).toFixed(2)}</p>\n` +
-          `</div>`;
-      }
-
-      const analyticsContent = `\n<div style="border:1px solid #ccc;padding:10px;margin-bottom:10px;">\n` +
-        `<p>Total Leads: ${leads.length}</p>\n` +
-        `<p>Customers: ${customers.length}</p>\n` +
-        `</div>`;
-
-      const html = `<!DOCTYPE html><html><head><title>Admin Dashboard</title></head><body>` +
-        `<h1>Admin Dashboard</h1>` +
-        `<h2>Reporting & Analytics</h2>${analyticsContent}` +
-        `<h2>Lead Management</h2>${leadContent}` +
-        `<h2>Customer Management</h2>${customerContent}` +
-        `</body></html>`;
-      res.send(html);
+      const vehicle = await storage.getVehicleByLeadId(req.params.id);
+      res.json({ data: vehicle, message: 'Vehicle retrieved successfully' });
     } catch (error) {
-      console.error('Error rendering admin dashboard:', error);
-      res.status(500).send('Failed to load admin dashboard');
+      console.error('Error fetching vehicle:', error);
+      res.status(500).json({ message: 'Failed to fetch vehicle' });
+    }
+  });
+
+  // Retrieve quotes for a lead
+  app.get('/api/leads/:id/quotes', basicAuth, async (req, res) => {
+    try {
+      const quotes = await storage.getQuotesByLeadId(req.params.id);
+      res.json({ data: quotes, message: 'Quotes retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching quotes:', error);
+      res.status(500).json({ message: 'Failed to fetch quotes' });
     }
   });
 

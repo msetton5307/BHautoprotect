@@ -1,5 +1,5 @@
 {
-  "include": ["shared/**/*", "server/**/*"],
+  "include": ["shared/**/*", "server/**/*", "client/src/lib/pricing.ts"],
   "exclude": ["node_modules", "build", "dist", "**/*.test.ts", "server/replitAuth.ts"],
   "compilerOptions": {
     "incremental": true,
