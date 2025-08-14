@@ -224,6 +224,26 @@ export default function AdminLeadDetail() {
               </div>
             </div>
             <div className="flex items-center space-x-2">
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+              >
+                <a
+                  href={`https://americancarprotect.com/vsp/send_quote_email_api.php?api_key=Kzy!MaaBCha4&leadid=${id}&uid=45`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Send Quote
+                </a>
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => convertLeadMutation.mutate(policyForm)}
+                disabled={convertLeadMutation.isPending}
+              >
+                {convertLeadMutation.isPending ? 'Converting...' : 'Convert To Policy'}
+              </Button>
               <Badge variant={
                 lead.stage === 'new' ? 'default' :
                 lead.stage === 'contacted' ? 'secondary' :
