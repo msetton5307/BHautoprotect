@@ -34,6 +34,8 @@ const getLeadMeta = (id: string): LeadMeta => {
   return leadMeta[id] || DEFAULT_META;
 };
 
+const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+
 const basicAuth: RequestHandler = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -102,8 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create lead
       const lead = await storage.createLead({
         ...leadData,
-        consentTimestamp: new Date(),
-        consentIP: req.ip,
+        consentTimestamp: getEasternDate(),
         consentUserAgent: req.get('User-Agent') || '',
       });
       

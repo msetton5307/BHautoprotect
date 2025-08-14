@@ -74,13 +74,14 @@ export default function AdminLeads() {
       lead.email,
       lead.phone,
       lead.state,
-      lead.consentIP,
       vehicle.year,
       vehicle.make,
       vehicle.model,
       lead.source,
       lead.status,
-      lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '',
+      lead.createdAt
+        ? new Date(lead.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })
+        : '',
     ]
       .filter(Boolean)
       .map((v) => String(v).toLowerCase())
@@ -108,8 +109,6 @@ export default function AdminLeads() {
         return lead.phone;
       case 'state':
         return lead.state;
-      case 'ipState':
-        return lead.consentIP;
       case 'year':
         return vehicle.year;
       case 'make':
@@ -254,23 +253,22 @@ export default function AdminLeads() {
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
-              <Table>
+              <Table className="text-xs">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('id')}>ID</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('firstName')}>First Name</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('lastName')}>Last Name</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('email')}>Email</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('phone')}>Phone</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('state')}>Registered State</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('ipState')}>IP State</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('year')}>Year</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('make')}>Make</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('model')}>Model</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('referrer')}>Referrer</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('createdAt')}>Date Created</TableHead>
-                    <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('status')}>Status</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('id')}>ID</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('firstName')}>First Name</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('lastName')}>Last Name</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('email')}>Email</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('phone')}>Phone</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('state')}>Registered State</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('year')}>Year</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('make')}>Make</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('model')}>Model</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('referrer')}>Referrer</TableHead>
+                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('createdAt')}>Date Created</TableHead>
+                    <TableHead className="whitespace-nowrap p-2">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -279,26 +277,12 @@ export default function AdminLeads() {
                     const vehicle = item.vehicle || {};
                     return (
                       <TableRow key={lead.id}>
-                        <TableCell>{lead.id}</TableCell>
-                        <TableCell>{lead.firstName}</TableCell>
-                        <TableCell>{lead.lastName}</TableCell>
-                        <TableCell>{lead.email}</TableCell>
-                        <TableCell>{lead.phone}</TableCell>
-                        <TableCell>{lead.state}</TableCell>
-                        <TableCell>{lead.consentIP}</TableCell>
-                        <TableCell>{vehicle.year || '-'}</TableCell>
-                        <TableCell>{vehicle.make || '-'}</TableCell>
-                        <TableCell>{vehicle.model || '-'}</TableCell>
-                        <TableCell>{lead.referrer || lead.source || '-'}</TableCell>
-                        <TableCell>
-                          {lead.createdAt ? new Date(lead.createdAt).toLocaleString() : ''}
-                        </TableCell>
-                        <TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">
                           <Select
                             value={lead.status}
                             onValueChange={(value) => handleStatusChange(lead.id, value)}
                           >
-                            <SelectTrigger className="w-40">
+                            <SelectTrigger className="w-28">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -316,7 +300,22 @@ export default function AdminLeads() {
                             </SelectContent>
                           </Select>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{lead.id}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{lead.firstName}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{lead.lastName}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{lead.email}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{lead.phone}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{lead.state}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{vehicle.year || '-'}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{vehicle.make || '-'}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{vehicle.model || '-'}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">{lead.referrer || lead.source || '-'}</TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">
+                          {lead.createdAt
+                            ? new Date(lead.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })
+                            : ''}
+                        </TableCell>
+                        <TableCell className="p-2 whitespace-nowrap">
                           <Button size="sm" variant="outline" asChild>
                             <Link href={`/admin/leads/${lead.id}`}>
                               <Eye className="h-4 w-4 mr-1" />
@@ -329,7 +328,7 @@ export default function AdminLeads() {
                   })}
                   {sortedLeads.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={14} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={13} className="text-center py-8 text-gray-500">
                         No leads found matching your criteria
                       </TableCell>
                     </TableRow>
