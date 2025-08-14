@@ -4,6 +4,7 @@ import {
   quotes,
   notes,
   policies,
+  claims,
   type Lead,
   type InsertLead,
   type Vehicle,
@@ -14,6 +15,8 @@ import {
   type InsertNote,
   type Policy,
   type InsertPolicy,
+  type Claim,
+  type InsertClaim,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -40,6 +43,10 @@ export interface IStorage {
   // Policy operations
   createPolicy(policy: InsertPolicy): Promise<Policy>;
   getPolicies(): Promise<Policy[]>;
+
+  // Claim operations
+  createClaim(claim: InsertClaim): Promise<Claim>;
+  getClaims(): Promise<Claim[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -104,6 +111,17 @@ export class DatabaseStorage implements IStorage {
 
   async getPolicies(): Promise<Policy[]> {
     const result = await db.select().from(policies).orderBy(desc(policies.createdAt));
+    return result;
+  }
+
+  // Claim operations
+  async createClaim(claimData: InsertClaim): Promise<Claim> {
+    const [claim] = await db.insert(claims).values(claimData).returning();
+    return claim;
+  }
+
+  async getClaims(): Promise<Claim[]> {
+    const result = await db.select().from(claims).orderBy(desc(claims.createdAt));
     return result;
   }
 }

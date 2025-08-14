@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Users, Search, Filter, ArrowUpDown, Eye, Phone, Mail } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import AdminNav from "@/components/admin-nav";
 
 // Helper function to set basic auth header
 const getAuthHeaders = () => ({
@@ -98,6 +99,7 @@ export default function AdminLeads() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <AdminNav />
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

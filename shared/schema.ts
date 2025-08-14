@@ -18,6 +18,14 @@ import { z } from "zod";
 // Enums
 export const planTypeEnum = pgEnum('plan_type', ['powertrain', 'gold', 'platinum']);
 export const quoteStatusEnum = pgEnum('quote_status', ['draft', 'sent', 'accepted', 'rejected']);
+export const claimStatusEnum = pgEnum('claim_status', [
+  'new',
+  'denied',
+  'awaiting_customer_action',
+  'awaiting_inspection',
+  'claim_covered_open',
+  'claim_covered_closed',
+]);
 
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -90,6 +98,17 @@ export const policies = pgTable("policies", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const claims = pgTable("claims", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  policyId: varchar("policy_id").references(() => policies.id, { onDelete: 'cascade' }).notNull(),
+  status: claimStatusEnum("status").default('new'),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  email: varchar("email"),
+  phone: varchar("phone"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Relations
 export const leadsRelations = relations(leads, ({ one, many }) => ({
   vehicle: one(vehicles),
@@ -124,6 +143,13 @@ export const policiesRelations = relations(policies, ({ one }) => ({
   }),
 }));
 
+export const claimsRelations = relations(claims, ({ one }) => ({
+  policy: one(policies, {
+    fields: [claims.policyId],
+    references: [policies.id],
+  }),
+}));
+
 // Schemas for validation
 export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
@@ -150,6 +176,11 @@ export const insertPolicySchema = createInsertSchema(policies).omit({
   createdAt: true,
 });
 
+export const insertClaimSchema = createInsertSchema(claims).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -161,3 +192,5 @@ export type Note = typeof notes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type Policy = typeof policies.$inferSelect;
 export type InsertPolicy = z.infer<typeof insertPolicySchema>;
+export type Claim = typeof claims.$inferSelect;
+export type InsertClaim = z.infer<typeof insertClaimSchema>;
