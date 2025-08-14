@@ -101,7 +101,7 @@ export default function Landing() {
             <div className="text-center">
               <div className="bg-primary text-white w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">2</div>
               <h3 className="text-xl font-semibold mb-4">Compare Plans</h3>
-              <p className="text-gray-600">View personalized coverage options with transparent pricing. Choose what works best for you.</p>
+              <p className="text-gray-600">View personalized coverage options with clear details. Choose what works best for you.</p>
             </div>
             <div className="text-center">
               <div className="bg-primary text-white w-16 h-16 rounded-full flex items-center justify-center text-2xl font-bold mx-auto mb-6">3</div>
@@ -272,7 +272,7 @@ export default function Landing() {
                     <Star key={star} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-gray-600 mb-6">"Great customer service and fair pricing. When my car broke down, they handled everything professionally. The roadside assistance was a lifesaver!"</p>
+                <p className="text-gray-600 mb-6">"Great customer service and support. When my car broke down, they handled everything professionally. The roadside assistance was a lifesaver!"</p>
                 <div className="flex items-center">
                   <img 
                     src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" 
@@ -294,7 +294,7 @@ export default function Landing() {
                     <Star key={star} className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                   ))}
                 </div>
-                <p className="text-gray-600 mb-6">"Easy online process and transparent pricing. No hidden fees or surprises. They've covered multiple repairs and always deliver on their promises."</p>
+                <p className="text-gray-600 mb-6">"Easy online process and transparent service. No hidden fees or surprises. They've covered multiple repairs and always deliver on their promises."</p>
                 <div className="flex items-center">
                   <img 
                     src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" 
@@ -329,14 +329,6 @@ export default function Landing() {
               </AccordionContent>
             </AccordionItem>
             
-            <AccordionItem value="item-2" className="border border-gray-200 rounded-lg px-6">
-              <AccordionTrigger className="text-left hover:no-underline">
-                How much does it cost?
-              </AccordionTrigger>
-              <AccordionContent className="text-gray-600">
-                Pricing depends on your vehicle's make, model, year, mileage, and the coverage level you choose. Our Powertrain plan starts at $79/month, Gold at $129/month, and Platinum at $199/month. You can save 10% by paying in full instead of monthly payments.
-              </AccordionContent>
-            </AccordionItem>
             
             <AccordionItem value="item-3" className="border border-gray-200 rounded-lg px-6">
               <AccordionTrigger className="text-left hover:no-underline">

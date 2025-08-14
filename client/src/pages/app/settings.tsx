@@ -9,11 +9,10 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
-  Settings as SettingsIcon, 
-  Users, 
-  DollarSign, 
-  MessageSquare, 
-  Webhook, 
+  Settings as SettingsIcon,
+  Users,
+  MessageSquare,
+  Webhook,
   Database,
   Save
 } from "lucide-react";
@@ -32,13 +31,6 @@ export default function SettingsPage() {
     currency: 'USD',
   });
 
-  const [pricingSettings, setPricingSettings] = useState({
-    basePowertrainPrice: '79',
-    baseGoldPrice: '129',
-    basePlatinumPrice: '199',
-    discountThreshold: '10',
-    stateMultipliers: '{}',
-  });
 
   const [messageTemplates, setMessageTemplates] = useState({
     welcomeSms: 'Welcome to BH Auto Protect! Your quote is being processed.',
@@ -73,11 +65,6 @@ export default function SettingsPage() {
     }
   }, [isAuthenticated, isLoading, toast]);
 
-  const { data: pricingRulesData, isLoading: rulesLoading, error } = useQuery({
-    queryKey: ["/api/pricing-rules"],
-    enabled: isAuthenticated,
-    retry: false,
-  });
 
   const saveSettingsMutation = useMutation({
     mutationFn: async (settings: any) => {
@@ -109,38 +96,8 @@ export default function SettingsPage() {
     },
   });
 
-  const createPricingRuleMutation = useMutation({
-    mutationFn: async (rule: any) => {
-      return apiRequest("POST", "/api/pricing-rules", rule);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/pricing-rules"] });
-      toast({
-        title: "Pricing Rule Created",
-        description: "New pricing rule has been created successfully.",
-      });
-    },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
-  if (isLoading || rulesLoading) {
+  if (isLoading) {
     return (
       <div className="h-screen flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -152,19 +109,10 @@ export default function SettingsPage() {
     return null;
   }
 
-  if (error && isUnauthorizedError(error as Error)) {
-    return null;
-  }
+    const handleSaveSystemSettings = () => {
+      saveSettingsMutation.mutate({ type: 'system', ...systemSettings });
+    };
 
-  const pricingRules = pricingRulesData?.data || [];
-
-  const handleSaveSystemSettings = () => {
-    saveSettingsMutation.mutate({ type: 'system', ...systemSettings });
-  };
-
-  const handleSavePricingSettings = () => {
-    saveSettingsMutation.mutate({ type: 'pricing', ...pricingSettings });
-  };
 
   const handleSaveMessageTemplates = () => {
     saveSettingsMutation.mutate({ type: 'templates', ...messageTemplates });
@@ -195,7 +143,6 @@ export default function SettingsPage() {
           <Tabs defaultValue="general" className="space-y-6">
             <TabsList>
               <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="pricing">Pricing Rules</TabsTrigger>
               <TabsTrigger value="templates">Message Templates</TabsTrigger>
               <TabsTrigger value="integrations">Integrations</TabsTrigger>
               <TabsTrigger value="users">User Management</TabsTrigger>
@@ -252,95 +199,6 @@ export default function SettingsPage() {
                     <Save className="w-4 h-4 mr-2" />
                     {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
                   </Button>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="pricing" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <DollarSign className="w-5 h-5 mr-2" />
-                    Base Pricing Configuration
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="powertrainPrice">Powertrain Base Price</Label>
-                      <Input
-                        id="powertrainPrice"
-                        type="number"
-                        value={pricingSettings.basePowertrainPrice}
-                        onChange={(e) => setPricingSettings({ ...pricingSettings, basePowertrainPrice: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="goldPrice">Gold Base Price</Label>
-                      <Input
-                        id="goldPrice"
-                        type="number"
-                        value={pricingSettings.baseGoldPrice}
-                        onChange={(e) => setPricingSettings({ ...pricingSettings, baseGoldPrice: e.target.value })}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="platinumPrice">Platinum Base Price</Label>
-                      <Input
-                        id="platinumPrice"
-                        type="number"
-                        value={pricingSettings.basePlatinumPrice}
-                        onChange={(e) => setPricingSettings({ ...pricingSettings, basePlatinumPrice: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="stateMultipliers">State Multipliers (JSON)</Label>
-                    <Textarea
-                      id="stateMultipliers"
-                      value={pricingSettings.stateMultipliers}
-                      onChange={(e) => setPricingSettings({ ...pricingSettings, stateMultipliers: e.target.value })}
-                      placeholder='{"CA": 1.1, "NY": 1.15, "FL": 1.05}'
-                      rows={4}
-                    />
-                  </div>
-                  <Button onClick={handleSavePricingSettings} disabled={saveSettingsMutation.isPending}>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Pricing Settings
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Active Pricing Rules</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {pricingRules.map((rule: any) => (
-                      <div key={rule.id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-medium">{rule.name}</h3>
-                            <p className="text-sm text-gray-500">
-                              Created {new Date(rule.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Switch checked={rule.active} />
-                            <span className="text-sm">{rule.active ? 'Active' : 'Inactive'}</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                    {pricingRules.length === 0 && (
-                      <div className="text-center py-8 text-gray-500">
-                        <DollarSign className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                        <p>No pricing rules configured.</p>
-                        <p className="text-sm">Pricing rules allow dynamic adjustment of base prices.</p>
-                      </div>
-                    )}
-                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

@@ -2,43 +2,9 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertVehicleSchema, insertQuoteSchema } from "@shared/schema";
-import { calculateQuote } from "../client/src/lib/pricing";
+import { insertLeadSchema, insertVehicleSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-
-  // Public quote estimation endpoint
-  app.post('/api/quote/estimate', async (req, res) => {
-    try {
-      const schema = z.object({
-        vehicle: z.object({
-          year: z.number(),
-          make: z.string(),
-          model: z.string(),
-          odometer: z.number(),
-        }),
-        coverage: z.object({
-          plan: z.enum(['powertrain', 'gold', 'platinum']),
-          deductible: z.number(),
-        }),
-        location: z.object({
-          zip: z.string(),
-          state: z.string(),
-        }),
-      });
-      
-      const data = schema.parse(req.body);
-      const estimate = calculateQuote(data.vehicle, data.coverage, data.location);
-      
-      res.json({
-        data: estimate,
-        message: "Quote calculated successfully"
-      });
-    } catch (error) {
-      console.error("Error calculating quote:", error);
-      res.status(400).json({ message: "Invalid quote data" });
-    }
-  });
 
   // Public lead submission endpoint (for quote flow)
   app.post('/api/leads', async (req, res) => {

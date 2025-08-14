@@ -57,15 +57,8 @@ export default function QuoteDetailsPage() {
     id: id,
     plan: 'gold',
     deductible: 250,
-    priceMonthly: 12900, // in cents
-    priceTotal: 46440, // in cents
     status: 'draft',
     validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
-    breakdown: {
-      basePrice: 11900,
-      fees: 500,
-      taxes: 500,
-    },
     lead: {
       firstName: 'John',
       lastName: 'Doe',
@@ -144,20 +137,12 @@ export default function QuoteDetailsPage() {
                       </h3>
                       <div className="space-y-3">
                         <div className="flex justify-between">
-                          <span>Monthly Payment:</span>
-                          <span className="font-semibold">${quote.priceMonthly / 100}</span>
-                        </div>
-                        <div className="flex justify-between">
                           <span>Deductible:</span>
                           <span className="font-semibold">${quote.deductible}</span>
                         </div>
                         <div className="flex justify-between">
                           <span>Term:</span>
                           <span className="font-semibold">36 months</span>
-                        </div>
-                        <div className="flex justify-between border-t pt-3">
-                          <span className="font-semibold">Total Cost:</span>
-                          <span className="font-semibold text-lg">${quote.priceTotal / 100}</span>
                         </div>
                       </div>
                     </div>
@@ -171,33 +156,6 @@ export default function QuoteDetailsPage() {
                         <li>• 24/7 Roadside Assistance</li>
                         <li>• Rental Car Coverage</li>
                       </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Price Breakdown */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Price Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex justify-between">
-                      <span>Base Coverage:</span>
-                      <span>${quote.breakdown.basePrice / 100}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Service Fees:</span>
-                      <span>${quote.breakdown.fees / 100}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Taxes:</span>
-                      <span>${quote.breakdown.taxes / 100}</span>
-                    </div>
-                    <div className="border-t pt-3 flex justify-between font-semibold">
-                      <span>Monthly Total:</span>
-                      <span>${quote.priceMonthly / 100}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -302,17 +260,11 @@ export default function QuoteDetailsPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <div className="border rounded p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">Powertrain</span>
-                      <span className="text-sm">$79/mo</span>
-                    </div>
+                    <span className="font-medium">Powertrain</span>
                     <p className="text-xs text-gray-600">Basic engine protection</p>
                   </div>
                   <div className="border rounded p-3">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-medium">Platinum</span>
-                      <span className="text-sm">$199/mo</span>
-                    </div>
+                    <span className="font-medium">Platinum</span>
                     <p className="text-xs text-gray-600">Comprehensive coverage</p>
                   </div>
                 </CardContent>
