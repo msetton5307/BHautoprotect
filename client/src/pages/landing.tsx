@@ -6,6 +6,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Star, Shield, Award, Check, Users, FileText, Clock, DollarSign } from "lucide-react";
 import Navigation from "@/components/navigation";
 import QuoteModal from "@/components/quote-modal";
+import { COVERAGE_PLANS } from "@/lib/constants";
 
 export default function Landing() {
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
@@ -120,30 +121,20 @@ export default function Landing() {
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">Comprehensive coverage options for every budget</p>
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Powertrain Plan */}
+            {/* Basic Plan */}
             <Card className="relative hover:shadow-lg transition-shadow">
               <CardContent className="p-8">
                 <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold mb-2">Powertrain</h3>
-                  <p className="text-gray-600 mb-2">Essential engine protection</p>
+                  <h3 className="text-2xl font-bold mb-2">{COVERAGE_PLANS.basic.name}</h3>
+                  <p className="text-gray-600 mb-2">{COVERAGE_PLANS.basic.description}</p>
                 </div>
                 <ul className="space-y-4 mb-8">
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Engine & transmission coverage</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Around-the-clock roadside assistance</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Nationwide service network</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Rental car coverage</span>
-                  </li>
+                  {COVERAGE_PLANS.basic.features.map((feature) => (
+                    <li key={feature} className="flex items-center">
+                      <Check className="w-5 h-5 text-accent mr-3" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
                 </ul>
                 <Button className="w-full" variant="outline" onClick={openQuoteModal}>
                   Request Quote
@@ -158,30 +149,16 @@ export default function Landing() {
               </Badge>
               <CardContent className="p-8">
                 <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold mb-2">Gold</h3>
-                  <p className="text-gray-600 mb-2">Comprehensive protection</p>
+                  <h3 className="text-2xl font-bold mb-2">{COVERAGE_PLANS.gold.name}</h3>
+                  <p className="text-gray-600 mb-2">{COVERAGE_PLANS.gold.description}</p>
                 </div>
                 <ul className="space-y-4 mb-8">
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Everything in Powertrain</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Air conditioning & heating</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Electrical system coverage</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Fuel system protection</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Enhanced rental coverage</span>
-                  </li>
+                  {COVERAGE_PLANS.gold.features.map((feature) => (
+                    <li key={feature} className="flex items-center">
+                      <Check className="w-5 h-5 text-accent mr-3" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
                 </ul>
                 <Button className="w-full" onClick={openQuoteModal}>
                   Request Quote
@@ -193,30 +170,16 @@ export default function Landing() {
             <Card className="relative hover:shadow-lg transition-shadow">
               <CardContent className="p-8">
                 <div className="text-center mb-6">
-                  <h3 className="text-2xl font-bold mb-2">Platinum</h3>
-                  <p className="text-gray-600 mb-2">Maximum coverage</p>
+                  <h3 className="text-2xl font-bold mb-2">{COVERAGE_PLANS.platinum.name}</h3>
+                  <p className="text-gray-600 mb-2">{COVERAGE_PLANS.platinum.description}</p>
                 </div>
                 <ul className="space-y-4 mb-8">
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Everything in Gold</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>High-tech component coverage</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>EV battery protection</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Wear & tear items included</span>
-                  </li>
-                  <li className="flex items-center">
-                    <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>Premium roadside assistance</span>
-                  </li>
+                  {COVERAGE_PLANS.platinum.features.map((feature) => (
+                    <li key={feature} className="flex items-center">
+                      <Check className="w-5 h-5 text-accent mr-3" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
                 </ul>
                 <Button className="w-full" variant="outline" onClick={openQuoteModal}>
                   Request Quote
@@ -322,7 +285,7 @@ export default function Landing() {
                 What does an extended warranty cover?
               </AccordionTrigger>
               <AccordionContent className="text-gray-600">
-                Our extended warranties cover major mechanical breakdowns including engine, transmission, electrical systems, air conditioning, and more. Coverage varies by plan - Powertrain covers engine and transmission, while Gold and Platinum plans include additional components like electrical systems, A/C, and high-tech features.
+                Our extended warranties cover major mechanical breakdowns including engine, transmission, electrical systems, air conditioning, and more. Coverage varies by plan - Basic covers essential systems, Gold adds steering, suspension, and high-tech components, and Platinum extends coverage to seals, gaskets, and hybrid/EV components.
               </AccordionContent>
             </AccordionItem>
             
@@ -388,7 +351,7 @@ export default function Landing() {
             <div>
               <h4 className="text-lg font-semibold mb-4">Coverage</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">Powertrain Plans</a></li>
+                <li><a href="#" className="hover:text-white">Basic Plans</a></li>
                 <li><a href="#" className="hover:text-white">Gold Coverage</a></li>
                 <li><a href="#" className="hover:text-white">Platinum Protection</a></li>
                 <li><a href="#" className="hover:text-white">Add-On Options</a></li>
