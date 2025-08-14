@@ -47,6 +47,8 @@ export interface IStorage {
   // Claim operations
   createClaim(claim: InsertClaim): Promise<Claim>;
   getClaims(): Promise<Claim[]>;
+  getClaim(id: string): Promise<Claim | undefined>;
+  updateClaim(id: string, updates: Partial<Pick<Claim, "status">>): Promise<Claim>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -123,6 +125,20 @@ export class DatabaseStorage implements IStorage {
   async getClaims(): Promise<Claim[]> {
     const result = await db.select().from(claims).orderBy(desc(claims.createdAt));
     return result;
+  }
+
+  async getClaim(id: string): Promise<Claim | undefined> {
+    const [claim] = await db.select().from(claims).where(eq(claims.id, id));
+    return claim;
+  }
+
+  async updateClaim(id: string, updates: Partial<Pick<Claim, "status">>): Promise<Claim> {
+    const [claim] = await db
+      .update(claims)
+      .set(updates)
+      .where(eq(claims.id, id))
+      .returning();
+    return claim;
   }
 }
 
