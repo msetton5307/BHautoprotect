@@ -125,8 +125,7 @@ export default function Landing() {
               <CardContent className="p-8">
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold mb-2">Powertrain</h3>
-                  <div className="text-4xl font-bold text-primary mb-2">Call for pricing</div>
-                  <p className="text-gray-600">Essential engine protection</p>
+                  <p className="text-gray-600 mb-2">Essential engine protection</p>
                 </div>
                 <ul className="space-y-4 mb-8">
                   <li className="flex items-center">
@@ -147,7 +146,7 @@ export default function Landing() {
                   </li>
                 </ul>
                 <Button className="w-full" variant="outline" onClick={openQuoteModal}>
-                  Select Plan
+                  Request Quote
                 </Button>
               </CardContent>
             </Card>
@@ -160,8 +159,7 @@ export default function Landing() {
               <CardContent className="p-8">
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold mb-2">Gold</h3>
-                  <div className="text-4xl font-bold text-primary mb-2">Call for pricing</div>
-                  <p className="text-gray-600">Comprehensive protection</p>
+                  <p className="text-gray-600 mb-2">Comprehensive protection</p>
                 </div>
                 <ul className="space-y-4 mb-8">
                   <li className="flex items-center">
@@ -186,7 +184,7 @@ export default function Landing() {
                   </li>
                 </ul>
                 <Button className="w-full" onClick={openQuoteModal}>
-                  Select Plan
+                  Request Quote
                 </Button>
               </CardContent>
             </Card>
@@ -196,8 +194,7 @@ export default function Landing() {
               <CardContent className="p-8">
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold mb-2">Platinum</h3>
-                  <div className="text-4xl font-bold text-primary mb-2">Call for pricing</div>
-                  <p className="text-gray-600">Maximum coverage</p>
+                  <p className="text-gray-600 mb-2">Maximum coverage</p>
                 </div>
                 <ul className="space-y-4 mb-8">
                   <li className="flex items-center">
@@ -222,7 +219,7 @@ export default function Landing() {
                   </li>
                 </ul>
                 <Button className="w-full" variant="outline" onClick={openQuoteModal}>
-                  Select Plan
+                  Request Quote
                 </Button>
               </CardContent>
             </Card>
