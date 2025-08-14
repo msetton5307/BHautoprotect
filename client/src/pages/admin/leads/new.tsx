@@ -22,7 +22,6 @@ export default function AdminLeadNew() {
     email: '',
     phone: '',
     state: '',
-    ipState: '',
     year: '',
     make: '',
     model: '',
@@ -41,7 +40,6 @@ export default function AdminLeadNew() {
             email: data.email,
             phone: data.phone,
             state: data.state,
-            consentIP: data.ipState,
             source: data.referrer,
           },
           vehicle: {
@@ -107,15 +105,9 @@ export default function AdminLeadNew() {
                   <Input id="phone" value={form.phone} onChange={e => handleChange('phone', e.target.value)} />
                 </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="state">Registered State</Label>
-                  <Input id="state" value={form.state} onChange={e => handleChange('state', e.target.value)} />
-                </div>
-                <div>
-                  <Label htmlFor="ipState">IP State</Label>
-                  <Input id="ipState" value={form.ipState} onChange={e => handleChange('ipState', e.target.value)} />
-                </div>
+              <div>
+                <Label htmlFor="state">Registered State</Label>
+                <Input id="state" value={form.state} onChange={e => handleChange('state', e.target.value)} />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
