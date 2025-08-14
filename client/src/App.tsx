@@ -7,7 +7,9 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Quote from "@/pages/quote";
 import PrivacyPage from "@/pages/legal/privacy";
-import Admin from "@/pages/admin";
+import AdminDashboard from "@/pages/admin/dashboard";
+import AdminLeads from "@/pages/admin/leads";
+import AdminLeadDetail from "@/pages/admin/leads/[id]";
 import About from "@/pages/about";
 import FAQ from "@/pages/faq";
 
@@ -19,7 +21,9 @@ function Router() {
       <Route path="/about" component={About} />
       <Route path="/faq" component={FAQ} />
       <Route path="/legal/privacy" component={PrivacyPage} />
-      <Route path="/admin" component={Admin} />
+      <Route path="/admin/leads/:id" component={AdminLeadDetail} />
+      <Route path="/admin/leads" component={AdminLeads} />
+      <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
