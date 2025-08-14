@@ -8,12 +8,16 @@ import Landing from "@/pages/landing";
 import Quote from "@/pages/quote";
 import PrivacyPage from "@/pages/legal/privacy";
 import Admin from "@/pages/admin";
+import About from "@/pages/about";
+import FAQ from "@/pages/faq";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/quote" component={Quote} />
+      <Route path="/about" component={About} />
+      <Route path="/faq" component={FAQ} />
       <Route path="/legal/privacy" component={PrivacyPage} />
       <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
