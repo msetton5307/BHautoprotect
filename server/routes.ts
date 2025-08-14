@@ -426,6 +426,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: get claim by id
+  app.get('/api/admin/claims/:id', basicAuth, async (req, res) => {
+    try {
+      const claim = await storage.getClaim(req.params.id);
+      if (!claim) {
+        return res.status(404).json({ message: 'Claim not found' });
+      }
+      res.json({ data: claim, message: 'Claim retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching claim:', error);
+      res.status(500).json({ message: 'Failed to fetch claim' });
+    }
+  });
+
+  // Admin: update claim
+  app.patch('/api/admin/claims/:id', basicAuth, async (req, res) => {
+    const schema = z.object({
+      status: z
+        .enum([
+          'new',
+          'denied',
+          'awaiting_customer_action',
+          'awaiting_inspection',
+          'claim_covered_open',
+          'claim_covered_closed',
+        ])
+        .optional(),
+    });
+    try {
+      const data = schema.parse(req.body);
+      const claim = await storage.updateClaim(req.params.id, data);
+      res.json({ data: claim, message: 'Claim updated successfully' });
+    } catch (error) {
+      console.error('Error updating claim:', error);
+      res.status(400).json({ message: 'Invalid claim data' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

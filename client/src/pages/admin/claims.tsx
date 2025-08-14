@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
 
 const getAuthHeaders = () => ({
@@ -46,6 +48,7 @@ export default function AdminClaims() {
                     <TableHead>Message</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -57,11 +60,16 @@ export default function AdminClaims() {
                       <TableCell className="max-w-xs truncate">{claim.message}</TableCell>
                       <TableCell className="capitalize">{claim.status.replace(/_/g, ' ')}</TableCell>
                       <TableCell>{new Date(claim.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/admin/claims/${claim.id}`}>View</Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {claims.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-4 text-gray-500">
+                      <TableCell colSpan={7} className="text-center py-4 text-gray-500">
                         No claims found
                       </TableCell>
                     </TableRow>
