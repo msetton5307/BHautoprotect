@@ -7,6 +7,7 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Quote from "@/pages/quote";
 import PrivacyPage from "@/pages/legal/privacy";
+import Admin from "@/pages/admin";
 
 function Router() {
   return (
@@ -14,6 +15,7 @@ function Router() {
       <Route path="/" component={Landing} />
       <Route path="/quote" component={Quote} />
       <Route path="/legal/privacy" component={PrivacyPage} />
+      <Route path="/admin" component={Admin} />
       <Route component={NotFound} />
     </Switch>
   );
