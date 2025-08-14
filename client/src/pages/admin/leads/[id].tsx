@@ -244,21 +244,27 @@ export default function AdminLeadDetail() {
               >
                 {convertLeadMutation.isPending ? 'Converting...' : 'Convert To Policy'}
               </Button>
-              <Badge variant={
-                lead.stage === 'new' ? 'default' :
-                lead.stage === 'contacted' ? 'secondary' :
-                lead.stage === 'quoted' ? 'destructive' :
-                'outline'
-              }>
-                {lead.stage}
-              </Badge>
-              <Badge variant={
-                lead.priority === 'urgent' ? 'destructive' :
-                lead.priority === 'high' ? 'default' :
-                'outline'
-              }>
-                {lead.priority} priority
-              </Badge>
+              <Select
+                value={lead.status}
+                onValueChange={(value) => updateLeadMutation.mutate({ status: value })}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="--- Please Select ---" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="quoted">Quoted</SelectItem>
+                  <SelectItem value="callback">Callback</SelectItem>
+                  <SelectItem value="left-message">Left Message</SelectItem>
+                  <SelectItem value="no-contact">No Contact</SelectItem>
+                  <SelectItem value="wrong-number">Wrong Number</SelectItem>
+                  <SelectItem value="fake-lead">Fake Lead</SelectItem>
+                  <SelectItem value="not-interested">Not Interested</SelectItem>
+                  <SelectItem value="duplicate-lead">Duplicate Lead</SelectItem>
+                  <SelectItem value="dnc">DNC</SelectItem>
+                  <SelectItem value="sold">Sold</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>
@@ -274,10 +280,10 @@ export default function AdminLeadDetail() {
 
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Accordion type="single" collapsible>
+              <Accordion type="single" collapsible defaultValue="lead">
                 <AccordionItem value="lead">
                   <AccordionTrigger className="flex items-center">
-                    <User className="h-5 w-5 mr-2" />
+                    <span className="mr-2"><User className="h-5 w-5" /></span>
                     Lead Information
                   </AccordionTrigger>
                   <AccordionContent>
@@ -329,7 +335,7 @@ export default function AdminLeadDetail() {
                 </AccordionItem>
               </Accordion>
 
-              <Accordion type="multiple" className="space-y-4">
+              <Accordion type="multiple" className="space-y-4" defaultValue={["policy", "vehicle", "notes"]}>
                 <AccordionItem value="policy">
                   <AccordionTrigger>Policy Information</AccordionTrigger>
                   <AccordionContent>
@@ -337,11 +343,19 @@ export default function AdminLeadDetail() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <Label>Package</Label>
-                          <Input
+                          <Select
                             value={policyForm.package}
-                            onChange={(e) => setPolicyForm({ ...policyForm, package: e.target.value })}
-                            placeholder="--- Please Select ---"
-                          />
+                            onValueChange={(value) => setPolicyForm({ ...policyForm, package: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="--- Please Select ---" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="basic">Basic</SelectItem>
+                              <SelectItem value="gold">Gold</SelectItem>
+                              <SelectItem value="platinum">Platinum</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div>
                           <Label>Expiration Miles</Label>
@@ -490,51 +504,6 @@ export default function AdminLeadDetail() {
               </Accordion>
             </div>
 
-            {/* Lead Management */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Lead Management</CardTitle>
-                <CardDescription>Update lead status</CardDescription>
-              </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label>Stage</Label>
-                  <Select
-                    value={lead.stage}
-                    onValueChange={(value) => updateLeadMutation.mutate({ stage: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="new">New</SelectItem>
-                      <SelectItem value="contacted">Contacted</SelectItem>
-                      <SelectItem value="qualified">Qualified</SelectItem>
-                      <SelectItem value="quoted">Quoted</SelectItem>
-                      <SelectItem value="closed-won">Closed Won</SelectItem>
-                      <SelectItem value="closed-lost">Closed Lost</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Priority</Label>
-                  <Select
-                    value={lead.priority}
-                    onValueChange={(value) => updateLeadMutation.mutate({ priority: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           <TabsContent value="quotes" className="space-y-6">

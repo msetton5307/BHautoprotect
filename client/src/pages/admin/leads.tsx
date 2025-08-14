@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Search, Filter, ArrowUpDown, Eye, Phone, Mail } from "lucide-react";
+import { Users, Search, Filter, Eye, Phone, Mail } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
@@ -19,7 +19,7 @@ const getAuthHeaders = () => ({
 
 export default function AdminLeads() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [stageFilter, setStageFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -62,30 +62,26 @@ export default function AdminLeads() {
 
   const leads = leadsData?.data || [];
 
-  // Filter leads based on search and stage
+  // Filter leads based on search and status
   const filteredLeads = leads.filter((item: any) => {
     const lead = item.lead;
-    const matchesSearch = !searchTerm || 
-      `${lead.firstName} ${lead.lastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    const matchesSearch =
+      !searchTerm ||
+      `${lead.firstName} ${lead.lastName}`
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase()) ||
       lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       lead.phone?.includes(searchTerm);
-    
-    const matchesStage = stageFilter === "all" || lead.stage === stageFilter;
-    
-    return matchesSearch && matchesStage;
+
+    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
-  const handleStageChange = (leadId: string, newStage: string) => {
+  const handleStatusChange = (leadId: string, newStatus: string) => {
     updateLeadMutation.mutate({
       id: leadId,
-      updates: { stage: newStage }
-    });
-  };
-
-  const handlePriorityChange = (leadId: string, newPriority: string) => {
-    updateLeadMutation.mutate({
-      id: leadId,
-      updates: { priority: newPriority }
+      updates: { status: newStatus },
     });
   };
 
@@ -143,18 +139,23 @@ export default function AdminLeads() {
                   className="pl-10"
                 />
               </div>
-              <Select value={stageFilter} onValueChange={setStageFilter}>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Filter by stage" />
+                  <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Stages</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="contacted">Contacted</SelectItem>
-                  <SelectItem value="qualified">Qualified</SelectItem>
                   <SelectItem value="quoted">Quoted</SelectItem>
-                  <SelectItem value="closed-won">Closed Won</SelectItem>
-                  <SelectItem value="closed-lost">Closed Lost</SelectItem>
+                  <SelectItem value="callback">Callback</SelectItem>
+                  <SelectItem value="left-message">Left Message</SelectItem>
+                  <SelectItem value="no-contact">No Contact</SelectItem>
+                  <SelectItem value="wrong-number">Wrong Number</SelectItem>
+                  <SelectItem value="fake-lead">Fake Lead</SelectItem>
+                  <SelectItem value="not-interested">Not Interested</SelectItem>
+                  <SelectItem value="duplicate-lead">Duplicate Lead</SelectItem>
+                  <SelectItem value="dnc">DNC</SelectItem>
+                  <SelectItem value="sold">Sold</SelectItem>
                 </SelectContent>
               </Select>
               <div className="text-sm text-gray-600 flex items-center">
@@ -178,8 +179,7 @@ export default function AdminLeads() {
                     <TableHead>Customer</TableHead>
                     <TableHead>Vehicle</TableHead>
                     <TableHead>Contact</TableHead>
-                    <TableHead>Stage</TableHead>
-                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
                     <TableHead>Quotes</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Actions</TableHead>
@@ -226,35 +226,24 @@ export default function AdminLeads() {
                         </TableCell>
                         <TableCell>
                           <Select
-                            value={lead.stage}
-                            onValueChange={(value) => handleStageChange(lead.id, value)}
+                            value={lead.status}
+                            onValueChange={(value) => handleStatusChange(lead.id, value)}
                           >
-                            <SelectTrigger className="w-32">
+                            <SelectTrigger className="w-40">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="new">New</SelectItem>
-                              <SelectItem value="contacted">Contacted</SelectItem>
-                              <SelectItem value="qualified">Qualified</SelectItem>
                               <SelectItem value="quoted">Quoted</SelectItem>
-                              <SelectItem value="closed-won">Closed Won</SelectItem>
-                              <SelectItem value="closed-lost">Closed Lost</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={lead.priority}
-                            onValueChange={(value) => handlePriorityChange(lead.id, value)}
-                          >
-                            <SelectTrigger className="w-24">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
+                              <SelectItem value="callback">Callback</SelectItem>
+                              <SelectItem value="left-message">Left Message</SelectItem>
+                              <SelectItem value="no-contact">No Contact</SelectItem>
+                              <SelectItem value="wrong-number">Wrong Number</SelectItem>
+                              <SelectItem value="fake-lead">Fake Lead</SelectItem>
+                              <SelectItem value="not-interested">Not Interested</SelectItem>
+                              <SelectItem value="duplicate-lead">Duplicate Lead</SelectItem>
+                              <SelectItem value="dnc">DNC</SelectItem>
+                              <SelectItem value="sold">Sold</SelectItem>
                             </SelectContent>
                           </Select>
                         </TableCell>
@@ -281,7 +270,7 @@ export default function AdminLeads() {
                   })}
                   {filteredLeads.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                         No leads found matching your criteria
                       </TableCell>
                     </TableRow>

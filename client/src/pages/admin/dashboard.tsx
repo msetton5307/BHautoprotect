@@ -143,14 +143,7 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Badge variant={
-                        item.lead.stage === 'new' ? 'default' :
-                        item.lead.stage === 'contacted' ? 'secondary' :
-                        item.lead.stage === 'quoted' ? 'destructive' :
-                        'outline'
-                      }>
-                        {item.lead.stage}
-                      </Badge>
+                      <Badge variant="outline">{item.lead.status}</Badge>
                       <Button size="sm" variant="outline" asChild>
                         <Link href={`/admin/leads/${item.lead.id}`}>View</Link>
                       </Button>
@@ -166,25 +159,25 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Lead Stage Breakdown */}
+          {/* Lead Status Breakdown */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
                 <TrendingUp className="h-5 w-5 mr-2" />
                 Lead Pipeline
               </CardTitle>
-              <CardDescription>Breakdown of leads by stage</CardDescription>
+              <CardDescription>Breakdown of leads by status</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {statsData.leadsByStage?.map((stage: any) => (
-                  <div key={stage.stage} className="flex items-center justify-between">
-                    <span className="capitalize">{stage.stage.replace('-', ' ')}</span>
-                    <Badge variant="outline">{stage.count}</Badge>
+                {statsData.leadsByStatus?.map((status: any) => (
+                  <div key={status.status} className="flex items-center justify-between">
+                    <span className="capitalize">{status.status.replace('-', ' ')}</span>
+                    <Badge variant="outline">{status.count}</Badge>
                   </div>
                 )) || (
                   <div className="text-center py-8 text-gray-500">
-                    No stage data available
+                    No status data available
                   </div>
                 )}
               </div>
