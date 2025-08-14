@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Search, Filter, Eye, Phone, Mail } from "lucide-react";
+import { Users, Search, Filter, Eye } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
@@ -20,6 +19,8 @@ const getAuthHeaders = () => ({
 export default function AdminLeads() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [sortField, setSortField] = useState<string>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -65,18 +66,95 @@ export default function AdminLeads() {
   // Filter leads based on search and status
   const filteredLeads = leads.filter((item: any) => {
     const lead = item.lead;
-    const matchesSearch =
-      !searchTerm ||
-      `${lead.firstName} ${lead.lastName}`
-        .toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      lead.phone?.includes(searchTerm);
+    const vehicle = item.vehicle || {};
+    const values = [
+      lead.id,
+      lead.firstName,
+      lead.lastName,
+      lead.email,
+      lead.phone,
+      lead.state,
+      lead.consentIP,
+      vehicle.year,
+      vehicle.make,
+      vehicle.model,
+      lead.source,
+      lead.status,
+      lead.createdAt ? new Date(lead.createdAt).toLocaleString() : '',
+    ]
+      .filter(Boolean)
+      .map((v) => String(v).toLowerCase())
+      .join(' ');
 
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter;
+    const matchesSearch = values.includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
+
+  const getValue = (item: any, field: string) => {
+    const lead = item.lead;
+    const vehicle = item.vehicle || {};
+    switch (field) {
+      case 'id':
+        return lead.id;
+      case 'firstName':
+        return lead.firstName;
+      case 'lastName':
+        return lead.lastName;
+      case 'email':
+        return lead.email;
+      case 'phone':
+        return lead.phone;
+      case 'state':
+        return lead.state;
+      case 'ipState':
+        return lead.consentIP;
+      case 'year':
+        return vehicle.year;
+      case 'make':
+        return vehicle.make;
+      case 'model':
+        return vehicle.model;
+      case 'referrer':
+        return lead.referrer || lead.source;
+      case 'createdAt':
+        return lead.createdAt;
+      case 'status':
+        return lead.status;
+      default:
+        return '';
+    }
+  };
+
+  const sortedLeads = [...filteredLeads].sort((a, b) => {
+    const aVal = getValue(a, sortField);
+    const bVal = getValue(b, sortField);
+    if (aVal === undefined || aVal === null) return 1;
+    if (bVal === undefined || bVal === null) return -1;
+    if (sortField === 'year') {
+      const numA = Number(aVal);
+      const numB = Number(bVal);
+      return sortOrder === 'asc' ? numA - numB : numB - numA;
+    }
+    if (sortField === 'createdAt') {
+      const timeA = new Date(aVal).getTime();
+      const timeB = new Date(bVal).getTime();
+      return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+    }
+    return sortOrder === 'asc'
+      ? String(aVal).localeCompare(String(bVal))
+      : String(bVal).localeCompare(String(aVal));
+  });
+
+  const handleSort = (field: string) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
 
   const handleStatusChange = (leadId: string, newStatus: string) => {
     updateLeadMutation.mutate({
@@ -114,6 +192,9 @@ export default function AdminLeads() {
               <Button asChild>
                 <Link href="/">Public Site</Link>
               </Button>
+              <Button asChild>
+                <Link href="/admin/leads/new">Add Lead</Link>
+              </Button>
             </div>
           </div>
         </div>
@@ -133,7 +214,7 @@ export default function AdminLeads() {
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by name, email, or phone..."
+                  placeholder="Search leads..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
@@ -176,53 +257,41 @@ export default function AdminLeads() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Quotes</TableHead>
-                    <TableHead>Created</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('id')}>ID</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('firstName')}>First Name</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('lastName')}>Last Name</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('email')}>Email</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('phone')}>Phone</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('state')}>Registered State</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('ipState')}>IP State</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('year')}>Year</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('make')}>Make</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('model')}>Model</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('referrer')}>Referrer</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('createdAt')}>Date Created</TableHead>
+                    <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>Status</TableHead>
                     <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLeads.map((item: any) => {
+                  {sortedLeads.map((item: any) => {
                     const lead = item.lead;
-                    const vehicle = item.vehicle;
-                    
+                    const vehicle = item.vehicle || {};
                     return (
                       <TableRow key={lead.id}>
+                        <TableCell>{lead.id}</TableCell>
+                        <TableCell>{lead.firstName}</TableCell>
+                        <TableCell>{lead.lastName}</TableCell>
+                        <TableCell>{lead.email}</TableCell>
+                        <TableCell>{lead.phone}</TableCell>
+                        <TableCell>{lead.state}</TableCell>
+                        <TableCell>{lead.consentIP}</TableCell>
+                        <TableCell>{vehicle.year || '-'}</TableCell>
+                        <TableCell>{vehicle.make || '-'}</TableCell>
+                        <TableCell>{vehicle.model || '-'}</TableCell>
+                        <TableCell>{lead.referrer || lead.source || '-'}</TableCell>
                         <TableCell>
-                          <div>
-                            <div className="font-medium">{lead.firstName} {lead.lastName}</div>
-                            <div className="text-sm text-gray-500">{lead.zip}, {lead.state}</div>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {vehicle ? (
-                            <div>
-                              <div className="font-medium">{vehicle.year} {vehicle.make}</div>
-                              <div className="text-sm text-gray-500">{vehicle.model}</div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400">No vehicle</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-1">
-                            {lead.email && (
-                              <div className="flex items-center text-sm">
-                                <Mail className="h-3 w-3 mr-1" />
-                                {lead.email}
-                              </div>
-                            )}
-                            {lead.phone && (
-                              <div className="flex items-center text-sm">
-                                <Phone className="h-3 w-3 mr-1" />
-                                {lead.phone}
-                              </div>
-                            )}
-                          </div>
+                          {lead.createdAt ? new Date(lead.createdAt).toLocaleString() : ''}
                         </TableCell>
                         <TableCell>
                           <Select
@@ -248,16 +317,6 @@ export default function AdminLeads() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">
-                            {item.quoteCount || 0}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            {new Date(lead.createdAt).toLocaleDateString()}
-                          </div>
-                        </TableCell>
-                        <TableCell>
                           <Button size="sm" variant="outline" asChild>
                             <Link href={`/admin/leads/${lead.id}`}>
                               <Eye className="h-4 w-4 mr-1" />
@@ -268,9 +327,9 @@ export default function AdminLeads() {
                       </TableRow>
                     );
                   })}
-                  {filteredLeads.length === 0 && (
+                  {sortedLeads.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      <TableCell colSpan={14} className="text-center py-8 text-gray-500">
                         No leads found matching your criteria
                       </TableCell>
                     </TableRow>

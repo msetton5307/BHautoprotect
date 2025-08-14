@@ -251,6 +251,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: create lead
+  app.post('/api/admin/leads', basicAuth, async (req, res) => {
+    try {
+      const leadData = insertLeadSchema.parse(req.body.lead);
+      const vehicleData = insertVehicleSchema
+        .omit({ leadId: true })
+        .parse(req.body.vehicle);
+
+      const lead = await storage.createLead(leadData);
+      const vehicle = await storage.createVehicle({
+        ...vehicleData,
+        leadId: lead.id,
+      });
+
+      res.json({
+        data: { lead, vehicle },
+        message: 'Lead created successfully',
+      });
+    } catch (error) {
+      console.error('Error creating lead:', error);
+      res.status(400).json({ message: 'Invalid lead data' });
+    }
+  });
+
   // Admin: list leads with associated data
   app.get('/api/admin/leads', basicAuth, async (_req, res) => {
     try {
