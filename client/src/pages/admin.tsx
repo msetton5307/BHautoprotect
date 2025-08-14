@@ -237,9 +237,6 @@ export default function Admin() {
                 {c.quotes[0] && (
                   <>
                     <p>Plan: {c.quotes[0].plan}</p>
-                    <p>
-                      Monthly Price: ${((c.quotes[0].priceMonthly ?? 0) / 100).toFixed(2)}
-                    </p>
                   </>
                 )}
               </div>

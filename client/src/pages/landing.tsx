@@ -125,7 +125,7 @@ export default function Landing() {
               <CardContent className="p-8">
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold mb-2">Powertrain</h3>
-                  <div className="text-4xl font-bold text-primary mb-2">$79<span className="text-lg text-gray-500">/mo</span></div>
+                  <div className="text-4xl font-bold text-primary mb-2">Call for pricing</div>
                   <p className="text-gray-600">Essential engine protection</p>
                 </div>
                 <ul className="space-y-4 mb-8">
@@ -135,7 +135,7 @@ export default function Landing() {
                   </li>
                   <li className="flex items-center">
                     <Check className="w-5 h-5 text-accent mr-3" />
-                    <span>24/7 roadside assistance</span>
+                    <span>Around-the-clock roadside assistance</span>
                   </li>
                   <li className="flex items-center">
                     <Check className="w-5 h-5 text-accent mr-3" />
@@ -160,7 +160,7 @@ export default function Landing() {
               <CardContent className="p-8">
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold mb-2">Gold</h3>
-                  <div className="text-4xl font-bold text-primary mb-2">$129<span className="text-lg text-gray-500">/mo</span></div>
+                  <div className="text-4xl font-bold text-primary mb-2">Call for pricing</div>
                   <p className="text-gray-600">Comprehensive protection</p>
                 </div>
                 <ul className="space-y-4 mb-8">
@@ -196,7 +196,7 @@ export default function Landing() {
               <CardContent className="p-8">
                 <div className="text-center mb-6">
                   <h3 className="text-2xl font-bold mb-2">Platinum</h3>
-                  <div className="text-4xl font-bold text-primary mb-2">$199<span className="text-lg text-gray-500">/mo</span></div>
+                  <div className="text-4xl font-bold text-primary mb-2">Call for pricing</div>
                   <p className="text-gray-600">Maximum coverage</p>
                 </div>
                 <ul className="space-y-4 mb-8">

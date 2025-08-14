@@ -434,17 +434,17 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
                   >
                     <div className="flex flex-col items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
                       <RadioGroupItem value="100" id="deductible-100" className="mb-2" />
-                      <Label htmlFor="deductible-100" className="font-semibold">$100</Label>
+                      <Label htmlFor="deductible-100" className="font-semibold">Low Deductible</Label>
                       <span className="text-sm text-gray-500">Higher premium</span>
                     </div>
                     <div className="flex flex-col items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
                       <RadioGroupItem value="250" id="deductible-250" className="mb-2" />
-                      <Label htmlFor="deductible-250" className="font-semibold">$250</Label>
+                      <Label htmlFor="deductible-250" className="font-semibold">Standard Deductible</Label>
                       <span className="text-sm text-gray-500">Balanced</span>
                     </div>
                     <div className="flex flex-col items-center p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
                       <RadioGroupItem value="500" id="deductible-500" className="mb-2" />
-                      <Label htmlFor="deductible-500" className="font-semibold">$500</Label>
+                      <Label htmlFor="deductible-500" className="font-semibold">High Deductible</Label>
                       <span className="text-sm text-gray-500">Lower premium</span>
                     </div>
                   </RadioGroup>
@@ -463,7 +463,7 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
                     </div>
                     <div className="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
                       <RadioGroupItem value="full" id="full" />
-                      <Label htmlFor="full" className="ml-2">Paid in Full (Save 10%)</Label>
+                      <Label htmlFor="full" className="ml-2">Paid in Full (Save more)</Label>
                     </div>
                   </RadioGroup>
                 </div>
