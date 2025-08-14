@@ -35,7 +35,7 @@ interface LeadWithDetails extends Lead {
 export default function Admin() {
   const [leads, setLeads] = useState<LeadWithDetails[]>([]);
   const [search, setSearch] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("all");
 
   const fetchLeads = async () => {
     const res = await apiRequest("GET", "/api/leads");
@@ -98,7 +98,7 @@ export default function Admin() {
         .includes(term) ||
       (lead.email ?? "").toLowerCase().includes(term);
     const matchesPriority =
-      priorityFilter === "" || lead.meta.priority === priorityFilter;
+      priorityFilter === "all" || lead.meta.priority === priorityFilter;
     return matchesSearch && matchesPriority;
   });
 
