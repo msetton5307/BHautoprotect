@@ -268,6 +268,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: get single lead with associated data
+  app.get('/api/admin/leads/:id', basicAuth, async (req, res) => {
+    try {
+      const lead = await storage.getLead(req.params.id);
+      if (!lead) {
+        return res.status(404).json({ message: 'Lead not found' });
+      }
+      const vehicle = await storage.getVehicleByLeadId(req.params.id);
+      const quotes = await storage.getQuotesByLeadId(req.params.id);
+      const notes = await storage.getNotesByLeadId(req.params.id);
+      const meta = getLeadMeta(req.params.id);
+      res.json({
+        data: {
+          lead: { ...lead, stage: meta.stage, priority: meta.priority },
+          vehicle,
+          quotes,
+          notes,
+        },
+        message: 'Lead retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error fetching lead:', error);
+      res.status(500).json({ message: 'Failed to fetch lead' });
+    }
+  });
+
+  // Admin: add note to lead
+  app.post('/api/admin/leads/:id/notes', basicAuth, async (req, res) => {
+    const schema = z.object({ content: z.string().min(1) });
+    try {
+      const data = schema.parse(req.body);
+      const note = await storage.createNote({ leadId: req.params.id, content: data.content });
+      res.json({ data: note, message: 'Note created successfully' });
+    } catch (error) {
+      console.error('Error creating note:', error);
+      res.status(400).json({ message: 'Invalid note data' });
+    }
+  });
+
+  // Admin: convert lead to policy
+  app.post('/api/admin/leads/:id/convert', basicAuth, async (req, res) => {
+    const schema = z.object({
+      package: z.string().optional(),
+      expirationMiles: z.coerce.number().optional(),
+      expirationDate: z.coerce.date().optional(),
+      deductible: z.coerce.number().optional(),
+      totalPremium: z.coerce.number().optional(),
+      downPayment: z.coerce.number().optional(),
+      policyStartDate: z.coerce.date().optional(),
+      monthlyPayment: z.coerce.number().optional(),
+      totalPayments: z.coerce.number().optional(),
+    });
+    try {
+      const data = schema.parse(req.body);
+      const policy = await storage.createPolicy({ leadId: req.params.id, ...data });
+      const current = getLeadMeta(req.params.id);
+      leadMeta[req.params.id] = { ...current, stage: 'closed-won' };
+      res.json({ data: policy, message: 'Policy created successfully' });
+    } catch (error) {
+      console.error('Error converting lead:', error);
+      res.status(400).json({ message: 'Invalid policy data' });
+    }
+  });
+
   // Admin: update lead metadata
   app.patch('/api/admin/leads/:id', basicAuth, (req, res) => {
     const schema = z.object({

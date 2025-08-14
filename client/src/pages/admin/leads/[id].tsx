@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, User, Car, FileText, Activity, Phone, Mail, Calendar, DollarSign } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ArrowLeft, User, Car, Activity, Phone, Mail, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 // Helper function to set basic auth header
@@ -30,6 +31,18 @@ export default function AdminLeadDetail() {
     priceTotal: 299900, // $2999.00
     priceMonthly: 8331, // $83.31
   });
+  const [policyForm, setPolicyForm] = useState({
+    package: '',
+    expirationMiles: '',
+    expirationDate: '',
+    deductible: '',
+    totalPremium: '',
+    downPayment: '',
+    policyStartDate: '',
+    monthlyPayment: '',
+    totalPayments: '',
+  });
+  const [newNote, setNewNote] = useState('');
 
   const { data: leadData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads', id],
@@ -103,6 +116,59 @@ export default function AdminLeadDetail() {
     },
   });
 
+  const convertLeadMutation = useMutation({
+    mutationFn: (policyData: any) =>
+      fetch(`/api/admin/leads/${id}/convert`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(policyData),
+      }).then(res => {
+        if (!res.ok) throw new Error('Failed to convert lead');
+        return res.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
+      toast({
+        title: 'Success',
+        description: 'Lead converted to policy',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to convert lead',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const addNoteMutation = useMutation({
+    mutationFn: (content: string) =>
+      fetch(`/api/admin/leads/${id}/notes`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ content }),
+      }).then(res => {
+        if (!res.ok) throw new Error('Failed to add note');
+        return res.json();
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
+      setNewNote('');
+      toast({
+        title: 'Success',
+        description: 'Note added',
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to add note',
+        variant: 'destructive',
+      });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -124,7 +190,7 @@ export default function AdminLeadDetail() {
     );
   }
 
-  const { lead, vehicle, quotes } = leadData.data;
+  const { lead, vehicle, quotes, notes } = leadData.data;
 
   const handleCreateQuote = () => {
     createQuoteMutation.mutate(quoteForm);
@@ -180,68 +246,150 @@ export default function AdminLeadDetail() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Customer Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <User className="h-5 w-5 mr-2" />
-                    Customer Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>First Name</Label>
-                      <Input value={lead.firstName || ''} readOnly />
-                    </div>
-                    <div>
-                      <Label>Last Name</Label>
-                      <Input value={lead.lastName || ''} readOnly />
-                    </div>
+            {/* Customer Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <User className="h-5 w-5 mr-2" />
+                  Customer Information
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>First Name</Label>
+                    <Input value={lead.firstName || ''} readOnly />
                   </div>
                   <div>
-                    <Label>Email</Label>
-                    <div className="flex items-center">
-                      <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                      <Input value={lead.email || 'Not provided'} readOnly />
-                    </div>
+                    <Label>Last Name</Label>
+                    <Input value={lead.lastName || ''} readOnly />
+                  </div>
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <div className="flex items-center">
+                    <Mail className="h-4 w-4 mr-2 text-gray-400" />
+                    <Input value={lead.email || 'Not provided'} readOnly />
+                  </div>
+                </div>
+                <div>
+                  <Label>Phone</Label>
+                  <div className="flex items-center">
+                    <Phone className="h-4 w-4 mr-2 text-gray-400" />
+                    <Input value={lead.phone || 'Not provided'} readOnly />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label>ZIP Code</Label>
+                    <Input value={lead.zip || ''} readOnly />
                   </div>
                   <div>
-                    <Label>Phone</Label>
-                    <div className="flex items-center">
-                      <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                      <Input value={lead.phone || 'Not provided'} readOnly />
-                    </div>
+                    <Label>State</Label>
+                    <Input value={lead.state || ''} readOnly />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label>ZIP Code</Label>
-                      <Input value={lead.zip || ''} readOnly />
-                    </div>
-                    <div>
-                      <Label>State</Label>
-                      <Input value={lead.state || ''} readOnly />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Source</Label>
-                    <Input value={lead.source || 'web'} readOnly />
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+                <div>
+                  <Label>Source</Label>
+                  <Input value={lead.source || 'web'} readOnly />
+                </div>
+              </CardContent>
+            </Card>
 
-              {/* Vehicle Information */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Car className="h-5 w-5 mr-2" />
-                    Vehicle Information
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
+            <Accordion type="multiple" className="w-full">
+              <AccordionItem value="policy">
+                <AccordionTrigger>Policy Information</AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Package</Label>
+                        <Input
+                          value={policyForm.package}
+                          onChange={(e) => setPolicyForm({ ...policyForm, package: e.target.value })}
+                          placeholder="--- Please Select ---"
+                        />
+                      </div>
+                      <div>
+                        <Label>Expiration Miles</Label>
+                        <Input
+                          value={policyForm.expirationMiles}
+                          onChange={(e) => setPolicyForm({ ...policyForm, expirationMiles: e.target.value })}
+                          placeholder="Expiration Miles"
+                        />
+                      </div>
+                      <div>
+                        <Label>Expiration Date</Label>
+                        <Input
+                          type="date"
+                          value={policyForm.expirationDate}
+                          onChange={(e) => setPolicyForm({ ...policyForm, expirationDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Deductible</Label>
+                        <Input
+                          value={policyForm.deductible}
+                          onChange={(e) => setPolicyForm({ ...policyForm, deductible: e.target.value })}
+                          placeholder="Deductible"
+                        />
+                      </div>
+                      <div>
+                        <Label>Total Premium</Label>
+                        <Input
+                          value={policyForm.totalPremium}
+                          onChange={(e) => setPolicyForm({ ...policyForm, totalPremium: e.target.value })}
+                          placeholder="Total Premium"
+                        />
+                      </div>
+                      <div>
+                        <Label>Down Payment</Label>
+                        <Input
+                          value={policyForm.downPayment}
+                          onChange={(e) => setPolicyForm({ ...policyForm, downPayment: e.target.value })}
+                          placeholder="Down Payment"
+                        />
+                      </div>
+                      <div>
+                        <Label>Policy Start Date</Label>
+                        <Input
+                          type="date"
+                          value={policyForm.policyStartDate}
+                          onChange={(e) => setPolicyForm({ ...policyForm, policyStartDate: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Monthly Payment</Label>
+                        <Input
+                          value={policyForm.monthlyPayment}
+                          onChange={(e) => setPolicyForm({ ...policyForm, monthlyPayment: e.target.value })}
+                          placeholder="Monthly Payment"
+                        />
+                      </div>
+                      <div>
+                        <Label>Total Payments</Label>
+                        <Input
+                          value={policyForm.totalPayments}
+                          onChange={(e) => setPolicyForm({ ...policyForm, totalPayments: e.target.value })}
+                          placeholder="Total Payments"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => convertLeadMutation.mutate(policyForm)}
+                      disabled={convertLeadMutation.isPending}
+                    >
+                      {convertLeadMutation.isPending ? 'Converting...' : 'Convert to Policy'}
+                    </Button>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="vehicle">
+                <AccordionTrigger>Vehicle Information</AccordionTrigger>
+                <AccordionContent>
                   {vehicle ? (
-                    <>
+                    <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>Year</Label>
@@ -257,90 +405,99 @@ export default function AdminLeadDetail() {
                         <Input value={vehicle.model} readOnly />
                       </div>
                       <div>
-                        <Label>Odometer</Label>
-                        <Input value={`${vehicle.odometer.toLocaleString()} miles`} readOnly />
+                        <Label>Mileage</Label>
+                        <Input value={`${vehicle.odometer.toLocaleString()}`} readOnly />
                       </div>
                       {vehicle.vin && (
                         <div>
-                          <Label>VIN</Label>
+                          <Label>Vin</Label>
                           <Input value={vehicle.vin} readOnly />
                         </div>
                       )}
                       <div>
-                        <Label>Usage</Label>
-                        <Input value={vehicle.usage || 'personal'} readOnly />
+                        <Label>Registered State</Label>
+                        <Input value={lead.state || ''} readOnly />
                       </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-8 text-gray-500">
-                      No vehicle information available
                     </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">No vehicle information available</div>
                   )}
-                </CardContent>
-              </Card>
-            </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              <AccordionItem value="notes">
+                <AccordionTrigger>Notes</AccordionTrigger>
+                <AccordionContent>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      {notes && notes.length > 0 ? (
+                        notes.map((note: any) => (
+                          <div key={note.id} className="border rounded p-2 text-sm">
+                            {note.content}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sm text-gray-500">No notes yet</div>
+                      )}
+                    </div>
+                    <Textarea
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      placeholder="Add a new note"
+                    />
+                    <Button
+                      onClick={() => addNoteMutation.mutate(newNote)}
+                      disabled={addNoteMutation.isPending || !newNote.trim()}
+                    >
+                      {addNoteMutation.isPending ? 'Saving...' : 'Add Note'}
+                    </Button>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
             {/* Lead Management */}
             <Card>
               <CardHeader>
                 <CardTitle>Lead Management</CardTitle>
-                <CardDescription>Update lead status and add notes</CardDescription>
+                <CardDescription>Update lead status</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Stage</Label>
-                    <Select
-                      value={lead.stage}
-                      onValueChange={(value) => updateLeadMutation.mutate({ stage: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="new">New</SelectItem>
-                        <SelectItem value="contacted">Contacted</SelectItem>
-                        <SelectItem value="qualified">Qualified</SelectItem>
-                        <SelectItem value="quoted">Quoted</SelectItem>
-                        <SelectItem value="closed-won">Closed Won</SelectItem>
-                        <SelectItem value="closed-lost">Closed Lost</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Priority</Label>
-                    <Select
-                      value={lead.priority}
-                      onValueChange={(value) => updateLeadMutation.mutate({ priority: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Assigned To</Label>
-                    <Input 
-                      value={lead.assignedTo || 'Unassigned'} 
-                      onChange={(e) => updateLeadMutation.mutate({ assignedTo: e.target.value })}
-                      placeholder="Enter agent name"
-                    />
-                  </div>
+              <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Stage</Label>
+                  <Select
+                    value={lead.stage}
+                    onValueChange={(value) => updateLeadMutation.mutate({ stage: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">New</SelectItem>
+                      <SelectItem value="contacted">Contacted</SelectItem>
+                      <SelectItem value="qualified">Qualified</SelectItem>
+                      <SelectItem value="quoted">Quoted</SelectItem>
+                      <SelectItem value="closed-won">Closed Won</SelectItem>
+                      <SelectItem value="closed-lost">Closed Lost</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
-                  <Label>Notes</Label>
-                  <Textarea 
-                    value={lead.notes || ''} 
-                    onChange={(e) => updateLeadMutation.mutate({ notes: e.target.value })}
-                    placeholder="Add notes about this lead..."
-                    className="min-h-20"
-                  />
+                  <Label>Priority</Label>
+                  <Select
+                    value={lead.priority}
+                    onValueChange={(value) => updateLeadMutation.mutate({ priority: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
