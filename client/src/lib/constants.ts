@@ -86,7 +86,6 @@ export const US_STATES = [
 export const COVERAGE_PLANS = {
   powertrain: {
     name: 'Powertrain',
-    basePrice: 79,
     description: 'Essential engine protection',
     features: [
       'Engine & transmission coverage',
@@ -97,7 +96,6 @@ export const COVERAGE_PLANS = {
   },
   gold: {
     name: 'Gold',
-    basePrice: 129,
     description: 'Comprehensive protection',
     features: [
       'Everything in Powertrain',
@@ -109,7 +107,6 @@ export const COVERAGE_PLANS = {
   },
   platinum: {
     name: 'Platinum',
-    basePrice: 199,
     description: 'Maximum coverage',
     features: [
       'Everything in Gold',
