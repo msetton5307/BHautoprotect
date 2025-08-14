@@ -9,14 +9,23 @@ const ADMIN_USER = { username: "admin", password: "password" } as const;
 
 type LeadMeta = {
   tags: string[];
-  priority: "low" | "medium" | "high" | "urgent";
-  stage: "new" | "contacted" | "qualified" | "quoted" | "closed-won" | "closed-lost";
+  status:
+    | "new"
+    | "quoted"
+    | "callback"
+    | "left-message"
+    | "no-contact"
+    | "wrong-number"
+    | "fake-lead"
+    | "not-interested"
+    | "duplicate-lead"
+    | "dnc"
+    | "sold";
 };
 
 const DEFAULT_META: LeadMeta = {
   tags: [],
-  priority: "low",
-  stage: "new",
+  status: "new",
 };
 
 const leadMeta: Record<string, LeadMeta> = {};
@@ -162,17 +171,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Update basic lead metadata such as tags and priority
+  // Update basic lead metadata such as tags
   app.post('/api/leads/:id/meta', basicAuth, (req, res) => {
-    const schema = z.object({
-      tags: z.string().optional(),
-      priority: z.enum(['low', 'medium', 'high', 'urgent']),
-    });
+    const schema = z.object({ tags: z.string().optional() });
     try {
       const data = schema.parse(req.body);
       const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
       const current = getLeadMeta(req.params.id);
-      leadMeta[req.params.id] = { ...current, tags, priority: data.priority };
+      leadMeta[req.params.id] = { ...current, tags };
       res.redirect('/admin');
     } catch (error) {
       console.error('Error saving meta:', error);
@@ -213,14 +219,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const leads = await storage.getLeads({});
       const now = Date.now();
-      const stageCounts: Record<string, number> = {};
+      const statusCounts: Record<string, number> = {};
       let quotedLeads = 0;
-      let closedWon = 0;
+      let soldLeads = 0;
       await Promise.all(
         leads.map(async (lead) => {
           const meta = getLeadMeta(lead.id);
-          stageCounts[meta.stage] = (stageCounts[meta.stage] || 0) + 1;
-          if (meta.stage === 'closed-won') closedWon++;
+          statusCounts[meta.status] = (statusCounts[meta.status] || 0) + 1;
+          if (meta.status === 'sold') soldLeads++;
           const quotes = await storage.getQuotesByLeadId(lead.id);
           if (quotes.length > 0) quotedLeads++;
         })
@@ -230,13 +236,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         (l) => l.createdAt && l.createdAt.getTime() > now - 30 * 24 * 60 * 60 * 1000
       ).length;
       const conversionRate =
-        totalLeads > 0 ? Math.round((closedWon / totalLeads) * 100) : 0;
-      const leadsByStage = Object.entries(stageCounts).map(([stage, count]) => ({
-        stage,
+        totalLeads > 0 ? Math.round((soldLeads / totalLeads) * 100) : 0;
+      const leadsByStatus = Object.entries(statusCounts).map(([status, count]) => ({
+        status,
         count,
       }));
       res.json({
-        data: { totalLeads, newLeads, quotedLeads, conversionRate, leadsByStage },
+        data: { totalLeads, newLeads, quotedLeads, conversionRate, leadsByStatus },
         message: 'Stats retrieved successfully',
       });
     } catch (error) {
@@ -255,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const quotes = await storage.getQuotesByLeadId(lead.id);
           const meta = getLeadMeta(lead.id);
           return {
-            lead: { ...lead, stage: meta.stage, priority: meta.priority },
+            lead: { ...lead, status: meta.status },
             vehicle,
             quoteCount: quotes.length,
           };
@@ -281,7 +287,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const meta = getLeadMeta(req.params.id);
       res.json({
         data: {
-          lead: { ...lead, stage: meta.stage, priority: meta.priority },
+          lead: { ...lead, status: meta.status },
           vehicle,
           quotes,
           notes,
@@ -324,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = schema.parse(req.body);
       const policy = await storage.createPolicy({ leadId: req.params.id, ...data });
       const current = getLeadMeta(req.params.id);
-      leadMeta[req.params.id] = { ...current, stage: 'closed-won' };
+      leadMeta[req.params.id] = { ...current, status: 'sold' };
       res.json({ data: policy, message: 'Policy created successfully' });
     } catch (error) {
       console.error('Error converting lead:', error);
@@ -335,10 +341,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: update lead metadata
   app.patch('/api/admin/leads/:id', basicAuth, (req, res) => {
     const schema = z.object({
-      stage: z
-        .enum(['new', 'contacted', 'qualified', 'quoted', 'closed-won', 'closed-lost'])
+      status: z
+        .enum([
+          'new',
+          'quoted',
+          'callback',
+          'left-message',
+          'no-contact',
+          'wrong-number',
+          'fake-lead',
+          'not-interested',
+          'duplicate-lead',
+          'dnc',
+          'sold',
+        ])
         .optional(),
-      priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
     });
     try {
       const data = schema.parse(req.body);
