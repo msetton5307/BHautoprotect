@@ -9,9 +9,21 @@ const ADMIN_USER = { username: "admin", password: "password" } as const;
 
 type LeadMeta = {
   tags: string[];
-  priority: "low" | "medium" | "high";
+  priority: "low" | "medium" | "high" | "urgent";
+  stage: "new" | "contacted" | "qualified" | "quoted" | "closed-won" | "closed-lost";
 };
+
+const DEFAULT_META: LeadMeta = {
+  tags: [],
+  priority: "low",
+  stage: "new",
+};
+
 const leadMeta: Record<string, LeadMeta> = {};
+
+const getLeadMeta = (id: string): LeadMeta => {
+  return leadMeta[id] || DEFAULT_META;
+};
 
 const basicAuth: RequestHandler = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -124,7 +136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Retrieve basic metadata for a lead
   app.get('/api/leads/:id/meta', basicAuth, (req, res) => {
-    const meta = leadMeta[req.params.id] || { tags: [], priority: 'low' };
+    const meta = getLeadMeta(req.params.id);
     res.json({ data: meta, message: 'Lead metadata retrieved successfully' });
   });
 
@@ -154,12 +166,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/leads/:id/meta', basicAuth, (req, res) => {
     const schema = z.object({
       tags: z.string().optional(),
-      priority: z.enum(['low', 'medium', 'high']),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']),
     });
     try {
       const data = schema.parse(req.body);
       const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-      leadMeta[req.params.id] = { tags, priority: data.priority };
+      const current = getLeadMeta(req.params.id);
+      leadMeta[req.params.id] = { ...current, tags, priority: data.priority };
       res.redirect('/admin');
     } catch (error) {
       console.error('Error saving meta:', error);
@@ -192,6 +205,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error assigning coverage:', error);
       res.status(400).send('Invalid coverage data');
+    }
+  });
+
+  // Admin: dashboard statistics
+  app.get('/api/admin/stats', basicAuth, async (_req, res) => {
+    try {
+      const leads = await storage.getLeads({});
+      const now = Date.now();
+      const stageCounts: Record<string, number> = {};
+      let quotedLeads = 0;
+      let closedWon = 0;
+      await Promise.all(
+        leads.map(async (lead) => {
+          const meta = getLeadMeta(lead.id);
+          stageCounts[meta.stage] = (stageCounts[meta.stage] || 0) + 1;
+          if (meta.stage === 'closed-won') closedWon++;
+          const quotes = await storage.getQuotesByLeadId(lead.id);
+          if (quotes.length > 0) quotedLeads++;
+        })
+      );
+      const totalLeads = leads.length;
+      const newLeads = leads.filter(
+        (l) => l.createdAt && l.createdAt.getTime() > now - 30 * 24 * 60 * 60 * 1000
+      ).length;
+      const conversionRate =
+        totalLeads > 0 ? Math.round((closedWon / totalLeads) * 100) : 0;
+      const leadsByStage = Object.entries(stageCounts).map(([stage, count]) => ({
+        stage,
+        count,
+      }));
+      res.json({
+        data: { totalLeads, newLeads, quotedLeads, conversionRate, leadsByStage },
+        message: 'Stats retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+      res.status(500).json({ message: 'Failed to fetch stats' });
+    }
+  });
+
+  // Admin: list leads with associated data
+  app.get('/api/admin/leads', basicAuth, async (_req, res) => {
+    try {
+      const leads = await storage.getLeads({});
+      const data = await Promise.all(
+        leads.map(async (lead) => {
+          const vehicle = await storage.getVehicleByLeadId(lead.id);
+          const quotes = await storage.getQuotesByLeadId(lead.id);
+          const meta = getLeadMeta(lead.id);
+          return {
+            lead: { ...lead, stage: meta.stage, priority: meta.priority },
+            vehicle,
+            quoteCount: quotes.length,
+          };
+        })
+      );
+      res.json({ data, message: 'Leads retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching leads:', error);
+      res.status(500).json({ message: 'Failed to fetch leads' });
+    }
+  });
+
+  // Admin: update lead metadata
+  app.patch('/api/admin/leads/:id', basicAuth, (req, res) => {
+    const schema = z.object({
+      stage: z
+        .enum(['new', 'contacted', 'qualified', 'quoted', 'closed-won', 'closed-lost'])
+        .optional(),
+      priority: z.enum(['low', 'medium', 'high', 'urgent']).optional(),
+    });
+    try {
+      const data = schema.parse(req.body);
+      const current = getLeadMeta(req.params.id);
+      leadMeta[req.params.id] = { ...current, ...data };
+      res.json({ data: leadMeta[req.params.id], message: 'Lead updated successfully' });
+    } catch (error) {
+      console.error('Error updating lead:', error);
+      res.status(400).json({ message: 'Invalid lead data' });
     }
   });
 
