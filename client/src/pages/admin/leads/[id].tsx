@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +44,7 @@ export default function AdminLeadDetail() {
     totalPayments: '',
   });
   const [newNote, setNewNote] = useState('');
+  const [leadForm, setLeadForm] = useState<any>({});
 
   const { data: leadData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads', id],
@@ -175,6 +176,12 @@ export default function AdminLeadDetail() {
     },
   });
 
+  useEffect(() => {
+    if (leadData?.data?.lead) {
+      setLeadForm(leadData.data.lead);
+    }
+  }, [leadData]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -196,10 +203,15 @@ export default function AdminLeadDetail() {
     );
   }
 
-  const { lead, vehicle, quotes, notes } = leadData.data;
+  const { vehicle, quotes, notes } = leadData.data;
 
   const handleCreateQuote = () => {
     createQuoteMutation.mutate(quoteForm);
+  };
+
+  const handleSave = () => {
+    const { id: _id, ...updates } = leadForm;
+    updateLeadMutation.mutate(updates);
   };
 
   return (
@@ -218,7 +230,7 @@ export default function AdminLeadDetail() {
               </Button>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {lead.firstName} {lead.lastName}
+                  {leadForm.firstName} {leadForm.lastName}
                 </h1>
                 <p className="text-gray-600">Lead Details & Management</p>
               </div>
@@ -250,6 +262,11 @@ export default function AdminLeadDetail() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-end mb-4">
+          <Button onClick={handleSave} disabled={updateLeadMutation.isPending}>
+            {updateLeadMutation.isPending ? 'Saving...' : 'Save'}
+          </Button>
+        </div>
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -265,19 +282,19 @@ export default function AdminLeadDetail() {
                     <span className="mr-2"><User className="h-5 w-5" /></span>
                     Lead Information
                   </AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent className="overflow-visible">
                     <div className="space-y-4">
                       <div>
                         <Label>ID</Label>
-                        <Input value={lead.id} readOnly />
-                        <input type="hidden" value={lead.id} />
+                        <Input value={leadForm.id || ''} readOnly />
+                        <input type="hidden" value={leadForm.id} />
                       </div>
                       <div>
                         <Label>Status</Label>
                         <Select
-                          value={lead.status}
+                          value={leadForm.status}
                           onValueChange={(value) =>
-                            updateLeadMutation.mutate({ status: value })
+                            setLeadForm({ ...leadForm, status: value })
                           }
                         >
                           <SelectTrigger>
@@ -301,72 +318,142 @@ export default function AdminLeadDetail() {
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>First Name</Label>
-                          <Input value={lead.firstName || ''} readOnly />
+                          <Input
+                            value={leadForm.firstName || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, firstName: e.target.value })
+                            }
+                          />
                         </div>
                         <div>
                           <Label>Last Name</Label>
-                          <Input value={lead.lastName || ''} readOnly />
+                          <Input
+                            value={leadForm.lastName || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, lastName: e.target.value })
+                            }
+                          />
                         </div>
                       </div>
                       <div>
                         <Label>Email</Label>
                         <div className="flex items-center">
                           <Mail className="h-4 w-4 mr-2 text-gray-400" />
-                          <Input value={lead.email || ''} readOnly />
+                          <Input
+                            value={leadForm.email || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, email: e.target.value })
+                            }
+                          />
                         </div>
                       </div>
                       <div>
                         <Label>Phone</Label>
                         <div className="flex items-center">
                           <Phone className="h-4 w-4 mr-2 text-gray-400" />
-                          <Input value={lead.phone || ''} readOnly />
+                          <Input
+                            value={leadForm.phone || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, phone: e.target.value })
+                            }
+                          />
                         </div>
                       </div>
                       <div>
                         <Label>Phone Type</Label>
-                        <Input value={lead.phoneType || ''} readOnly />
+                        <Input
+                          value={leadForm.phoneType || ''}
+                          onChange={(e) =>
+                            setLeadForm({ ...leadForm, phoneType: e.target.value })
+                          }
+                        />
                       </div>
                       <div>
                         <Label>Shipping Address (Line 1)</Label>
-                        <Input value={lead.shippingAddress || ''} readOnly />
-                        <input type="hidden" value={lead.shippingAddress2 || ''} />
+                        <Input
+                          value={leadForm.shippingAddress || ''}
+                          onChange={(e) =>
+                            setLeadForm({ ...leadForm, shippingAddress: e.target.value })
+                          }
+                        />
+                        <input type="hidden" value={leadForm.shippingAddress2 || ''} />
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div>
                           <Label>Shipping City</Label>
-                          <Input value={lead.shippingCity || ''} readOnly />
+                          <Input
+                            value={leadForm.shippingCity || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, shippingCity: e.target.value })
+                            }
+                          />
                         </div>
                         <div>
                           <Label>Shipping State</Label>
-                          <Input value={lead.shippingState || ''} readOnly />
+                          <Input
+                            value={leadForm.shippingState || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, shippingState: e.target.value })
+                            }
+                          />
                         </div>
                         <div>
                           <Label>Shipping Zipcode</Label>
-                          <Input value={lead.shippingZip || ''} readOnly />
+                          <Input
+                            value={leadForm.shippingZip || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, shippingZip: e.target.value })
+                            }
+                          />
                         </div>
                       </div>
                       <div>
                         <Label>Billing Address (Line 1)</Label>
-                        <Input value={lead.billingAddress || ''} readOnly />
-                        <input type="hidden" value={lead.billingAddress2 || ''} />
+                        <Input
+                          value={leadForm.billingAddress || ''}
+                          onChange={(e) =>
+                            setLeadForm({ ...leadForm, billingAddress: e.target.value })
+                          }
+                        />
+                        <input type="hidden" value={leadForm.billingAddress2 || ''} />
                       </div>
                       <div className="grid grid-cols-3 gap-4">
                         <div>
                           <Label>Billing City</Label>
-                          <Input value={lead.billingCity || ''} readOnly />
+                          <Input
+                            value={leadForm.billingCity || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, billingCity: e.target.value })
+                            }
+                          />
                         </div>
                         <div>
                           <Label>Billing State</Label>
-                          <Input value={lead.billingState || ''} readOnly />
+                          <Input
+                            value={leadForm.billingState || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, billingState: e.target.value })
+                            }
+                          />
                         </div>
                         <div>
                           <Label>Billing Zipcode</Label>
-                          <Input value={lead.billingZip || ''} readOnly />
+                          <Input
+                            value={leadForm.billingZip || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, billingZip: e.target.value })
+                            }
+                          />
                         </div>
                       </div>
                       <div>
                         <Label>Newsletter</Label>
-                        <Select value={lead.newsletter ? 'Yes' : 'No'} disabled>
+                        <Select
+                          value={leadForm.newsletter ? 'Yes' : 'No'}
+                          onValueChange={(value) =>
+                            setLeadForm({ ...leadForm, newsletter: value === 'Yes' })
+                          }
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -378,53 +465,102 @@ export default function AdminLeadDetail() {
                       </div>
                       <div>
                         <Label>Referrer</Label>
-                        <Input value={lead.referrer || ''} readOnly />
+                        <Input
+                          value={leadForm.referrer || ''}
+                          onChange={(e) =>
+                            setLeadForm({ ...leadForm, referrer: e.target.value })
+                          }
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>UID</Label>
-                          <Input value={lead.uid || ''} readOnly />
+                          <Input
+                            value={leadForm.uid || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, uid: e.target.value })
+                            }
+                          />
                         </div>
                         <div>
                           <Label>IP Address</Label>
-                          <Input value={lead.ipAddress || ''} readOnly />
+                          <Input
+                            value={leadForm.ipAddress || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, ipAddress: e.target.value })
+                            }
+                          />
                         </div>
                       </div>
                       <div>
                         <Label>Sales Person</Label>
-                        <Input value={lead.salespersonUserId || ''} readOnly />
+                        <Input
+                          value={leadForm.salespersonUserId || ''}
+                          onChange={(e) =>
+                            setLeadForm({ ...leadForm, salespersonUserId: e.target.value })
+                          }
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>Date Created</Label>
-                          <Input value={lead.dateCreated || lead.createdAt || ''} readOnly />
+                          <Input
+                            value={leadForm.dateCreated || leadForm.createdAt || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, dateCreated: e.target.value })
+                            }
+                          />
                         </div>
                         <div>
                           <Label>Last Updated</Label>
-                          <Input value={lead.lastUpdated || ''} readOnly />
+                          <Input
+                            value={leadForm.lastUpdated || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, lastUpdated: e.target.value })
+                            }
+                          />
                         </div>
                       </div>
                       <div>
-                        <Label>Date Created</Label>
-                        <Input value={lead.dateCreated || lead.createdAt || ''} readOnly />
-                      </div>
-                      <div>
                         <Label>Sent to Vanillasoft</Label>
-                        <Input value={lead.sentToVanillasoft ? 'Yes' : 'No'} readOnly />
+                        <Input
+                          value={leadForm.sentToVanillasoft ? 'Yes' : 'No'}
+                          onChange={(e) =>
+                            setLeadForm({
+                              ...leadForm,
+                              sentToVanillasoft: e.target.value === 'Yes',
+                            })
+                          }
+                        />
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
                           <Label>SID</Label>
-                          <Input value={lead.sid || ''} readOnly />
+                          <Input
+                            value={leadForm.sid || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, sid: e.target.value })
+                            }
+                          />
                         </div>
                         <div>
                           <Label>SID2</Label>
-                          <Input value={lead.sid2 || ''} readOnly />
+                          <Input
+                            value={leadForm.sid2 || ''}
+                            onChange={(e) =>
+                              setLeadForm({ ...leadForm, sid2: e.target.value })
+                            }
+                          />
                         </div>
                       </div>
                       <div>
                         <Label>Converted By</Label>
-                        <Input value={lead.convertedBy || ''} readOnly />
+                        <Input
+                          value={leadForm.convertedBy || ''}
+                          onChange={(e) =>
+                            setLeadForm({ ...leadForm, convertedBy: e.target.value })
+                          }
+                        />
                       </div>
                     </div>
                   </AccordionContent>
@@ -434,7 +570,7 @@ export default function AdminLeadDetail() {
               <Accordion type="multiple" className="space-y-4" defaultValue={["policy", "vehicle", "notes"]}>
                 <AccordionItem value="policy">
                   <AccordionTrigger>Policy Information</AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent className="overflow-visible">
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
@@ -530,7 +666,7 @@ export default function AdminLeadDetail() {
 
                 <AccordionItem value="vehicle">
                   <AccordionTrigger>Vehicle Information</AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent className="overflow-visible">
                     {vehicle ? (
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
@@ -559,7 +695,7 @@ export default function AdminLeadDetail() {
                         )}
                         <div>
                           <Label>Registered State</Label>
-                          <Input value={lead.state || ''} readOnly />
+                          <Input value={leadForm.state || ''} readOnly />
                         </div>
                       </div>
                     ) : (
@@ -570,7 +706,7 @@ export default function AdminLeadDetail() {
 
                 <AccordionItem value="notes">
                   <AccordionTrigger>Notes</AccordionTrigger>
-                  <AccordionContent>
+                  <AccordionContent className="overflow-visible">
                     <div className="space-y-4">
                       <div className="space-y-2">
                         {notes && notes.length > 0 ? (
@@ -764,7 +900,7 @@ export default function AdminLeadDetail() {
                     <div>
                       <p className="font-medium">Lead Created</p>
                       <p className="text-sm text-gray-500">
-                        Lead submitted quote request • {new Date(lead.createdAt).toLocaleDateString()}
+                        Lead submitted quote request • {new Date(leadForm.createdAt).toLocaleDateString()}
                       </p>
                     </div>
                   </div>
