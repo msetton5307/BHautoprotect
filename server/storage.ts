@@ -21,12 +21,15 @@ import {
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
 
+const generateLeadId = () => Math.floor(10000000 + Math.random() * 90000000).toString();
+const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+
 // Interface for storage operations
 export interface IStorage {
   // Lead operations
   getLeads(filters: any): Promise<Lead[]>;
   getLead(id: string): Promise<Lead | undefined>;
-  createLead(lead: InsertLead): Promise<Lead>;
+  createLead(lead: InsertLead & { id?: string; createdAt?: Date }): Promise<Lead>;
   
   // Vehicle operations
   getVehicleByLeadId(leadId: string): Promise<Vehicle | undefined>;
@@ -63,8 +66,13 @@ export class DatabaseStorage implements IStorage {
     return lead;
   }
 
-  async createLead(leadData: InsertLead): Promise<Lead> {
-    const [lead] = await db.insert(leads).values(leadData).returning();
+  async createLead(leadData: InsertLead & { id?: string; createdAt?: Date }): Promise<Lead> {
+    const id = leadData.id ?? generateLeadId();
+    const createdAt = leadData.createdAt ?? getEasternDate();
+    const [lead] = await db
+      .insert(leads)
+      .values({ ...leadData, id, createdAt })
+      .returning();
     return lead;
   }
 
