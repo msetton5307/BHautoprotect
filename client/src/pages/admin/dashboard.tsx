@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, FileText, Target, TrendingUp, Activity, Calendar } from "lucide-react";
 import { Link } from "wouter";
+import AdminNav from "@/components/admin-nav";
 
 // Helper function to set basic auth header
 const getAuthHeaders = () => ({
@@ -46,6 +47,7 @@ export default function AdminDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <AdminNav />
       {/* Header */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

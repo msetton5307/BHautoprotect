@@ -351,6 +351,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: list policies
+  app.get('/api/admin/policies', basicAuth, async (_req, res) => {
+    try {
+      const policies = await storage.getPolicies();
+      res.json({ data: policies, message: 'Policies retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching policies:', error);
+      res.status(500).json({ message: 'Failed to fetch policies' });
+    }
+  });
+
+  // Admin: list claims
+  app.get('/api/admin/claims', basicAuth, async (_req, res) => {
+    try {
+      const claims = await storage.getClaims();
+      res.json({ data: claims, message: 'Claims retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching claims:', error);
+      res.status(500).json({ message: 'Failed to fetch claims' });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

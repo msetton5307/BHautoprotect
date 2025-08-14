@@ -10,6 +10,8 @@ import PrivacyPage from "@/pages/legal/privacy";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminLeads from "@/pages/admin/leads";
 import AdminLeadDetail from "@/pages/admin/leads/[id]";
+import AdminPolicies from "@/pages/admin/policies";
+import AdminClaims from "@/pages/admin/claims";
 import About from "@/pages/about";
 import FAQ from "@/pages/faq";
 
@@ -23,6 +25,8 @@ function Router() {
       <Route path="/legal/privacy" component={PrivacyPage} />
       <Route path="/admin/leads/:id" component={AdminLeadDetail} />
       <Route path="/admin/leads" component={AdminLeads} />
+      <Route path="/admin/policies" component={AdminPolicies} />
+      <Route path="/admin/claims" component={AdminClaims} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
