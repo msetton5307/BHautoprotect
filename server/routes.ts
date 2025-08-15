@@ -363,9 +363,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: update lead metadata
-  app.patch('/api/admin/leads/:id', basicAuth, (req, res) => {
-    const schema = z.object({
+  // Admin: update lead data
+  app.patch('/api/admin/leads/:id', basicAuth, async (req, res) => {
+    const schema = insertLeadSchema.partial().extend({
       status: z
         .enum([
           'new',
@@ -384,9 +384,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
     try {
       const data = schema.parse(req.body);
-      const current = getLeadMeta(req.params.id);
-      leadMeta[req.params.id] = { ...current, ...data };
-      res.json({ data: leadMeta[req.params.id], message: 'Lead updated successfully' });
+      const { status, ...leadUpdates } = data;
+      if (Object.keys(leadUpdates).length > 0) {
+        await storage.updateLead(req.params.id, leadUpdates);
+      }
+      if (status) {
+        const current = getLeadMeta(req.params.id);
+        leadMeta[req.params.id] = { ...current, status };
+      }
+      const updatedLead = await storage.getLead(req.params.id);
+      res.json({
+        data: { lead: updatedLead, status: getLeadMeta(req.params.id).status },
+        message: 'Lead updated successfully',
+      });
     } catch (error) {
       console.error('Error updating lead:', error);
       res.status(400).json({ message: 'Invalid lead data' });
