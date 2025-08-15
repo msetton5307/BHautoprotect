@@ -454,6 +454,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'claim_covered_closed',
         ])
         .optional(),
+      nextEstimate: z.number().optional(),
+      nextPayment: z.number().optional(),
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+      email: z.string().email().optional(),
+      phone: z.string().optional(),
+      year: z.number().int().optional(),
+      make: z.string().optional(),
+      model: z.string().optional(),
+      trim: z.string().optional(),
+      vin: z.string().optional(),
+      serial: z.string().optional(),
+      odometer: z.number().int().optional(),
+      currentOdometer: z.number().int().optional(),
+      claimReason: z.string().optional(),
+      agentClaimNumber: z.string().optional(),
+      message: z.string().optional(),
+      previousNotes: z.string().optional(),
     });
     try {
       const data = schema.parse(req.body);

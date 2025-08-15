@@ -102,12 +102,26 @@ export const claims = pgTable("claims", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   policyId: varchar("policy_id").references(() => policies.id, { onDelete: 'cascade' }),
   status: claimStatusEnum("status").default('new'),
+  nextEstimate: decimal("next_estimate"),
+  nextPayment: decimal("next_payment"),
   firstName: varchar("first_name").notNull(),
   lastName: varchar("last_name").notNull(),
   email: varchar("email").notNull(),
   phone: varchar("phone").notNull(),
+  year: integer("year"),
+  make: varchar("make"),
+  model: varchar("model"),
+  trim: varchar("trim"),
+  vin: varchar("vin"),
+  serial: varchar("serial"),
+  odometer: integer("odometer"),
+  currentOdometer: integer("current_odometer"),
+  claimReason: text("claim_reason"),
+  agentClaimNumber: varchar("agent_claim_number"),
   message: text("message").notNull(),
+  previousNotes: text("previous_notes"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 // Relations
@@ -180,6 +194,7 @@ export const insertPolicySchema = createInsertSchema(policies).omit({
 export const insertClaimSchema = createInsertSchema(claims).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
 });
 
 // Types

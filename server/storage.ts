@@ -51,7 +51,7 @@ export interface IStorage {
   createClaim(claim: InsertClaim): Promise<Claim>;
   getClaims(): Promise<Claim[]>;
   getClaim(id: string): Promise<Claim | undefined>;
-  updateClaim(id: string, updates: Partial<Pick<Claim, "status">>): Promise<Claim>;
+  updateClaim(id: string, updates: Partial<Omit<Claim, "id" | "createdAt">>): Promise<Claim>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -126,7 +126,10 @@ export class DatabaseStorage implements IStorage {
 
   // Claim operations
   async createClaim(claimData: InsertClaim): Promise<Claim> {
-    const [claim] = await db.insert(claims).values(claimData).returning();
+    const [claim] = await db
+      .insert(claims)
+      .values({ ...claimData, createdAt: getEasternDate(), updatedAt: getEasternDate() })
+      .returning();
     return claim;
   }
 
@@ -140,10 +143,10 @@ export class DatabaseStorage implements IStorage {
     return claim;
   }
 
-  async updateClaim(id: string, updates: Partial<Pick<Claim, "status">>): Promise<Claim> {
+  async updateClaim(id: string, updates: Partial<Omit<Claim, "id" | "createdAt">>): Promise<Claim> {
     const [claim] = await db
       .update(claims)
-      .set(updates)
+      .set({ ...updates, updatedAt: getEasternDate() })
       .where(eq(claims.id, id))
       .returning();
     return claim;
