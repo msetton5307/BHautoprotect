@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminNav from "@/components/admin-nav";
@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 const getAuthHeaders = () => ({
@@ -28,10 +30,10 @@ export default function AdminClaimDetail() {
   });
 
   const claim = data?.data;
-  const [status, setStatus] = useState('new');
+  const [formData, setFormData] = useState<any>({});
 
   useEffect(() => {
-    if (claim) setStatus(claim.status);
+    if (claim) setFormData(claim);
   }, [claim]);
 
   const updateMutation = useMutation({
@@ -53,9 +55,18 @@ export default function AdminClaimDetail() {
     },
   });
 
+  const handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev: any) => ({ ...prev, [name]: value }));
+  };
+
   const handleStatusChange = (value: string) => {
-    setStatus(value);
-    updateMutation.mutate({ status: value });
+    setFormData((prev: any) => ({ ...prev, status: value }));
+  };
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    updateMutation.mutate(formData);
   };
 
   if (isLoading || !claim) {
@@ -69,54 +80,123 @@ export default function AdminClaimDetail() {
   return (
     <div className="min-h-screen bg-gray-50">
       <AdminNav />
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-4">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-4">
         <Button variant="ghost" asChild>
           <Link href="/admin/claims">&larr; Back to Claims</Link>
         </Button>
         <Card>
           <CardHeader>
-            <CardTitle>Claim Details</CardTitle>
-            <CardDescription>Review claim information and update status</CardDescription>
+            <CardTitle>Update Claim</CardTitle>
+            <CardDescription>Modify claim information</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label>Name</Label>
-                <p>{claim.firstName} {claim.lastName}</p>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>ID</Label>
+                  <Input value={formData.id} disabled />
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select value={formData.status} onValueChange={handleStatusChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">New</SelectItem>
+                      <SelectItem value="denied">Denied</SelectItem>
+                      <SelectItem value="awaiting_customer_action">Awaiting Customer Action</SelectItem>
+                      <SelectItem value="awaiting_inspection">Awaiting Inspection</SelectItem>
+                      <SelectItem value="claim_covered_open">Claim Covered Open</SelectItem>
+                      <SelectItem value="claim_covered_closed">Claim Covered Closed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="nextEstimate">Next Estimate</Label>
+                  <Input name="nextEstimate" value={formData.nextEstimate || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="nextPayment">Next Payment (from policy)</Label>
+                  <Input name="nextPayment" value={formData.nextPayment || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input name="firstName" value={formData.firstName || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input name="lastName" value={formData.lastName || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="email">Email</Label>
+                  <Input name="email" value={formData.email || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="phone">Phone</Label>
+                  <Input name="phone" value={formData.phone || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="year">Year</Label>
+                  <Input name="year" value={formData.year || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="make">Make</Label>
+                  <Input name="make" value={formData.make || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="model">Model</Label>
+                  <Input name="model" value={formData.model || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="trim">Trim</Label>
+                  <Input name="trim" value={formData.trim || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="vin">VIN</Label>
+                  <Input name="vin" value={formData.vin || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="serial">Serial</Label>
+                  <Input name="serial" value={formData.serial || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="odometer">Odometer</Label>
+                  <Input name="odometer" value={formData.odometer || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="currentOdometer">Current Odometer Reading</Label>
+                  <Input name="currentOdometer" value={formData.currentOdometer || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="claimReason">Claim Reason</Label>
+                  <Input name="claimReason" value={formData.claimReason || ''} onChange={handleInputChange} />
+                </div>
+                <div>
+                  <Label htmlFor="agentClaimNumber">Agent Claim Number</Label>
+                  <Input name="agentClaimNumber" value={formData.agentClaimNumber || ''} onChange={handleInputChange} />
+                </div>
               </div>
               <div>
-                <Label>Email</Label>
-                <p>{claim.email}</p>
+                <Label htmlFor="message">Claim Notes</Label>
+                <Textarea name="message" value={formData.message || ''} onChange={handleInputChange} />
               </div>
               <div>
-                <Label>Phone</Label>
-                <p>{claim.phone}</p>
+                <Label htmlFor="previousNotes">Previous Notes</Label>
+                <Textarea name="previousNotes" value={formData.previousNotes || ''} onChange={handleInputChange} />
               </div>
-              <div>
-                <Label>Submitted</Label>
-                <p>{new Date(claim.createdAt).toLocaleString()}</p>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Created</Label>
+                  <Input value={formData.createdAt ? new Date(formData.createdAt).toLocaleString() : ''} disabled />
+                </div>
+                <div>
+                  <Label>Modified</Label>
+                  <Input value={formData.updatedAt ? new Date(formData.updatedAt).toLocaleString() : ''} disabled />
+                </div>
               </div>
-            </div>
-            <div>
-              <Label>Message</Label>
-              <p className="whitespace-pre-line">{claim.message}</p>
-            </div>
-            <div className="max-w-xs">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={handleStatusChange}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="denied">Denied</SelectItem>
-                  <SelectItem value="awaiting_customer_action">Awaiting Customer Action</SelectItem>
-                  <SelectItem value="awaiting_inspection">Awaiting Inspection</SelectItem>
-                  <SelectItem value="claim_covered_open">Claim Covered Open</SelectItem>
-                  <SelectItem value="claim_covered_closed">Claim Covered Closed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              <Button type="submit">Submit</Button>
+            </form>
           </CardContent>
         </Card>
       </div>
