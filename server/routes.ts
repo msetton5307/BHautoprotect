@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertVehicleSchema, insertClaimSchema } from "@shared/schema";
+import { insertLeadSchema, insertVehicleSchema, insertClaimSchema, type InsertLead } from "@shared/schema";
 import { calculateQuote } from "../client/src/lib/pricing";
 
 const ADMIN_USER = { username: "admin", password: "password" } as const;
@@ -363,30 +363,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin: update lead metadata
-  app.patch('/api/admin/leads/:id', basicAuth, (req, res) => {
-    const schema = z.object({
-      status: z
-        .enum([
-          'new',
-          'quoted',
-          'callback',
-          'left-message',
-          'no-contact',
-          'wrong-number',
-          'fake-lead',
-          'not-interested',
-          'duplicate-lead',
-          'dnc',
-          'sold',
-        ])
-        .optional(),
-    });
+  // Admin: update lead data
+  app.patch('/api/admin/leads/:id', basicAuth, async (req, res) => {
+    const schema = insertLeadSchema
+      .extend({ consentTimestamp: z.coerce.date().optional() })
+      .partial()
+      .extend({
+        status: z
+          .enum([
+            'new',
+            'quoted',
+            'callback',
+            'left-message',
+            'no-contact',
+            'wrong-number',
+            'fake-lead',
+            'not-interested',
+            'duplicate-lead',
+            'dnc',
+            'sold',
+          ])
+          .optional(),
+      });
     try {
       const data = schema.parse(req.body);
-      const current = getLeadMeta(req.params.id);
-      leadMeta[req.params.id] = { ...current, ...data };
-      res.json({ data: leadMeta[req.params.id], message: 'Lead updated successfully' });
+      const { status, consentTimestamp, ...updates } = data;
+      const existingLead = await storage.getLead(req.params.id);
+      if (!existingLead) {
+        return res.status(404).json({ message: 'Lead not found' });
+      }
+      const leadUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([key, value]) => {
+          const current = (existingLead as any)[key];
+          if (value instanceof Date && current instanceof Date) {
+            return value.getTime() !== current.getTime();
+          }
+          return value !== current;
+        })
+      ) as Partial<InsertLead>;
+      if (Object.keys(leadUpdates).length > 0) {
+        await storage.updateLead(req.params.id, leadUpdates);
+      }
+      if (status) {
+        const current = getLeadMeta(req.params.id);
+        leadMeta[req.params.id] = { ...current, status };
+      }
+      const updatedLead = await storage.getLead(req.params.id);
+      res.json({
+        data: { lead: updatedLead, status: getLeadMeta(req.params.id).status },
+        message: 'Lead updated successfully',
+      });
     } catch (error) {
       console.error('Error updating lead:', error);
       res.status(400).json({ message: 'Invalid lead data' });
