@@ -464,6 +464,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: create claim
+  app.post('/api/admin/claims', basicAuth, async (req, res) => {
+    try {
+      const claimData = insertClaimSchema.parse(req.body);
+      const claim = await storage.createClaim(claimData);
+      res.json({ data: claim, message: 'Claim created successfully' });
+    } catch (error) {
+      console.error('Error creating claim:', error);
+      res.status(400).json({ message: 'Invalid claim data' });
+    }
+  });
+
   // Admin: list claims
   app.get('/api/admin/claims', basicAuth, async (_req, res) => {
     try {
@@ -491,18 +503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: update claim
   app.patch('/api/admin/claims/:id', basicAuth, async (req, res) => {
-    const schema = z.object({
-      status: z
-        .enum([
-          'new',
-          'denied',
-          'awaiting_customer_action',
-          'awaiting_inspection',
-          'claim_covered_open',
-          'claim_covered_closed',
-        ])
-        .optional(),
-    });
+    const schema = insertClaimSchema.partial();
     try {
       const data = schema.parse(req.body);
       const claim = await storage.updateClaim(req.params.id, data);
