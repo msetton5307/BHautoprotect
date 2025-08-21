@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertVehicleSchema, insertClaimSchema, type InsertLead } from "@shared/schema";
+import { insertLeadSchema, insertVehicleSchema, insertPolicySchema, insertClaimSchema, type InsertLead } from "@shared/schema";
 import { calculateQuote } from "../client/src/lib/pricing";
 
 const ADMIN_USER = { username: "admin", password: "password" } as const;
@@ -309,6 +309,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vehicle = await storage.getVehicleByLeadId(req.params.id);
       const quotes = await storage.getQuotesByLeadId(req.params.id);
       const notes = await storage.getNotesByLeadId(req.params.id);
+      const policy = await storage.getPolicyByLeadId(req.params.id);
       const meta = getLeadMeta(req.params.id);
       res.json({
         data: {
@@ -316,6 +317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           vehicle,
           quotes,
           notes,
+          policy,
         },
         message: 'Lead retrieved successfully',
       });
@@ -365,7 +367,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: update lead data
   app.patch('/api/admin/leads/:id', basicAuth, async (req, res) => {
-    const schema = insertLeadSchema
+    const leadSchema = insertLeadSchema
       .extend({ consentTimestamp: z.coerce.date().optional() })
       .partial()
       .extend({
@@ -384,10 +386,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             'sold',
           ])
           .optional(),
+        vehicle: insertVehicleSchema.partial().optional(),
+        policy: insertPolicySchema.partial().optional(),
       });
     try {
-      const data = schema.parse(req.body);
-      const { status, consentTimestamp, ...updates } = data;
+      const data = leadSchema.parse(req.body);
+      const { status, consentTimestamp, vehicle, policy, ...updates } = data as any;
       const existingLead = await storage.getLead(req.params.id);
       if (!existingLead) {
         return res.status(404).json({ message: 'Lead not found' });
@@ -404,13 +408,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (Object.keys(leadUpdates).length > 0) {
         await storage.updateLead(req.params.id, leadUpdates);
       }
+      if (vehicle) {
+        const existingVehicle = await storage.getVehicleByLeadId(req.params.id);
+        if (existingVehicle) {
+          await storage.updateVehicle(req.params.id, vehicle);
+        } else {
+          await storage.createVehicle({ ...vehicle, leadId: req.params.id });
+        }
+      }
+      if (policy) {
+        await storage.updatePolicy(req.params.id, policy);
+      }
       if (status) {
         const current = getLeadMeta(req.params.id);
         leadMeta[req.params.id] = { ...current, status };
       }
       const updatedLead = await storage.getLead(req.params.id);
+      const updatedVehicle = await storage.getVehicleByLeadId(req.params.id);
+      const updatedPolicy = await storage.getPolicyByLeadId(req.params.id);
       res.json({
-        data: { lead: updatedLead, status: getLeadMeta(req.params.id).status },
+        data: {
+          lead: updatedLead,
+          vehicle: updatedVehicle,
+          policy: updatedPolicy,
+          status: getLeadMeta(req.params.id).status,
+        },
         message: 'Lead updated successfully',
       });
     } catch (error) {

@@ -35,6 +35,7 @@ export interface IStorage {
   // Vehicle operations
   getVehicleByLeadId(leadId: string): Promise<Vehicle | undefined>;
   createVehicle(vehicle: InsertVehicle): Promise<Vehicle>;
+  updateVehicle(leadId: string, updates: Partial<InsertVehicle>): Promise<Vehicle>;
   
   // Quote operations
   getQuotesByLeadId(leadId: string): Promise<Quote[]>;
@@ -47,6 +48,8 @@ export interface IStorage {
   // Policy operations
   createPolicy(policy: InsertPolicy): Promise<Policy>;
   getPolicies(): Promise<Policy[]>;
+  getPolicyByLeadId(leadId: string): Promise<Policy | undefined>;
+  updatePolicy(leadId: string, updates: Partial<InsertPolicy>): Promise<Policy>;
 
   // Claim operations
   createClaim(claim: InsertClaim): Promise<Claim>;
@@ -97,6 +100,15 @@ export class DatabaseStorage implements IStorage {
     return vehicle;
   }
 
+  async updateVehicle(leadId: string, updates: Partial<InsertVehicle>): Promise<Vehicle> {
+    const [vehicle] = await db
+      .update(vehicles)
+      .set(updates)
+      .where(eq(vehicles.leadId, leadId))
+      .returning();
+    return vehicle;
+  }
+
   // Quote operations
   async getQuotesByLeadId(leadId: string): Promise<Quote[]> {
     const result = await db.select().from(quotes).where(eq(quotes.leadId, leadId)).orderBy(desc(quotes.createdAt));
@@ -132,6 +144,28 @@ export class DatabaseStorage implements IStorage {
   async getPolicies(): Promise<Policy[]> {
     const result = await db.select().from(policies).orderBy(desc(policies.createdAt));
     return result;
+  }
+
+  async getPolicyByLeadId(leadId: string): Promise<Policy | undefined> {
+    const [policy] = await db.select().from(policies).where(eq(policies.leadId, leadId));
+    return policy;
+  }
+
+  async updatePolicy(leadId: string, updates: Partial<InsertPolicy>): Promise<Policy> {
+    const existing = await this.getPolicyByLeadId(leadId);
+    if (existing) {
+      const [policy] = await db
+        .update(policies)
+        .set(updates)
+        .where(eq(policies.leadId, leadId))
+        .returning();
+      return policy;
+    }
+    const [policy] = await db
+      .insert(policies)
+      .values({ ...updates, leadId })
+      .returning();
+    return policy;
   }
 
   // Claim operations

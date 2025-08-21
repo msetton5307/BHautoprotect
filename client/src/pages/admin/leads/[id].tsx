@@ -43,6 +43,7 @@ export default function AdminLeadDetail() {
     monthlyPayment: '',
     totalPayments: '',
   });
+  const [vehicleForm, setVehicleForm] = useState<any>({});
   const [newNote, setNewNote] = useState('');
   const [leadForm, setLeadForm] = useState<any>({});
 
@@ -180,6 +181,28 @@ export default function AdminLeadDetail() {
     if (leadData?.data?.lead) {
       setLeadForm(leadData.data.lead);
     }
+    if (leadData?.data?.vehicle) {
+      const v = leadData.data.vehicle;
+      setVehicleForm({
+        ...v,
+        year: v.year?.toString(),
+        odometer: v.odometer?.toString(),
+      });
+    }
+    if (leadData?.data?.policy) {
+      const p = leadData.data.policy;
+      setPolicyForm({
+        package: p.package || '',
+        expirationMiles: p.expirationMiles?.toString() || '',
+        expirationDate: p.expirationDate ? p.expirationDate.slice(0, 10) : '',
+        deductible: p.deductible?.toString() || '',
+        totalPremium: p.totalPremium?.toString() || '',
+        downPayment: p.downPayment?.toString() || '',
+        policyStartDate: p.policyStartDate ? p.policyStartDate.slice(0, 10) : '',
+        monthlyPayment: p.monthlyPayment?.toString() || '',
+        totalPayments: p.totalPayments?.toString() || '',
+      });
+    }
   }, [leadData]);
 
   if (isLoading) {
@@ -203,15 +226,38 @@ export default function AdminLeadDetail() {
     );
   }
 
-  const { vehicle, quotes, notes } = leadData.data;
+  const { quotes, notes } = leadData.data;
 
   const handleCreateQuote = () => {
     createQuoteMutation.mutate(quoteForm);
   };
 
   const handleSave = () => {
-    const { id: _id, ...updates } = leadForm;
-    updateLeadMutation.mutate(updates);
+    const { id: _id, ...leadUpdates } = leadForm;
+    const vehiclePayload = { ...vehicleForm } as any;
+    ['year', 'odometer'].forEach((key) => {
+      if (vehiclePayload[key] === '' || vehiclePayload[key] === undefined) {
+        delete vehiclePayload[key];
+      } else {
+        vehiclePayload[key] = Number(vehiclePayload[key]);
+      }
+    });
+
+    const policyPayload = { ...policyForm } as any;
+    ['expirationMiles','deductible','totalPremium','downPayment','monthlyPayment','totalPayments'].forEach((key) => {
+      if (policyPayload[key] === '' || policyPayload[key] === undefined) {
+        delete policyPayload[key];
+      } else {
+        policyPayload[key] = Number(policyPayload[key]);
+      }
+    });
+    if (!policyPayload.expirationDate) delete policyPayload.expirationDate;
+    if (!policyPayload.policyStartDate) delete policyPayload.policyStartDate;
+
+    const payload: any = { ...leadUpdates };
+    if (Object.keys(vehiclePayload).length > 0) payload.vehicle = vehiclePayload;
+    if (Object.keys(policyPayload).length > 0) payload.policy = policyPayload;
+    updateLeadMutation.mutate(payload);
   };
 
   return (
@@ -667,35 +713,51 @@ export default function AdminLeadDetail() {
                 <AccordionItem value="vehicle">
                   <AccordionTrigger>Vehicle Information</AccordionTrigger>
                   <AccordionContent className="overflow-visible">
-                    {vehicle ? (
+                    {Object.keys(vehicleForm).length > 0 ? (
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label>Year</Label>
-                            <Input value={vehicle.year} readOnly />
+                            <Input
+                              value={vehicleForm.year || ''}
+                              onChange={(e) => setVehicleForm({ ...vehicleForm, year: e.target.value })}
+                            />
                           </div>
                           <div>
                             <Label>Make</Label>
-                            <Input value={vehicle.make} readOnly />
+                            <Input
+                              value={vehicleForm.make || ''}
+                              onChange={(e) => setVehicleForm({ ...vehicleForm, make: e.target.value })}
+                            />
                           </div>
                         </div>
                         <div>
                           <Label>Model</Label>
-                          <Input value={vehicle.model} readOnly />
+                          <Input
+                            value={vehicleForm.model || ''}
+                            onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                          />
                         </div>
                         <div>
                           <Label>Mileage</Label>
-                          <Input value={`${vehicle.odometer.toLocaleString()}`} readOnly />
+                          <Input
+                            value={vehicleForm.odometer || ''}
+                            onChange={(e) => setVehicleForm({ ...vehicleForm, odometer: e.target.value })}
+                          />
                         </div>
-                        {vehicle.vin && (
-                          <div>
-                            <Label>Vin</Label>
-                            <Input value={vehicle.vin} readOnly />
-                          </div>
-                        )}
+                        <div>
+                          <Label>Vin</Label>
+                          <Input
+                            value={vehicleForm.vin || ''}
+                            onChange={(e) => setVehicleForm({ ...vehicleForm, vin: e.target.value })}
+                          />
+                        </div>
                         <div>
                           <Label>Registered State</Label>
-                          <Input value={leadForm.state || ''} readOnly />
+                          <Input
+                            value={leadForm.state || ''}
+                            onChange={(e) => setLeadForm({ ...leadForm, state: e.target.value })}
+                          />
                         </div>
                       </div>
                     ) : (
