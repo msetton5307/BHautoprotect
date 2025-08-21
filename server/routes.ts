@@ -2,7 +2,7 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertVehicleSchema, insertClaimSchema } from "@shared/schema";
+import { insertLeadSchema, insertVehicleSchema, insertClaimSchema, type InsertLead } from "@shared/schema";
 import { calculateQuote } from "../client/src/lib/pricing";
 
 const ADMIN_USER = { username: "admin", password: "password" } as const;
@@ -365,26 +365,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: update lead data
   app.patch('/api/admin/leads/:id', basicAuth, async (req, res) => {
-    const schema = insertLeadSchema.partial().extend({
-      status: z
-        .enum([
-          'new',
-          'quoted',
-          'callback',
-          'left-message',
-          'no-contact',
-          'wrong-number',
-          'fake-lead',
-          'not-interested',
-          'duplicate-lead',
-          'dnc',
-          'sold',
-        ])
-        .optional(),
-    });
+    const schema = insertLeadSchema
+      .extend({ consentTimestamp: z.coerce.date().optional() })
+      .partial()
+      .extend({
+        status: z
+          .enum([
+            'new',
+            'quoted',
+            'callback',
+            'left-message',
+            'no-contact',
+            'wrong-number',
+            'fake-lead',
+            'not-interested',
+            'duplicate-lead',
+            'dnc',
+            'sold',
+          ])
+          .optional(),
+      });
     try {
       const data = schema.parse(req.body);
-      const { status, ...leadUpdates } = data;
+      const { status, consentTimestamp, ...updates } = data;
+      const existingLead = await storage.getLead(req.params.id);
+      if (!existingLead) {
+        return res.status(404).json({ message: 'Lead not found' });
+      }
+      const leadUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([key, value]) => {
+          const current = (existingLead as any)[key];
+          if (value instanceof Date && current instanceof Date) {
+            return value.getTime() !== current.getTime();
+          }
+          return value !== current;
+        })
+      ) as Partial<InsertLead>;
       if (Object.keys(leadUpdates).length > 0) {
         await storage.updateLead(req.params.id, leadUpdates);
       }
@@ -464,24 +480,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'claim_covered_closed',
         ])
         .optional(),
-      nextEstimate: z.number().optional(),
-      nextPayment: z.number().optional(),
-      firstName: z.string().optional(),
-      lastName: z.string().optional(),
-      email: z.string().email().optional(),
-      phone: z.string().optional(),
-      year: z.number().int().optional(),
-      make: z.string().optional(),
-      model: z.string().optional(),
-      trim: z.string().optional(),
-      vin: z.string().optional(),
-      serial: z.string().optional(),
-      odometer: z.number().int().optional(),
-      currentOdometer: z.number().int().optional(),
-      claimReason: z.string().optional(),
-      agentClaimNumber: z.string().optional(),
-      message: z.string().optional(),
-      previousNotes: z.string().optional(),
     });
     try {
       const data = schema.parse(req.body);
