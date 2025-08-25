@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { getAuthHeaders } from "@/lib/auth";
 
-const getAuthHeaders = () => ({
-  Authorization: 'Basic ' + btoa('admin:password'),
+const authJsonHeaders = () => ({
+  ...getAuthHeaders(),
   'Content-Type': 'application/json',
 });
 
@@ -40,7 +41,7 @@ export default function AdminClaimDetail() {
     mutationFn: (updates: any) =>
       fetch(`/api/admin/claims/${id}`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
+        headers: authJsonHeaders(),
         body: JSON.stringify(updates),
       }).then(res => {
         if (!res.ok) throw new Error('Failed to update claim');
