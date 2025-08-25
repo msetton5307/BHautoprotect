@@ -9,10 +9,10 @@ import { Users, Search, Filter, Eye } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
+import { getAuthHeaders } from "@/lib/auth";
 
-// Helper function to set basic auth header
-const getAuthHeaders = () => ({
-  Authorization: 'Basic ' + btoa('admin:password'),
+const authJsonHeaders = () => ({
+  ...getAuthHeaders(),
   'Content-Type': 'application/json',
 });
 
@@ -28,8 +28,8 @@ export default function AdminLeads() {
   const { data: leadsData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads'],
     queryFn: () => 
-      fetch('/api/admin/leads', { 
-        headers: getAuthHeaders() 
+      fetch('/api/admin/leads', {
+        headers: getAuthHeaders()
       }).then(res => {
         if (!res.ok) throw new Error('Failed to fetch leads');
         return res.json();
@@ -40,7 +40,7 @@ export default function AdminLeads() {
     mutationFn: ({ id, updates }: { id: string, updates: any }) =>
       fetch(`/api/admin/leads/${id}`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
+        headers: authJsonHeaders(),
         body: JSON.stringify(updates),
       }).then(res => {
         if (!res.ok) throw new Error('Failed to update lead');

@@ -1,17 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Users, FileText, Target, TrendingUp, Activity, Calendar } from "lucide-react";
 import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
-
-// Helper function to set basic auth header
-const getAuthHeaders = () => ({
-  Authorization: 'Basic ' + btoa('admin:password')
-});
+import AdminLogin from "@/components/admin-login";
+import { getAuthHeaders, hasCredentials } from "@/lib/auth";
 
 export default function AdminDashboard() {
+  const [authenticated, setAuthenticated] = useState(hasCredentials());
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={() => setAuthenticated(true)} />;
+  }
+
   const { data: stats, isLoading } = useQuery({
     queryKey: ['/api/admin/stats'],
     queryFn: () => 
