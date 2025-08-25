@@ -47,7 +47,7 @@ export interface IStorage {
 
   // Policy operations
   createPolicy(policy: InsertPolicy): Promise<Policy>;
-  getPolicies(): Promise<Policy[]>;
+  getPolicies(): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null })[]>;
   getPolicyByLeadId(leadId: string): Promise<Policy | undefined>;
   updatePolicy(leadId: string, updates: Partial<InsertPolicy>): Promise<Policy>;
 
@@ -141,9 +141,23 @@ export class DatabaseStorage implements IStorage {
     return policy;
   }
 
-  async getPolicies(): Promise<Policy[]> {
-    const result = await db.select().from(policies).orderBy(desc(policies.createdAt));
-    return result;
+  async getPolicies(): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null })[]> {
+    const result = await db
+      .select({
+        policy: policies,
+        lead: leads,
+        vehicle: vehicles,
+      })
+      .from(policies)
+      .leftJoin(leads, eq(policies.leadId, leads.id))
+      .leftJoin(vehicles, eq(vehicles.leadId, leads.id))
+      .orderBy(desc(policies.createdAt));
+
+    return result.map((row: { policy: Policy; lead: Lead | null; vehicle: Vehicle | null }) => ({
+      ...row.policy,
+      lead: row.lead,
+      vehicle: row.vehicle,
+    }));
   }
 
   async getPolicyByLeadId(leadId: string): Promise<Policy | undefined> {
