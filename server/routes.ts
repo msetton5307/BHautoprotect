@@ -40,20 +40,16 @@ const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZ
 const basicAuth: RequestHandler = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
-    // Prompt browser to display a login dialog for the admin area
-    res.set("WWW-Authenticate", 'Basic realm="BHautoprotect Admin"');
     return res.status(401).send("Authentication required");
   }
   const [type, credentials] = authHeader.split(" ");
   if (type !== "Basic" || !credentials) {
-    res.set("WWW-Authenticate", 'Basic realm="BHautoprotect Admin"');
     return res.status(401).send("Invalid authorization header");
   }
   const [user, pass] = Buffer.from(credentials, "base64").toString().split(":");
   if (user === ADMIN_USER.username && pass === ADMIN_USER.password) {
     return next();
   }
-  res.set("WWW-Authenticate", 'Basic realm="BHautoprotect Admin"');
   return res.status(401).send("Invalid credentials");
 };
 

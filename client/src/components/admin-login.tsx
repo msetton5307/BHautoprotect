@@ -10,7 +10,7 @@ type Props = {
 
 export default function AdminLogin({ onSuccess }: Props) {
   const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("BHauto123");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,4 +57,3 @@ export default function AdminLogin({ onSuccess }: Props) {
     </div>
   );
 }
-
