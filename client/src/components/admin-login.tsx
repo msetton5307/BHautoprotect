@@ -57,4 +57,3 @@ export default function AdminLogin({ onSuccess }: Props) {
     </div>
   );
 }
-
