@@ -27,13 +27,16 @@ export default function AdminLeads() {
 
   const { data: leadsData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads'],
-    queryFn: () => 
+    queryFn: () =>
       fetch('/api/admin/leads', {
         headers: getAuthHeaders()
       }).then(res => {
         if (!res.ok) throw new Error('Failed to fetch leads');
         return res.json();
-      })
+      }),
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const updateLeadMutation = useMutation({
