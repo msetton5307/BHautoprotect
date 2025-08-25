@@ -33,13 +33,24 @@ export default function AdminPolicies() {
             <CardTitle>Policies</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
+            <div className="rounded-md border overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>ID</TableHead>
-                    <TableHead>Lead ID</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Vehicle</TableHead>
                     <TableHead>Package</TableHead>
+                    <TableHead>Start Date</TableHead>
+                    <TableHead>Expiration Date</TableHead>
+                    <TableHead>Exp. Miles</TableHead>
+                    <TableHead>Deductible</TableHead>
+                    <TableHead>Total Premium</TableHead>
+                    <TableHead>Down Payment</TableHead>
+                    <TableHead>Monthly Payment</TableHead>
+                    <TableHead>Total Payments</TableHead>
                     <TableHead>Created</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -47,14 +58,25 @@ export default function AdminPolicies() {
                   {policies.map((policy: any) => (
                     <TableRow key={policy.id}>
                       <TableCell>{policy.id}</TableCell>
-                      <TableCell>{policy.leadId}</TableCell>
+                      <TableCell>{policy.lead ? `${policy.lead.firstName ?? ''} ${policy.lead.lastName ?? ''}`.trim() || 'N/A' : 'N/A'}</TableCell>
+                      <TableCell>{policy.lead?.email || 'N/A'}</TableCell>
+                      <TableCell>{policy.lead?.phone || 'N/A'}</TableCell>
+                      <TableCell>{policy.vehicle ? `${policy.vehicle.year} ${policy.vehicle.make} ${policy.vehicle.model}` : 'N/A'}</TableCell>
                       <TableCell>{policy.package || 'N/A'}</TableCell>
+                      <TableCell>{policy.policyStartDate ? new Date(policy.policyStartDate).toLocaleDateString() : 'N/A'}</TableCell>
+                      <TableCell>{policy.expirationDate ? new Date(policy.expirationDate).toLocaleDateString() : 'N/A'}</TableCell>
+                      <TableCell>{policy.expirationMiles ?? 'N/A'}</TableCell>
+                      <TableCell>{policy.deductible != null ? `$${policy.deductible}` : 'N/A'}</TableCell>
+                      <TableCell>{policy.totalPremium != null ? `$${policy.totalPremium}` : 'N/A'}</TableCell>
+                      <TableCell>{policy.downPayment != null ? `$${policy.downPayment}` : 'N/A'}</TableCell>
+                      <TableCell>{policy.monthlyPayment != null ? `$${policy.monthlyPayment}` : 'N/A'}</TableCell>
+                      <TableCell>{policy.totalPayments != null ? `$${policy.totalPayments}` : 'N/A'}</TableCell>
                       <TableCell>{new Date(policy.createdAt).toLocaleDateString()}</TableCell>
                     </TableRow>
                   ))}
                   {policies.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-4 text-gray-500">
+                      <TableCell colSpan={15} className="text-center py-4 text-gray-500">
                         No policies found
                       </TableCell>
                     </TableRow>
