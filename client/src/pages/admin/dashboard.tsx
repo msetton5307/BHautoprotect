@@ -18,24 +18,30 @@ export default function AdminDashboard() {
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['/api/admin/stats'],
-    queryFn: () => 
-      fetch('/api/admin/stats', { 
-        headers: getAuthHeaders() 
+    queryFn: () =>
+      fetch('/api/admin/stats', {
+        headers: getAuthHeaders()
       }).then(res => {
         if (!res.ok) throw new Error('Failed to fetch stats');
         return res.json();
-      })
+      }),
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   const { data: recentLeads } = useQuery({
     queryKey: ['/api/admin/leads'],
-    queryFn: () => 
-      fetch('/api/admin/leads', { 
-        headers: getAuthHeaders() 
+    queryFn: () =>
+      fetch('/api/admin/leads', {
+        headers: getAuthHeaders()
       }).then(res => {
         if (!res.ok) throw new Error('Failed to fetch leads');
         return res.json();
-      })
+      }),
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+    staleTime: 0,
   });
 
   if (isLoading) {
