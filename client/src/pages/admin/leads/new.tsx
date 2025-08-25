@@ -7,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getAuthHeaders } from "@/lib/auth";
 
-const getAuthHeaders = () => ({
-  Authorization: 'Basic ' + btoa('admin:password'),
+const authJsonHeaders = () => ({
+  ...getAuthHeaders(),
   'Content-Type': 'application/json',
 });
 
@@ -32,7 +33,7 @@ export default function AdminLeadNew() {
     mutationFn: (data: typeof form) =>
       fetch('/api/admin/leads', {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: authJsonHeaders(),
         body: JSON.stringify({
           lead: {
             firstName: data.firstName,

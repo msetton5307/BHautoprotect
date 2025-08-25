@@ -13,10 +13,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ArrowLeft, User, Car, Activity, Phone, Mail, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
+import { getAuthHeaders } from "@/lib/auth";
 
-// Helper function to set basic auth header
-const getAuthHeaders = () => ({
-  Authorization: 'Basic ' + btoa('admin:password'),
+// Helper to include JSON content type with auth header
+const authJsonHeaders = () => ({
+  ...getAuthHeaders(),
   'Content-Type': 'application/json',
 });
 
@@ -50,8 +51,8 @@ export default function AdminLeadDetail() {
   const { data: leadData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads', id],
     queryFn: () => 
-      fetch(`/api/admin/leads/${id}`, { 
-        headers: getAuthHeaders() 
+      fetch(`/api/admin/leads/${id}`, {
+        headers: getAuthHeaders()
       }).then(res => {
         if (!res.ok) throw new Error('Failed to fetch lead');
         return res.json();
@@ -63,7 +64,7 @@ export default function AdminLeadDetail() {
     mutationFn: (updates: any) =>
       fetch(`/api/admin/leads/${id}`, {
         method: 'PATCH',
-        headers: getAuthHeaders(),
+        headers: authJsonHeaders(),
         body: JSON.stringify(updates),
       }).then(res => {
         if (!res.ok) throw new Error('Failed to update lead');
@@ -89,7 +90,7 @@ export default function AdminLeadDetail() {
     mutationFn: (quoteData: any) =>
       fetch(`/api/leads/${id}/coverage`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: authJsonHeaders(),
         body: JSON.stringify({
           plan: quoteData.plan,
           deductible: quoteData.deductible,
@@ -128,7 +129,7 @@ export default function AdminLeadDetail() {
     mutationFn: (policyData: any) =>
       fetch(`/api/admin/leads/${id}/convert`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: authJsonHeaders(),
         body: JSON.stringify(policyData),
       }).then(res => {
         if (!res.ok) throw new Error('Failed to convert lead');
@@ -154,7 +155,7 @@ export default function AdminLeadDetail() {
     mutationFn: (content: string) =>
       fetch(`/api/admin/leads/${id}/notes`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: authJsonHeaders(),
         body: JSON.stringify({ content }),
       }).then(res => {
         if (!res.ok) throw new Error('Failed to add note');

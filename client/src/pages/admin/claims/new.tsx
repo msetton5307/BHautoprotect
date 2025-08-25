@@ -9,9 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { getAuthHeaders } from "@/lib/auth";
 
-const getAuthHeaders = () => ({
-  Authorization: 'Basic ' + btoa('admin:password'),
+const authJsonHeaders = () => ({
+  ...getAuthHeaders(),
   'Content-Type': 'application/json',
 });
 
@@ -53,7 +54,7 @@ export default function AdminClaimNew() {
     mutationFn: (data: typeof form) =>
       fetch('/api/admin/claims', {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: authJsonHeaders(),
         body: JSON.stringify(data),
       }).then(res => {
         if (!res.ok) throw new Error('Failed to create claim');

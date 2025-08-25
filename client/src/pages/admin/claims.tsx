@@ -4,10 +4,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
-
-const getAuthHeaders = () => ({
-  Authorization: 'Basic ' + btoa('admin:password'),
-});
+import { getAuthHeaders } from "@/lib/auth";
 
 export default function AdminClaims() {
   const { data, isLoading } = useQuery({

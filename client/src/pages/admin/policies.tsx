@@ -2,10 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import AdminNav from "@/components/admin-nav";
-
-const getAuthHeaders = () => ({
-  Authorization: 'Basic ' + btoa('admin:password'),
-});
+import { getAuthHeaders } from "@/lib/auth";
 
 export default function AdminPolicies() {
   const { data, isLoading } = useQuery({
