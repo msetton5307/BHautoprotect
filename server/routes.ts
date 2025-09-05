@@ -91,20 +91,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       // Create vehicle
-      await storage.createVehicle({
-        ...vehicleData,
-        leadId: lead.id,
-      });
-      
-      res.json({
-        data: lead,
-        message: "Lead created successfully"
-      });
-    } catch (error) {
-      console.error("Error creating lead:", error);
-      res.status(400).json({ message: "Invalid lead data" });
-    }
-  });
+        await storage.createVehicle({
+          ...vehicleData,
+          leadId: lead.id,
+        });
+
+        // Initialize metadata so newly created leads are visible in admin views
+        leadMeta[lead.id] = DEFAULT_META;
+
+        res.status(201).json({
+          data: lead,
+          message: "Lead created successfully"
+        });
+      } catch (error) {
+        console.error("Error creating lead:", error);
+        res.status(400).json({ message: "Invalid lead data" });
+      }
+    });
 
   // Get leads (for future admin use)
   app.get('/api/leads', async (req, res) => {
