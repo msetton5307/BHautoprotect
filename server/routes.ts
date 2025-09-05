@@ -1,12 +1,9 @@
-import type { Express, RequestHandler } from "express";
+import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { insertLeadSchema, insertVehicleSchema, insertPolicySchema, insertClaimSchema, type InsertLead } from "@shared/schema";
 import { calculateQuote } from "../client/src/lib/pricing";
-
-// Default admin credentials for basic authentication
-const ADMIN_USER = { username: "admin", password: "BHauto123" } as const;
 
 type LeadMeta = {
   tags: string[];
@@ -35,23 +32,10 @@ const getLeadMeta = (id: string): LeadMeta => {
   return leadMeta[id] || DEFAULT_META;
 };
 
-const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-
-const basicAuth: RequestHandler = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    return res.status(401).send("Authentication required");
-  }
-  const [type, credentials] = authHeader.split(" ");
-  if (type !== "Basic" || !credentials) {
-    return res.status(401).send("Invalid authorization header");
-  }
-  const [user, pass] = Buffer.from(credentials, "base64").toString().split(":");
-  if (user === ADMIN_USER.username && pass === ADMIN_USER.password) {
-    return next();
-  }
-  return res.status(401).send("Invalid credentials");
-};
+const getEasternDate = () =>
+  new Date(
+    new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
+  );
 
 export async function registerRoutes(app: Express): Promise<Server> {
 
@@ -143,13 +127,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Retrieve basic metadata for a lead
-  app.get('/api/leads/:id/meta', basicAuth, (req, res) => {
+  app.get('/api/leads/:id/meta', (req, res) => {
     const meta = getLeadMeta(req.params.id);
     res.json({ data: meta, message: 'Lead metadata retrieved successfully' });
   });
 
   // Retrieve vehicle information for a lead
-  app.get('/api/leads/:id/vehicle', basicAuth, async (req, res) => {
+  app.get('/api/leads/:id/vehicle', async (req, res) => {
     try {
       const vehicle = await storage.getVehicleByLeadId(req.params.id);
       res.json({ data: vehicle, message: 'Vehicle retrieved successfully' });
@@ -160,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Retrieve quotes for a lead
-  app.get('/api/leads/:id/quotes', basicAuth, async (req, res) => {
+  app.get('/api/leads/:id/quotes', async (req, res) => {
     try {
       const quotes = await storage.getQuotesByLeadId(req.params.id);
       res.json({ data: quotes, message: 'Quotes retrieved successfully' });
@@ -171,7 +155,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update basic lead metadata such as tags
-  app.post('/api/leads/:id/meta', basicAuth, (req, res) => {
+  app.post('/api/leads/:id/meta', (req, res) => {
     const schema = z.object({ tags: z.string().optional() });
     try {
       const data = schema.parse(req.body);
@@ -186,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Assign coverage plan to a lead
-  app.post('/api/leads/:id/coverage', basicAuth, async (req, res) => {
+  app.post('/api/leads/:id/coverage', async (req, res) => {
     const schema = z.object({
       plan: z.enum(['basic', 'gold', 'platinum']),
       deductible: z.coerce.number(),
@@ -214,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: dashboard statistics
-  app.get('/api/admin/stats', basicAuth, async (_req, res) => {
+  app.get('/api/admin/stats', async (_req, res) => {
     try {
       const leads = await storage.getLeads({});
       const now = Date.now();
@@ -251,7 +235,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: create lead
-  app.post('/api/admin/leads', basicAuth, async (req, res) => {
+  app.post('/api/admin/leads', async (req, res) => {
     try {
       const leadData = insertLeadSchema.parse(req.body.lead);
       const vehicleData = insertVehicleSchema
@@ -275,7 +259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: list leads with associated data
-  app.get('/api/admin/leads', basicAuth, async (_req, res) => {
+  app.get('/api/admin/leads', async (_req, res) => {
     try {
       const leads = await storage.getLeads({});
       const data = await Promise.all(
@@ -298,7 +282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: get single lead with associated data
-  app.get('/api/admin/leads/:id', basicAuth, async (req, res) => {
+  app.get('/api/admin/leads/:id', async (req, res) => {
     try {
       const lead = await storage.getLead(req.params.id);
       if (!lead) {
@@ -326,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: add note to lead
-  app.post('/api/admin/leads/:id/notes', basicAuth, async (req, res) => {
+  app.post('/api/admin/leads/:id/notes', async (req, res) => {
     const schema = z.object({ content: z.string().min(1) });
     try {
       const data = schema.parse(req.body);
@@ -339,7 +323,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: convert lead to policy
-  app.post('/api/admin/leads/:id/convert', basicAuth, async (req, res) => {
+  app.post('/api/admin/leads/:id/convert', async (req, res) => {
     const schema = z.object({
       package: z.string().optional(),
       expirationMiles: z.coerce.number().optional(),
@@ -364,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: update lead data
-  app.patch('/api/admin/leads/:id', basicAuth, async (req, res) => {
+  app.patch('/api/admin/leads/:id', async (req, res) => {
     const leadSchema = insertLeadSchema
       .extend({ consentTimestamp: z.coerce.date().optional() })
       .partial()
@@ -452,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: list policies
-  app.get('/api/admin/policies', basicAuth, async (_req, res) => {
+  app.get('/api/admin/policies', async (_req, res) => {
     try {
       const policies = await storage.getPolicies();
       res.json({ data: policies, message: 'Policies retrieved successfully' });
@@ -463,7 +447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: create claim
-  app.post('/api/admin/claims', basicAuth, async (req, res) => {
+  app.post('/api/admin/claims', async (req, res) => {
     try {
       const claimData = insertClaimSchema.parse(req.body);
       const claim = await storage.createClaim(claimData);
@@ -475,7 +459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: list claims
-  app.get('/api/admin/claims', basicAuth, async (_req, res) => {
+  app.get('/api/admin/claims', async (_req, res) => {
     try {
       const claims = await storage.getClaims();
       res.json({ data: claims, message: 'Claims retrieved successfully' });
@@ -486,7 +470,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: get claim by id
-  app.get('/api/admin/claims/:id', basicAuth, async (req, res) => {
+  app.get('/api/admin/claims/:id', async (req, res) => {
     try {
       const claim = await storage.getClaim(req.params.id);
       if (!claim) {
@@ -500,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin: update claim
-  app.patch('/api/admin/claims/:id', basicAuth, async (req, res) => {
+  app.patch('/api/admin/claims/:id', async (req, res) => {
     const schema = insertClaimSchema.partial();
     try {
       const data = schema.parse(req.body);
