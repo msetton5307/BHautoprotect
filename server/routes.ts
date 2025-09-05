@@ -251,7 +251,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         leadId: lead.id,
       });
 
-      res.json({
+      // Ensure newly created leads are tracked for admin views
+      leadMeta[lead.id] = DEFAULT_META;
+
+      res.status(201).json({
         data: { lead, vehicle },
         message: 'Lead created successfully',
       });
