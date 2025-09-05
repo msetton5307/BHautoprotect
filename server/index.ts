@@ -1,7 +1,6 @@
 import express from "express";
-import { createServer } from "http";
 import { registerRoutes } from "./routes";
-import { setupVite, log } from "./vite";
+import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
 
@@ -15,7 +14,11 @@ async function startServer() {
   const port = parseInt(process.env.PORT || "5000");
   const host = process.env.HOST || "0.0.0.0";
 
-  await setupVite(app, server);
+  if (process.env.NODE_ENV === "production") {
+    serveStatic(app);
+  } else {
+    await setupVite(app, server);
+  }
 
   server.listen(port, host, () => {
     log(`serving on port ${port}`);
