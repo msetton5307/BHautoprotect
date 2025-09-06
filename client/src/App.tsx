@@ -12,6 +12,7 @@ import AdminLeads from "@/pages/admin/leads";
 import AdminLeadDetail from "@/pages/admin/leads/[id]";
 import AdminLeadNew from "@/pages/admin/leads/new";
 import AdminPolicies from "@/pages/admin/policies";
+import AdminPolicyDetail from "@/pages/admin/policies/[id]";
 import AdminClaims from "@/pages/admin/claims";
 import AdminClaimDetail from "@/pages/admin/claims/[id]";
 import AdminClaimNew from "@/pages/admin/claims/new";
@@ -31,7 +32,9 @@ function Router() {
       <Route path="/admin/leads/new" component={AdminLeadNew} />
       <Route path="/admin/leads/:id" component={AdminLeadDetail} />
       <Route path="/admin/leads" component={AdminLeads} />
+      <Route path="/admin/policies/:id" component={AdminPolicyDetail} />
       <Route path="/admin/policies" component={AdminPolicies} />
+      <Route path="/policy/:id" component={AdminPolicyDetail} />
       <Route path="/admin/claims/new" component={AdminClaimNew} />
       <Route path="/admin/claims/:id" component={AdminClaimDetail} />
       <Route path="/admin/claims" component={AdminClaims} />
