@@ -1,8 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import AdminNav from "@/components/admin-nav";
 import { getAuthHeaders } from "@/lib/auth";
+import { Link } from "wouter";
+import { Eye } from "lucide-react";
 
 export default function AdminPolicies() {
   const { data, isLoading } = useQuery({
@@ -52,6 +55,7 @@ export default function AdminPolicies() {
                     <TableHead>Monthly Payment</TableHead>
                     <TableHead>Total Payments</TableHead>
                     <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -72,11 +76,19 @@ export default function AdminPolicies() {
                       <TableCell>{policy.monthlyPayment != null ? `$${policy.monthlyPayment}` : 'N/A'}</TableCell>
                       <TableCell>{policy.totalPayments != null ? `$${policy.totalPayments}` : 'N/A'}</TableCell>
                       <TableCell>{new Date(policy.createdAt).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <Button size="sm" variant="outline" asChild>
+                          <Link href={`/admin/policies/${policy.id}`}>
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                   {policies.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={15} className="text-center py-4 text-gray-500">
+                      <TableCell colSpan={16} className="text-center py-4 text-gray-500">
                         No policies found
                       </TableCell>
                     </TableRow>
