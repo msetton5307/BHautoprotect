@@ -5,6 +5,8 @@ import {
   notes,
   policies,
   claims,
+  policyNotes,
+  policyFiles,
   type Lead,
   type InsertLead,
   type Vehicle,
@@ -17,6 +19,10 @@ import {
   type InsertPolicy,
   type Claim,
   type InsertClaim,
+  type PolicyNote,
+  type InsertPolicyNote,
+  type PolicyFile,
+  type InsertPolicyFile,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -48,9 +54,17 @@ export interface IStorage {
   // Policy operations
   createPolicy(policy: InsertPolicy): Promise<Policy>;
   getPolicies(): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null })[]>;
-  getPolicy(id: string): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null }) | undefined>;
+  getPolicy(id: string): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null; notes: PolicyNote[]; files: PolicyFile[] }) | undefined>;
   getPolicyByLeadId(leadId: string): Promise<Policy | undefined>;
   updatePolicy(leadId: string, updates: Partial<InsertPolicy>): Promise<Policy>;
+
+  // Policy note operations
+  getPolicyNotes(policyId: string): Promise<PolicyNote[]>;
+  createPolicyNote(note: InsertPolicyNote): Promise<PolicyNote>;
+
+  // Policy file operations
+  getPolicyFiles(policyId: string): Promise<PolicyFile[]>;
+  createPolicyFile(file: InsertPolicyFile): Promise<PolicyFile>;
 
   // Claim operations
   createClaim(claim: InsertClaim): Promise<Claim>;
@@ -161,7 +175,7 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getPolicy(id: string): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null }) | undefined> {
+  async getPolicy(id: string): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null; notes: PolicyNote[]; files: PolicyFile[] }) | undefined> {
     const [row] = await db
       .select({
         policy: policies,
@@ -174,7 +188,9 @@ export class DatabaseStorage implements IStorage {
       .where(eq(policies.id, id));
 
     if (!row) return undefined;
-    return { ...row.policy, lead: row.lead, vehicle: row.vehicle };
+    const notes = await this.getPolicyNotes(id);
+    const files = await this.getPolicyFiles(id);
+    return { ...row.policy, lead: row.lead, vehicle: row.vehicle, notes, files };
   }
 
   async getPolicyByLeadId(leadId: string): Promise<Policy | undefined> {
@@ -197,6 +213,36 @@ export class DatabaseStorage implements IStorage {
       .values({ ...updates, leadId })
       .returning();
     return policy;
+  }
+
+  // Policy note operations
+  async getPolicyNotes(policyId: string): Promise<PolicyNote[]> {
+    const result = await db
+      .select()
+      .from(policyNotes)
+      .where(eq(policyNotes.policyId, policyId))
+      .orderBy(desc(policyNotes.createdAt));
+    return result;
+  }
+
+  async createPolicyNote(noteData: InsertPolicyNote): Promise<PolicyNote> {
+    const [note] = await db.insert(policyNotes).values(noteData).returning();
+    return note;
+  }
+
+  // Policy file operations
+  async getPolicyFiles(policyId: string): Promise<PolicyFile[]> {
+    const result = await db
+      .select()
+      .from(policyFiles)
+      .where(eq(policyFiles.policyId, policyId))
+      .orderBy(desc(policyFiles.createdAt));
+    return result;
+  }
+
+  async createPolicyFile(fileData: InsertPolicyFile): Promise<PolicyFile> {
+    const [file] = await db.insert(policyFiles).values(fileData).returning();
+    return file;
   }
 
   // Claim operations

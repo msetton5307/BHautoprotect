@@ -1,8 +1,11 @@
 import type { Express } from "express";
+import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertVehicleSchema, insertPolicySchema, insertClaimSchema, type InsertLead } from "@shared/schema";
+import { insertLeadSchema, insertVehicleSchema, insertPolicySchema, insertClaimSchema, insertPolicyNoteSchema, type InsertLead } from "@shared/schema";
+import fs from "fs";
+import path from "path";
 import { calculateQuote } from "../client/src/lib/pricing";
 
 type LeadMeta = {
@@ -38,6 +41,7 @@ const getEasternDate = () =>
   );
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.use('/uploads', express.static('uploads'));
 
   // Public quote estimation endpoint
   app.post('/api/quote/estimate', async (req, res) => {
@@ -463,6 +467,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching policy:', error);
       res.status(500).json({ message: 'Failed to fetch policy' });
+    }
+  });
+
+  // Admin: add note to policy
+  app.post('/api/admin/policies/:id/notes', async (req, res) => {
+    try {
+      const data = insertPolicyNoteSchema.pick({ content: true }).parse(req.body);
+      const note = await storage.createPolicyNote({ policyId: req.params.id, content: data.content });
+      res.json({ data: note, message: 'Note added successfully' });
+    } catch (error) {
+      console.error('Error adding policy note:', error);
+      res.status(400).json({ message: 'Invalid note data' });
+    }
+  });
+
+  // Admin: upload file to policy
+  app.post('/api/admin/policies/:id/files', express.raw({ type: 'application/octet-stream', limit: '10mb' }), async (req, res) => {
+    try {
+      const filename = req.header('x-filename');
+      if (!filename || !req.body || !(req.body instanceof Buffer)) {
+        return res.status(400).json({ message: 'File data missing' });
+      }
+      fs.mkdirSync('uploads', { recursive: true });
+      const filePath = path.join('uploads', `${Date.now()}-${filename}`);
+      fs.writeFileSync(filePath, req.body);
+      const file = await storage.createPolicyFile({ policyId: req.params.id, fileName: filename, filePath });
+      res.json({ data: file, message: 'File uploaded successfully' });
+    } catch (error) {
+      console.error('Error uploading policy file:', error);
+      res.status(400).json({ message: 'Invalid file data' });
     }
   });
 
