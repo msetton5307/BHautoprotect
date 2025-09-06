@@ -27,25 +27,6 @@ export default function FAQ() {
 
       <main className="flex-1">
         <section className="max-w-5xl mx-auto px-4 py-12 space-y-12">
-          {/* Image gallery to add visual interest */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <img
-              src="https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=800&q=80"
-              alt="Car interior"
-              className="h-48 w-full rounded-lg object-cover shadow"
-            />
-            <img
-              src="https://images.unsplash.com/photo-1549923746-c502d488b3ea?auto=format&fit=crop&w=800&q=80"
-              alt="Mechanic working on a vehicle"
-              className="hidden h-48 w-full rounded-lg object-cover shadow md:block"
-            />
-            <img
-              src="https://images.unsplash.com/photo-1515926220373-cc15e5d6a3e1?auto=format&fit=crop&w=800&q=80"
-              alt="Open road"
-              className="hidden h-48 w-full rounded-lg object-cover shadow md:block"
-            />
-          </div>
-
           {/* FAQ accordion */}
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
