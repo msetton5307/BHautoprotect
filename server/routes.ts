@@ -452,6 +452,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: get policy by id
+  app.get('/api/admin/policies/:id', async (req, res) => {
+    try {
+      const policy = await storage.getPolicy(req.params.id);
+      if (!policy) {
+        return res.status(404).json({ message: 'Policy not found' });
+      }
+      res.json({ data: policy, message: 'Policy retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching policy:', error);
+      res.status(500).json({ message: 'Failed to fetch policy' });
+    }
+  });
+
   // Admin: create claim
   app.post('/api/admin/claims', async (req, res) => {
     try {
