@@ -374,18 +374,17 @@ export default function Landing() {
             <div>
               <h4 className="text-lg font-semibold mb-4">Coverage</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#plans" className="hover:text-white">Basic Plans</a></li>
-                <li><a href="#plans" className="hover:text-white">Gold Coverage</a></li>
-                <li><a href="#plans" className="hover:text-white">Platinum Protection</a></li>
-                <li><a href="#plans" className="hover:text-white">Add-On Options</a></li>
+                <li><a href="/plans" className="hover:text-white">Basic Plans</a></li>
+                <li><a href="/plans" className="hover:text-white">Gold Coverage</a></li>
+                <li><a href="/plans" className="hover:text-white">Platinum Protection</a></li>
+                <li><a href="/plans" className="hover:text-white">Add-On Options</a></li>
               </ul>
             </div>
             <div>
               <h4 className="text-lg font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-gray-400">
                 <li><a href="/claims" className="hover:text-white">File a Claim</a></li>
-                <li><a href="/claims" className="hover:text-white">Find a Shop</a></li>
-                <li><a href="/about" className="hover:text-white">Customer Service</a></li>
+                <li><a href="/contact" className="hover:text-white">Customer Support</a></li>
                 <li><a href="/faq" className="hover:text-white">FAQ</a></li>
               </ul>
             </div>
@@ -393,9 +392,7 @@ export default function Landing() {
               <h4 className="text-lg font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-gray-400">
                 <li><a href="/about" className="hover:text-white">About Us</a></li>
-                <li><a href="/" className="hover:text-white">Careers</a></li>
-                <li><a href="/" className="hover:text-white">Press</a></li>
-                <li><a href="/" className="hover:text-white">Contact</a></li>
+                <li><a href="/contact" className="hover:text-white">Contact</a></li>
               </ul>
             </div>
           </div>

@@ -21,13 +21,15 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <h1 className="text-2xl font-bold text-primary">BH Auto Protect</h1>
+              <a href="/" className="text-2xl font-bold text-primary">
+                BH Auto Protect
+              </a>
             </div>
           </div>
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-4">
               <a
-                href="#"
+                href="/plans"
                 className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
               >
                 Coverage Plans
@@ -69,7 +71,7 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
           <div className="md:hidden">
             <div className="px-2 pt-2 pb-3 space-y-1">
               <a
-                href="#"
+                href="/plans"
                 className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
                 onClick={toggleMenu}
               >
