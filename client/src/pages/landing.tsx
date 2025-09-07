@@ -30,14 +30,14 @@ export default function Landing() {
                 Get instant quotes, compare plans, and secure coverage for your vehicle's major components. 
                 Trusted by over 100,000 customers nationwide.
               </p>
-              <div className="flex justify-center sm:justify-start">
-                <Button
-                  size="lg"
-                  className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-6 text-lg"
-                  onClick={openQuoteModal}
-                >
-                  Get My Free Quote
-                </Button>
+                <div className="flex justify-center sm:justify-start">
+                  <Button
+                    size="lg"
+                    className="bg-white text-primary hover:bg-blue-50 px-8 py-6 text-lg"
+                    onClick={openQuoteModal}
+                  >
+                    Get My Free Quote
+                  </Button>
               </div>
             </div>
             <div className="relative">
