@@ -1,11 +1,20 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 interface NavigationProps {
   onGetQuote: () => void;
 }
 
 export default function Navigation({ onGetQuote }: NavigationProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  const toggleMenu = () => setIsMenuOpen(!isMenuOpen);
+  const handleQuote = () => {
+    onGetQuote();
+    setIsMenuOpen(false);
+  };
+
   return (
     <nav className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -42,7 +51,7 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
                 Claims
               </a>
               <Button
-                className="bg-primary text-white hover:bg-secondary"
+                className="bg-blue-600 text-white hover:bg-blue-700"
                 size="sm"
                 onClick={onGetQuote}
               >
@@ -51,11 +60,52 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
             </div>
           </div>
           <div className="md:hidden">
-            <button className="text-gray-700">
-              <Menu className="w-6 h-6" />
+            <button className="text-gray-700" onClick={toggleMenu} aria-label="Toggle Menu">
+              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
+        {isMenuOpen && (
+          <div className="md:hidden">
+            <div className="px-2 pt-2 pb-3 space-y-1">
+              <a
+                href="#"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
+                onClick={toggleMenu}
+              >
+                Coverage Plans
+              </a>
+              <a
+                href="/about"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
+                onClick={toggleMenu}
+              >
+                About
+              </a>
+              <a
+                href="/faq"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
+                onClick={toggleMenu}
+              >
+                FAQ
+              </a>
+              <a
+                href="/claims"
+                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
+                onClick={toggleMenu}
+              >
+                Claims
+              </a>
+              <Button
+                className="w-full bg-blue-600 text-white hover:bg-blue-700 mt-2"
+                size="sm"
+                onClick={handleQuote}
+              >
+                Get Quote
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );

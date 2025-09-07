@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Star, Shield, Award, Check, Users, FileText, Clock, DollarSign } from "lucide-react";
+import { Star, Shield, Award, Check, Users, FileText, Clock, DollarSign, Facebook, Twitter, Instagram } from "lucide-react";
 import Navigation from "@/components/navigation";
 import QuoteModal from "@/components/quote-modal";
 import { COVERAGE_PLANS } from "@/lib/constants";
@@ -33,7 +33,7 @@ export default function Landing() {
               <div className="flex justify-center sm:justify-start">
                 <Button
                   size="lg"
-                  className="bg-white text-primary hover:bg-gray-100 px-8 py-6 text-lg"
+                  className="bg-blue-600 text-white hover:bg-blue-700 px-8 py-6 text-lg"
                   onClick={openQuoteModal}
                 >
                   Get My Free Quote
@@ -107,7 +107,7 @@ export default function Landing() {
       </section>
 
       {/* Plan Comparison */}
-      <section className="bg-white py-20">
+      <section id="plans" className="bg-white py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Choose Your Protection Level</h2>
@@ -129,7 +129,10 @@ export default function Landing() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" variant="outline" onClick={openQuoteModal}>
+                <Button
+                  className="w-full bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={openQuoteModal}
+                >
                   Request Quote
                 </Button>
               </CardContent>
@@ -153,7 +156,10 @@ export default function Landing() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" onClick={openQuoteModal}>
+                <Button
+                  className="w-full bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={openQuoteModal}
+                >
                   Request Quote
                 </Button>
               </CardContent>
@@ -174,7 +180,10 @@ export default function Landing() {
                     </li>
                   ))}
                 </ul>
-                <Button className="w-full" variant="outline" onClick={openQuoteModal}>
+                <Button
+                  className="w-full bg-blue-600 text-white hover:bg-blue-700"
+                  onClick={openQuoteModal}
+                >
                   Request Quote
                 </Button>
               </CardContent>
@@ -318,9 +327,9 @@ export default function Landing() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl lg:text-4xl font-bold mb-4">Ready to Protect Your Vehicle?</h2>
           <p className="text-xl text-blue-100 mb-8">Get your free quote in less than 3 minutes. No obligations, no hassle.</p>
-          <Button 
-            size="lg" 
-            className="bg-white text-primary hover:bg-gray-100"
+          <Button
+            size="lg"
+            className="bg-blue-600 text-white hover:bg-blue-700"
             onClick={openQuoteModal}
           >
             Get My Free Quote Now
@@ -336,36 +345,57 @@ export default function Landing() {
               <h3 className="text-2xl font-bold mb-4">BH Auto Protect</h3>
               <p className="text-gray-400 mb-4">Protecting your vehicle and your wallet with comprehensive extended warranty coverage.</p>
               <div className="flex space-x-4">
-                <div className="w-6 h-6 bg-gray-600 rounded"></div>
-                <div className="w-6 h-6 bg-gray-600 rounded"></div>
-                <div className="w-6 h-6 bg-gray-600 rounded"></div>
+                <a
+                  href="https://facebook.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Facebook"
+                >
+                  <Facebook className="w-6 h-6 text-gray-400 hover:text-white" />
+                </a>
+                <a
+                  href="https://twitter.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Twitter"
+                >
+                  <Twitter className="w-6 h-6 text-gray-400 hover:text-white" />
+                </a>
+                <a
+                  href="https://instagram.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram"
+                >
+                  <Instagram className="w-6 h-6 text-gray-400 hover:text-white" />
+                </a>
               </div>
             </div>
             <div>
               <h4 className="text-lg font-semibold mb-4">Coverage</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">Basic Plans</a></li>
-                <li><a href="#" className="hover:text-white">Gold Coverage</a></li>
-                <li><a href="#" className="hover:text-white">Platinum Protection</a></li>
-                <li><a href="#" className="hover:text-white">Add-On Options</a></li>
+                <li><a href="#plans" className="hover:text-white">Basic Plans</a></li>
+                <li><a href="#plans" className="hover:text-white">Gold Coverage</a></li>
+                <li><a href="#plans" className="hover:text-white">Platinum Protection</a></li>
+                <li><a href="#plans" className="hover:text-white">Add-On Options</a></li>
               </ul>
             </div>
             <div>
               <h4 className="text-lg font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">File a Claim</a></li>
-                <li><a href="#" className="hover:text-white">Find a Shop</a></li>
-                <li><a href="#" className="hover:text-white">Customer Service</a></li>
-                <li><a href="#" className="hover:text-white">FAQ</a></li>
+                <li><a href="/claims" className="hover:text-white">File a Claim</a></li>
+                <li><a href="/claims" className="hover:text-white">Find a Shop</a></li>
+                <li><a href="/about" className="hover:text-white">Customer Service</a></li>
+                <li><a href="/faq" className="hover:text-white">FAQ</a></li>
               </ul>
             </div>
             <div>
               <h4 className="text-lg font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">About Us</a></li>
-                <li><a href="#" className="hover:text-white">Careers</a></li>
-                <li><a href="#" className="hover:text-white">Press</a></li>
-                <li><a href="#" className="hover:text-white">Contact</a></li>
+                <li><a href="/about" className="hover:text-white">About Us</a></li>
+                <li><a href="/" className="hover:text-white">Careers</a></li>
+                <li><a href="/" className="hover:text-white">Press</a></li>
+                <li><a href="/" className="hover:text-white">Contact</a></li>
               </ul>
             </div>
           </div>
