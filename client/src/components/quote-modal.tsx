@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -77,6 +78,7 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
   });
 
   const { toast } = useToast();
+  const [, navigate] = useLocation();
 
   const submitQuoteMutation = useMutation({
     mutationFn: async (data: QuoteData) => {
@@ -103,10 +105,7 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
       });
     },
     onSuccess: () => {
-      toast({
-        title: "Quote Submitted Successfully",
-        description: "A BH Auto Protect specialist will contact you within 24 hours.",
-      });
+      navigate("/thank-you");
       onClose();
       resetForm();
     },

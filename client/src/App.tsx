@@ -21,6 +21,7 @@ import FAQ from "@/pages/faq";
 import Claims from "@/pages/claims";
 import Plans from "@/pages/plans";
 import Contact from "@/pages/contact";
+import ThankYou from "@/pages/thank-you";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/claims" component={Claims} />
       <Route path="/plans" component={Plans} />
       <Route path="/contact" component={Contact} />
+      <Route path="/thank-you" component={ThankYou} />
       <Route path="/legal/privacy" component={PrivacyPage} />
       <Route path="/admin/leads/new" component={AdminLeadNew} />
       <Route path="/admin/leads/:id" component={AdminLeadDetail} />
