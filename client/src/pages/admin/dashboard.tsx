@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Users, FileText, Target, TrendingUp, Activity, Calendar } from "lucide-react";
+import { Users, FileText, Target, TrendingUp, Activity, Calendar, UserPlus } from "lucide-react";
 import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
@@ -209,9 +209,11 @@ export default function AdminDashboard() {
                   Manage Leads
                 </Link>
               </Button>
-              <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
-                <FileText className="h-6 w-6 mb-2" />
-                Generate Reports
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center" asChild>
+                <Link href="/admin/users">
+                  <UserPlus className="h-6 w-6 mb-2" />
+                  Manage Users
+                </Link>
               </Button>
               <Button variant="outline" className="h-20 flex flex-col items-center justify-center">
                 <Target className="h-6 w-6 mb-2" />

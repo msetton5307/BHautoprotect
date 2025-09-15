@@ -10,6 +10,7 @@ import {
   boolean,
   pgEnum,
   decimal,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
@@ -26,6 +27,17 @@ export const claimStatusEnum = pgEnum('claim_status', [
   'claim_covered_open',
   'claim_covered_closed',
 ]);
+export const userRoleEnum = pgEnum('user_role', ['admin', 'staff']);
+
+export const users = pgTable('users', {
+  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  username: varchar('username').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  role: userRoleEnum('role').notNull().default('staff'),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  usernameIdx: uniqueIndex('users_username_idx').on(table.username),
+}));
 
 export const leads = pgTable("leads", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -236,6 +248,11 @@ export const insertPolicyFileSchema = createInsertSchema(policyFiles).omit({
   createdAt: true,
 });
 
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -253,3 +270,5 @@ export type PolicyNote = typeof policyNotes.$inferSelect;
 export type InsertPolicyNote = z.infer<typeof insertPolicyNoteSchema>;
 export type PolicyFile = typeof policyFiles.$inferSelect;
 export type InsertPolicyFile = z.infer<typeof insertPolicyFileSchema>;
+export type User = typeof users.$inferSelect;
+export type InsertUser = z.infer<typeof insertUserSchema>;
