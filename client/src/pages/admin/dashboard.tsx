@@ -12,19 +12,9 @@ import { useAdminAuth } from "@/hooks/use-admin-auth";
 export default function AdminDashboard() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  const queriesEnabled = authenticated && !checking;
 
-  if (!authenticated) {
-    return <AdminLogin onSuccess={markAuthenticated} />;
-  }
-
-  const { data: stats, isLoading } = useQuery({
+  const statsQuery = useQuery({
     queryKey: ['/api/admin/stats'],
     queryFn: async () => {
       const res = await fetchWithAuth('/api/admin/stats', {
@@ -41,10 +31,10 @@ export default function AdminDashboard() {
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
     staleTime: 0,
-    enabled: authenticated,
+    enabled: queriesEnabled,
   });
 
-  const { data: recentLeads } = useQuery({
+  const recentLeadsQuery = useQuery({
     queryKey: ['/api/admin/leads'],
     queryFn: async () => {
       const res = await fetchWithAuth('/api/admin/leads', {
@@ -61,10 +51,10 @@ export default function AdminDashboard() {
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
     staleTime: 0,
-    enabled: authenticated,
+    enabled: queriesEnabled,
   });
 
-  if (isLoading) {
+  if (checking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -72,8 +62,20 @@ export default function AdminDashboard() {
     );
   }
 
-  const statsData = stats?.data || {};
-  const leads = recentLeads?.data?.slice(0, 5) || [];
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
+
+  if (statsQuery.isLoading && !statsQuery.data) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  const statsData = statsQuery.data?.data || {};
+  const leads = recentLeadsQuery.data?.data?.slice(0, 5) || [];
 
   return (
     <div className="min-h-screen bg-gray-50">
