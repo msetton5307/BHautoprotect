@@ -37,6 +37,68 @@ import { hashPassword } from "./password";
 const generateLeadId = () => Math.floor(10000000 + Math.random() * 90000000).toString();
 const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
+const DEFAULT_EMAIL_TEMPLATES: { name: string; subject: string; bodyHtml: string }[] = [
+  {
+    name: 'Gas Voucher Added',
+    subject: 'Fuel Voucher Added to Your BH Auto Protect Coverage',
+    bodyHtml: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fuel Voucher Added</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
+              <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
+              <div style="font-size:24px;font-weight:700;margin-top:10px;">Fuel Voucher Added to Your Coverage</div>
+              <div style="margin-top:12px;font-size:14px;opacity:0.85;">We're celebrating you with extra miles on us.</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi {{Customer Name}},</p>
+              <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+                We've just added a complimentary fuel voucher to your BH Auto Protect policy as a thank-you for trusting us with your vehicle.
+                Use it the next time you fill up—any reputable gas station nationwide qualifies.
+              </p>
+              <div style="background-color:#f1f5f9;border-radius:14px;border:1px solid #e2e8f0;padding:22px 24px;margin-bottom:24px;">
+                <div style="font-size:13px;letter-spacing:0.16em;text-transform:uppercase;color:#2563eb;font-weight:600;margin-bottom:12px;">How to redeem</div>
+                <ol style="margin:0;padding-left:20px;font-size:15px;line-height:1.7;color:#1f2937;">
+                  <li style="margin-bottom:10px;">Fill up at your preferred gas station and keep the itemized receipt.</li>
+                  <li style="margin-bottom:10px;">Email a photo or scan of the receipt to <a href="mailto:claims@bhautoprotect.com" style="color:#2563eb;text-decoration:none;font-weight:600;">claims@bhautoprotect.com</a> within 30 days.</li>
+                  <li>We'll mail a reimbursement check to the mailing address we have on file within 7–10 business days.</li>
+                </ol>
+              </div>
+              <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+                Need to update your mailing details or have a question before you head to the pump?
+                Call us at <a href="tel:18005550123" style="color:#2563eb;text-decoration:none;font-weight:600;">1-800-555-0123</a> or reply to this email and our concierge team will take care of it right away.
+              </p>
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
+                Thanks again for being part of the BH Auto Protect family. Enjoy the extra savings on your next fill-up!
+              </p>
+              <p style="margin:0;font-size:15px;line-height:1.7;">Warm regards,<br /><strong>The BH Auto Protect Team</strong><br /><a href="mailto:support@bhautoprotect.com" style="color:#2563eb;text-decoration:none;">support@bhautoprotect.com</a></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#f9fafb;padding:22px 32px;color:#6b7280;font-size:12px;line-height:1.6;">
+              Please keep your original receipt until reimbursement is received. This voucher is limited to one redemption per policy unless otherwise noted.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`,
+  },
+];
+
 // Interface for storage operations
 export interface IStorage {
   // Lead operations
@@ -94,6 +156,7 @@ export interface IStorage {
   deleteUser(id: string): Promise<User | undefined>;
   countAdmins(): Promise<number>;
   ensureDefaultAdminUser(): Promise<void>;
+  ensureDefaultEmailTemplates(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -380,6 +443,25 @@ export class DatabaseStorage implements IStorage {
 
     const passwordHash = hashPassword(defaultPassword);
     await this.createUser({ username: defaultUsername, passwordHash, role: 'admin' });
+  }
+
+  async ensureDefaultEmailTemplates(): Promise<void> {
+    for (const template of DEFAULT_EMAIL_TEMPLATES) {
+      const [existing] = await db
+        .select()
+        .from(emailTemplates)
+        .where(eq(emailTemplates.name, template.name));
+      if (existing) {
+        continue;
+      }
+
+      const timestamp = getEasternDate();
+      await db.insert(emailTemplates).values({
+        ...template,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      });
+    }
   }
 }
 
