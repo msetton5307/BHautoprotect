@@ -2,6 +2,7 @@ import type { Express } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { sendMail } from "./mail";
 import { z } from "zod";
 import { insertLeadSchema, insertVehicleSchema, insertPolicySchema, insertClaimSchema, insertPolicyNoteSchema, type InsertLead } from "@shared/schema";
 import fs from "fs";
@@ -504,6 +505,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error uploading policy file:', error);
       res.status(400).json({ message: 'Invalid file data' });
+    }
+  });
+
+  app.post('/api/admin/policies/:id/email', async (req, res) => {
+    const emailListSchema = z
+      .string()
+      .min(1, 'Recipient is required')
+      .transform((value) => value.split(',').map((entry) => entry.trim()).filter(Boolean))
+      .refine((emails) => emails.length > 0, { message: 'Recipient is required' })
+      .refine(
+        (emails) =>
+          emails.every((email) =>
+            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+          ),
+        { message: 'Invalid email address' },
+      );
+
+    const schema = z.object({
+      to: emailListSchema,
+      subject: z.string().min(1, 'Subject is required'),
+      body: z.string().min(1, 'Body is required'),
+    });
+
+    const escapeHtml = (value: string) =>
+      value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    try {
+      const { to, subject, body } = schema.parse(req.body);
+      const policy = await storage.getPolicy(req.params.id);
+      if (!policy) {
+        return res.status(404).json({ message: 'Policy not found' });
+      }
+
+      const htmlBody = `<div>${escapeHtml(body).replace(/\r?\n/g, '<br>')}</div>`;
+
+      await sendMail({
+        to,
+        subject,
+        text: body,
+        html: htmlBody,
+      });
+
+      res.json({ message: 'Email sent successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid email payload';
+        return res.status(400).json({ message });
+      }
+      console.error('Error sending policy email:', error);
+      const message = error instanceof Error ? error.message : 'Failed to send email';
+      res.status(500).json({ message });
     }
   });
 

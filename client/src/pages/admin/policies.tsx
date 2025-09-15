@@ -29,6 +29,7 @@ export default function AdminPolicies() {
   const [emailRecipient, setEmailRecipient] = useState('');
   const [emailSubject, setEmailSubject] = useState('');
   const [emailBody, setEmailBody] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   if (isLoading) {
     return (
@@ -98,8 +99,18 @@ BHAutoProtect Team`;
     setEmailDialogOpen(true);
   };
 
-  const handleSendEmail = () => {
-    if (!emailRecipient.trim()) {
+  const handleSendEmail = async () => {
+    if (!selectedPolicy) {
+      toast({
+        title: 'No policy selected',
+        description: 'Select a policy before sending an email.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const trimmedRecipient = emailRecipient.trim();
+    if (!trimmedRecipient) {
       toast({
         title: 'Recipient required',
         description: 'Please provide an email address before sending.',
@@ -108,18 +119,68 @@ BHAutoProtect Team`;
       return;
     }
 
-    const mailtoUrl = `mailto:${encodeURIComponent(emailRecipient.trim())}?subject=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBody)}`;
-
-    if (typeof window !== 'undefined') {
-      window.location.href = mailtoUrl;
+    if (!emailSubject.trim()) {
+      toast({
+        title: 'Subject required',
+        description: 'Please provide a subject before sending.',
+        variant: 'destructive',
+      });
+      return;
     }
 
-    setEmailDialogOpen(false);
-    setSelectedPolicy(null);
-    toast({
-      title: 'Email template opened',
-      description: 'Your email client will open with the prepared template.',
-    });
+    if (!emailBody.trim()) {
+      toast({
+        title: 'Message required',
+        description: 'Please provide a message before sending.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const response = await fetch(`/api/admin/policies/${selectedPolicy.id}/email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          to: trimmedRecipient,
+          subject: emailSubject,
+          body: emailBody,
+        }),
+      });
+
+      if (!response.ok) {
+        let message = 'Failed to send email';
+        try {
+          const data = await response.json();
+          if (typeof data?.message === 'string') {
+            message = data.message;
+          }
+        } catch (error) {
+          // no-op: fall back to default message
+        }
+        throw new Error(message);
+      }
+
+      toast({
+        title: 'Email sent',
+        description: 'The policy email has been sent to the recipient.',
+      });
+      setEmailDialogOpen(false);
+      setSelectedPolicy(null);
+    } catch (error) {
+      const description = error instanceof Error ? error.message : 'Failed to send email';
+      toast({
+        title: 'Email failed',
+        description,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
   };
 
   return (
@@ -250,7 +311,9 @@ BHAutoProtect Team`;
                   >
                     Cancel
                   </Button>
-                  <Button onClick={handleSendEmail}>Send Email</Button>
+                  <Button onClick={handleSendEmail} disabled={isSendingEmail}>
+                    {isSendingEmail ? 'Sending...' : 'Send Email'}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>

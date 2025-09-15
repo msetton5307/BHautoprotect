@@ -65,3 +65,17 @@ Preferred communication style: Simple, everyday language.
 - **Twilio**: SMS/WhatsApp messaging for customer communication
 - **DocuSign/HelloSign**: E-signature workflow for policy agreements
 - **VIN Decoding Service**: Vehicle data validation and enrichment
+
+## SMTP Email Configuration
+
+Transactional emails (such as policy updates sent from the admin panel) use a basic SMTP client. Configure the following environment variables to enable delivery:
+
+- `SMTP_HOST` – Mail server hostname
+- `SMTP_PORT` – Mail server port
+- `SMTP_USER` / `SMTP_PASS` – Credentials for servers that require authentication
+- `SMTP_FROM` – Default "from" address used for outgoing messages
+- `SMTP_SECURE` – Set to `true` to connect with implicit TLS (defaults to `true` for port 465)
+- `SMTP_STARTTLS` – Set to `true` to upgrade plain connections using STARTTLS (defaults to `true` for port 587)
+- `SMTP_TLS_REJECT_UNAUTHORIZED` – Set to `true` to enforce certificate validation (default) or `false` to allow self-signed certificates
+
+Without these settings the application will skip email delivery and return an error when attempting to send.
