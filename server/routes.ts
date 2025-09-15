@@ -64,8 +64,26 @@ const getEasternDate = () =>
     new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
   );
 
-const sanitizeRichHtml = (value: string): string => {
-  return value
+const ensureHtmlString = (value: string | null | undefined): string => {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return "";
+  }
+  try {
+    return String(value);
+  } catch {
+    return "";
+  }
+};
+
+const sanitizeRichHtml = (value: string | null | undefined): string => {
+  const input = ensureHtmlString(value);
+  if (!input) {
+    return "";
+  }
+  return input
     .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
     .replace(/on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
     .replace(/javascript:/gi, '')
