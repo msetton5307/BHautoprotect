@@ -64,6 +64,39 @@ const getEasternDate = () =>
     new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
   );
 
+const sanitizeRichHtml = (value: string): string => {
+  return value
+    .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+    .replace(/on\w+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+    .replace(/javascript:/gi, '')
+    .trim();
+};
+
+const decodeHtmlEntities = (value: string): string =>
+  value
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+
+const htmlToPlainText = (html: string): string => {
+  const sanitized = sanitizeRichHtml(html).replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, '');
+  const withLineBreaks = sanitized
+    .replace(/<\/(h[1-6]|p|div|section|article|header|footer)>/gi, '\n')
+    .replace(/<br\s*\/?/gi, '\n')
+    .replace(/<\/(li|tr)>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '\n• ')
+    .replace(/<td[^>]*>/gi, '\t')
+    .replace(/<th[^>]*>/gi, '\t')
+    .replace(/<[^>]+>/g, '')
+    .replace(/\t+/g, '\t')
+    .replace(/\r/g, '')
+    .replace(/\n{3,}/g, '\n\n');
+  return decodeHtmlEntities(withLineBreaks).trim();
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.ensureDefaultAdminUser();
 
@@ -201,6 +234,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   const sanitizeUser = ({ passwordHash: _passwordHash, ...user }: User) => user;
+
+  const emailTemplatePayloadSchema = z.object({
+    name: z
+      .string()
+      .trim()
+      .min(1, 'Template name is required')
+      .max(120, 'Template name is too long'),
+    subject: z.string().trim().min(1, 'Subject is required'),
+    bodyHtml: z.string().trim().min(1, 'Template body is required'),
+  });
 
   app.use('/api/admin', adminAuth);
 
@@ -769,6 +812,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: email templates
+  app.get('/api/admin/email-templates', async (_req, res) => {
+    try {
+      const templates = await storage.getEmailTemplates();
+      const sanitized = templates.map((template) => ({
+        ...template,
+        bodyHtml: sanitizeRichHtml(template.bodyHtml),
+      }));
+      res.json({ data: sanitized, message: 'Templates retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching email templates:', error);
+      res.status(500).json({ message: 'Failed to fetch email templates' });
+    }
+  });
+
+  app.post('/api/admin/email-templates', async (req, res) => {
+    try {
+      const payload = emailTemplatePayloadSchema.parse(req.body);
+      const sanitizedHtml = sanitizeRichHtml(payload.bodyHtml);
+      const template = await storage.createEmailTemplate({
+        name: payload.name,
+        subject: payload.subject,
+        bodyHtml: sanitizedHtml,
+      });
+      res.status(201).json({
+        data: { ...template, bodyHtml: sanitizedHtml },
+        message: 'Template saved successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid template data';
+        return res.status(400).json({ message });
+      }
+      console.error('Error saving email template:', error);
+      res.status(500).json({ message: 'Failed to save email template' });
+    }
+  });
+
   app.post('/api/admin/policies/:id/email', async (req, res) => {
     const emailListSchema = z
       .string()
@@ -786,31 +867,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const schema = z.object({
       to: emailListSchema,
       subject: z.string().min(1, 'Subject is required'),
-      body: z.string().min(1, 'Body is required'),
+      bodyHtml: z.string().min(1, 'Body is required'),
     });
 
-    const escapeHtml = (value: string) =>
-      value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-
     try {
-      const { to, subject, body } = schema.parse(req.body);
+      const { to, subject, bodyHtml } = schema.parse(req.body);
       const policy = await storage.getPolicy(req.params.id);
       if (!policy) {
         return res.status(404).json({ message: 'Policy not found' });
       }
 
-      const htmlBody = `<div>${escapeHtml(body).replace(/\r?\n/g, '<br>')}</div>`;
+      const sanitizedHtml = sanitizeRichHtml(bodyHtml);
+      const plainText = htmlToPlainText(sanitizedHtml) || subject;
 
       await sendMail({
         to,
         subject,
-        text: body,
-        html: htmlBody,
+        text: plainText,
+        html: sanitizedHtml,
       });
 
       res.json({ message: 'Email sent successfully' });
