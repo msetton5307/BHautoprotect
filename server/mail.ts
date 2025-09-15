@@ -31,6 +31,28 @@ type SmtpResponse = {
   message: string;
 };
 
+class SmtpCommandError extends Error {
+  readonly response: SmtpResponse;
+  readonly command: string;
+  readonly displayCommand: string;
+
+  constructor(command: string, displayCommand: string, response: SmtpResponse) {
+    super(
+      `Unexpected SMTP response (${response.code}) for command "${displayCommand}": ${response.message}`,
+    );
+    this.name = "SmtpCommandError";
+    this.command = command;
+    this.displayCommand = displayCommand;
+    this.response = response;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
+type SendCommandOptions = {
+  label?: string;
+  sensitive?: boolean;
+};
+
 const waitForResponse = (socket: SmtpSocket): Promise<SmtpResponse> => {
   return new Promise((resolve, reject) => {
     let buffer = "";
@@ -83,12 +105,14 @@ const sendCommand = async (
   socket: SmtpSocket,
   command: string,
   expected: number | number[],
+  options: SendCommandOptions = {},
 ): Promise<SmtpResponse> => {
   const expectedCodes = Array.isArray(expected) ? expected : [expected];
+  const displayCommand = options.label ?? (options.sensitive ? "<REDACTED>" : command);
   socket.write(`${command}\r\n`);
   const response = await waitForResponse(socket);
   if (!expectedCodes.includes(response.code)) {
-    throw new Error(`Unexpected SMTP response (${response.code}) for command "${command}": ${response.message}`);
+    throw new SmtpCommandError(command, displayCommand, response);
   }
   return response;
 };
@@ -152,8 +176,14 @@ const upgradeToTls = async (socket: SmtpSocket): Promise<SmtpSocket> => {
 const performAuthentication = async (socket: SmtpSocket): Promise<void> => {
   if (!smtpUser || !smtpPass) return;
   await sendCommand(socket, "AUTH LOGIN", 334);
-  await sendCommand(socket, Buffer.from(smtpUser, "utf8").toString("base64"), 334);
-  await sendCommand(socket, Buffer.from(smtpPass, "utf8").toString("base64"), 235);
+  await sendCommand(socket, Buffer.from(smtpUser, "utf8").toString("base64"), 334, {
+    label: "AUTH username",
+    sensitive: true,
+  });
+  await sendCommand(socket, Buffer.from(smtpPass, "utf8").toString("base64"), 235, {
+    label: "AUTH password",
+    sensitive: true,
+  });
 };
 
 const dotStuff = (value: string): string => {
