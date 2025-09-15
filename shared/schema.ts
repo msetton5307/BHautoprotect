@@ -29,8 +29,10 @@ export const claimStatusEnum = pgEnum('claim_status', [
 ]);
 export const userRoleEnum = pgEnum('user_role', ['admin', 'staff']);
 
+const shortId = sql`substring(replace(gen_random_uuid()::text, '-', ''), 1, 8)`;
+
 export const users = pgTable('users', {
-  id: varchar('id').primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar('id').primaryKey().default(shortId),
   username: varchar('username').notNull(),
   passwordHash: text('password_hash').notNull(),
   role: userRoleEnum('role').notNull().default('staff'),
@@ -40,7 +42,7 @@ export const users = pgTable('users', {
 }));
 
 export const leads = pgTable("leads", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   email: varchar("email"),
@@ -59,7 +61,7 @@ export const leads = pgTable("leads", {
 });
 
 export const vehicles = pgTable("vehicles", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
   year: integer("year").notNull(),
   make: varchar("make").notNull(),
@@ -73,7 +75,7 @@ export const vehicles = pgTable("vehicles", {
 });
 
 export const quotes = pgTable("quotes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
   plan: planTypeEnum("plan").notNull(),
   deductible: integer("deductible").notNull(),
@@ -89,14 +91,14 @@ export const quotes = pgTable("quotes", {
 });
 
 export const notes = pgTable("notes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const policies = pgTable("policies", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'set null' }).notNull(),
   package: varchar("package"),
   expirationMiles: integer("expiration_miles"),
@@ -111,7 +113,7 @@ export const policies = pgTable("policies", {
 });
 
 export const claims = pgTable("claims", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   policyId: varchar("policy_id").references(() => policies.id, { onDelete: 'cascade' }),
   status: claimStatusEnum("status").default('new'),
   nextEstimate: decimal("next_estimate"),
@@ -137,14 +139,14 @@ export const claims = pgTable("claims", {
 });
 
 export const policyNotes = pgTable("policy_notes", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   policyId: varchar("policy_id").references(() => policies.id, { onDelete: 'cascade' }).notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const policyFiles = pgTable("policy_files", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   policyId: varchar("policy_id").references(() => policies.id, { onDelete: 'cascade' }).notNull(),
   fileName: text("file_name").notNull(),
   filePath: text("file_path").notNull(),
@@ -152,7 +154,7 @@ export const policyFiles = pgTable("policy_files", {
 });
 
 export const emailTemplates = pgTable("email_templates", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  id: varchar("id").primaryKey().default(shortId),
   name: varchar("name", { length: 120 }).notNull(),
   subject: text("subject").notNull(),
   bodyHtml: text("body_html").notNull(),
