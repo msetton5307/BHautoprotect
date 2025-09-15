@@ -361,6 +361,7 @@ const buildQuoteEmail = ({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.ensureDefaultAdminUser();
+  await storage.ensureDefaultEmailTemplates();
 
   const MemoryStore = createMemoryStore(session);
   const secureCookie = process.env.NODE_ENV === "production";
