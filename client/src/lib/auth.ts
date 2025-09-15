@@ -138,6 +138,13 @@ export function clearCredentials(): void {
   }).catch(() => undefined);
 }
 
+export function fetchWithAuth(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  return fetch(input, { ...init, credentials: "include" });
+}
+
 export function getAuthHeaders(): Record<string, string> {
   return {};
 }

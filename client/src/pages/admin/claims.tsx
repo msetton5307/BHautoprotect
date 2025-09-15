@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
-import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 export default function AdminClaims() {
@@ -15,7 +15,7 @@ export default function AdminClaims() {
     queryKey: ['/api/admin/claims'],
     enabled: authenticated,
     queryFn: async () => {
-      const res = await fetch('/api/admin/claims', { headers: getAuthHeaders() });
+      const res = await fetchWithAuth('/api/admin/claims', { headers: getAuthHeaders() });
       if (res.status === 401) {
         clearCredentials();
         markLoggedOut();

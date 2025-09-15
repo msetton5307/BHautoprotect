@@ -14,7 +14,7 @@ import { ArrowLeft, User, Car, Activity, Phone, Mail, DollarSign } from "lucide-
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
-import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 // Helper to include JSON content type with auth header
@@ -54,7 +54,7 @@ export default function AdminLeadDetail() {
   const { data: leadData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads', id],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/leads/${id}`, {
+      const res = await fetchWithAuth(`/api/admin/leads/${id}`, {
         headers: getAuthHeaders()
       });
       if (res.status === 401) {
@@ -70,7 +70,7 @@ export default function AdminLeadDetail() {
 
   const updateLeadMutation = useMutation({
     mutationFn: async (updates: any) => {
-      const res = await fetch(`/api/admin/leads/${id}`, {
+      const res = await fetchWithAuth(`/api/admin/leads/${id}`, {
         method: 'PATCH',
         headers: authJsonHeaders(),
         body: JSON.stringify(updates),
@@ -145,7 +145,7 @@ export default function AdminLeadDetail() {
 
   const convertLeadMutation = useMutation({
     mutationFn: async (policyData: any) => {
-      const response = await fetch(`/api/admin/leads/${id}/convert`, {
+      const response = await fetchWithAuth(`/api/admin/leads/${id}/convert`, {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify(policyData),
@@ -181,7 +181,7 @@ export default function AdminLeadDetail() {
 
   const addNoteMutation = useMutation({
     mutationFn: async (content: string) => {
-      const res = await fetch(`/api/admin/leads/${id}/notes`, {
+      const res = await fetchWithAuth(`/api/admin/leads/${id}/notes`, {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify({ content }),

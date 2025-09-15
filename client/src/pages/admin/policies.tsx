@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import AdminNav from "@/components/admin-nav";
-import { getAuthHeaders } from "@/lib/auth";
+import { fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { Link } from "wouter";
 import { Eye } from "lucide-react";
 
@@ -11,7 +11,7 @@ export default function AdminPolicies() {
   const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/policies'],
     queryFn: () =>
-      fetch('/api/admin/policies', { headers: getAuthHeaders() }).then(res => {
+      fetchWithAuth('/api/admin/policies', { headers: getAuthHeaders() }).then(res => {
         if (!res.ok) throw new Error('Failed to fetch policies');
         return res.json();
       })

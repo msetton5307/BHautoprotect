@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
-import { getAuthHeaders, clearCredentials, getStoredUsername } from "@/lib/auth";
+import { getAuthHeaders, clearCredentials, getStoredUsername, fetchWithAuth } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,7 +56,7 @@ export default function AdminUsers() {
     queryKey: ["/api/admin/users"],
     enabled: authenticated,
     queryFn: async () => {
-      const res = await fetch("/api/admin/users", { headers: getAuthHeaders() });
+      const res = await fetchWithAuth("/api/admin/users", { headers: getAuthHeaders() });
       if (res.status === 401) {
         clearCredentials();
         markLoggedOut();
@@ -81,7 +81,7 @@ export default function AdminUsers() {
 
   const createUserMutation = useMutation({
     mutationFn: async (payload: CreateUserPayload) => {
-      const res = await fetch("/api/admin/users", {
+      const res = await fetchWithAuth("/api/admin/users", {
         method: "POST",
         headers: authJsonHeaders(),
         body: JSON.stringify(payload),
@@ -123,7 +123,7 @@ export default function AdminUsers() {
   const deleteUserMutation = useMutation({
     mutationFn: async (id: string) => {
       setPendingDeleteId(id);
-      const res = await fetch(`/api/admin/users/${id}`, {
+      const res = await fetchWithAuth(`/api/admin/users/${id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });

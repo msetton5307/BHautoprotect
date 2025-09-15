@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminNav from "@/components/admin-nav";
-import { getAuthHeaders } from "@/lib/auth";
+import { fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
 
@@ -214,7 +214,7 @@ export default function AdminPolicyDetail() {
   const { data, isLoading } = useQuery<{ data: any }>({
     queryKey: ["/api/admin/policies", id],
     queryFn: () =>
-      fetch(`/api/admin/policies/${id}`, { headers: getAuthHeaders() }).then(res => {
+      fetchWithAuth(`/api/admin/policies/${id}`, { headers: getAuthHeaders() }).then(res => {
         if (!res.ok) throw new Error("Failed to fetch policy");
         return res.json();
       }),
@@ -228,7 +228,7 @@ export default function AdminPolicyDetail() {
   } = useQuery<{ data: EmailTemplateRecord[] }>({
     queryKey: ["/api/admin/email-templates"],
     queryFn: () =>
-      fetch("/api/admin/email-templates", { headers: getAuthHeaders() }).then(res => {
+      fetchWithAuth("/api/admin/email-templates", { headers: getAuthHeaders() }).then(res => {
         if (!res.ok) throw new Error("Failed to fetch email templates");
         return res.json();
       }),
@@ -393,7 +393,7 @@ export default function AdminPolicyDetail() {
 
     setIsSavingTemplate(true);
     try {
-      const response = await fetch("/api/admin/email-templates", {
+      const response = await fetchWithAuth("/api/admin/email-templates", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -477,7 +477,7 @@ export default function AdminPolicyDetail() {
 
     setIsSendingEmail(true);
     try {
-      const response = await fetch(`/api/admin/policies/${policy.id}/email`, {
+      const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/email`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -605,7 +605,7 @@ export default function AdminPolicyDetail() {
                   });
                   return;
                 }
-                await fetch(`/api/admin/policies/${policy.id}/notes`, {
+                await fetchWithAuth(`/api/admin/policies/${policy.id}/notes`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json", ...getAuthHeaders() },
                   body: JSON.stringify({ content: textarea.value }),
@@ -640,7 +640,7 @@ export default function AdminPolicyDetail() {
                 const formData = new FormData(event.currentTarget as HTMLFormElement);
                 const file = formData.get("file") as File | null;
                 if (file) {
-                  await fetch(`/api/admin/policies/${policy.id}/files`, {
+                  await fetchWithAuth(`/api/admin/policies/${policy.id}/files`, {
                     method: "POST",
                     headers: { "x-filename": file.name, ...getAuthHeaders() },
                     body: file,
