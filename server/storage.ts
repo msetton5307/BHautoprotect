@@ -374,7 +374,7 @@ export class DatabaseStorage implements IStorage {
 
   async ensureDefaultAdminUser(): Promise<void> {
     const defaultUsername = process.env.DEFAULT_ADMIN_USERNAME ?? 'admin';
-    const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD ?? 'BHauto123';
+    const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD ?? 'GPrs1234?';
     const existing = await this.getUserByUsername(defaultUsername);
     if (existing) return;
 
