@@ -7,6 +7,7 @@ import {
   claims,
   policyNotes,
   policyFiles,
+  emailTemplates,
   users,
   type Lead,
   type InsertLead,
@@ -24,6 +25,8 @@ import {
   type InsertPolicyNote,
   type PolicyFile,
   type InsertPolicyFile,
+  type EmailTemplate,
+  type InsertEmailTemplate,
   type User,
   type InsertUser,
 } from "@shared/schema";
@@ -69,6 +72,13 @@ export interface IStorage {
   // Policy file operations
   getPolicyFiles(policyId: string): Promise<PolicyFile[]>;
   createPolicyFile(file: InsertPolicyFile): Promise<PolicyFile>;
+
+  // Email template operations
+  getEmailTemplates(): Promise<EmailTemplate[]>;
+  getEmailTemplate(id: string): Promise<EmailTemplate | undefined>;
+  createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate>;
+  updateEmailTemplate(id: string, updates: Partial<InsertEmailTemplate>): Promise<EmailTemplate>;
+  deleteEmailTemplate(id: string): Promise<EmailTemplate | undefined>;
 
   // Claim operations
   createClaim(claim: InsertClaim): Promise<Claim>;
@@ -256,6 +266,48 @@ export class DatabaseStorage implements IStorage {
   async createPolicyFile(fileData: InsertPolicyFile): Promise<PolicyFile> {
     const [file] = await db.insert(policyFiles).values(fileData).returning();
     return file;
+  }
+
+  // Email template operations
+  async getEmailTemplates(): Promise<EmailTemplate[]> {
+    const result = await db
+      .select()
+      .from(emailTemplates)
+      .orderBy(desc(emailTemplates.createdAt));
+    return result;
+  }
+
+  async getEmailTemplate(id: string): Promise<EmailTemplate | undefined> {
+    const [template] = await db
+      .select()
+      .from(emailTemplates)
+      .where(eq(emailTemplates.id, id));
+    return template;
+  }
+
+  async createEmailTemplate(templateData: InsertEmailTemplate): Promise<EmailTemplate> {
+    const [template] = await db.insert(emailTemplates).values(templateData).returning();
+    return template;
+  }
+
+  async updateEmailTemplate(
+    id: string,
+    updates: Partial<InsertEmailTemplate>,
+  ): Promise<EmailTemplate> {
+    const [template] = await db
+      .update(emailTemplates)
+      .set({ ...updates, updatedAt: getEasternDate() })
+      .where(eq(emailTemplates.id, id))
+      .returning();
+    return template;
+  }
+
+  async deleteEmailTemplate(id: string): Promise<EmailTemplate | undefined> {
+    const [template] = await db
+      .delete(emailTemplates)
+      .where(eq(emailTemplates.id, id))
+      .returning();
+    return template;
   }
 
   // Claim operations
