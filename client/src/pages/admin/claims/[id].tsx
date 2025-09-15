@@ -2,6 +2,7 @@ import { useState, useEffect, ChangeEvent, FormEvent } from "react";
 import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import AdminNav from "@/components/admin-nav";
+import AdminLogin from "@/components/admin-login";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const authJsonHeaders = () => ({
   ...getAuthHeaders(),
@@ -20,14 +22,20 @@ export default function AdminClaimDetail() {
   const { id } = useParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/claims', id],
-    queryFn: () =>
-      fetch(`/api/admin/claims/${id}`, { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch claim');
-        return res.json();
-      }),
-    enabled: !!id,
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/claims/${id}`, { headers: getAuthHeaders() });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to fetch claim');
+      return res.json();
+    },
+    enabled: authenticated && !!id,
   });
 
   const claim = data?.data;
@@ -38,15 +46,20 @@ export default function AdminClaimDetail() {
   }, [claim]);
 
   const updateMutation = useMutation({
-    mutationFn: (updates: any) =>
-      fetch(`/api/admin/claims/${id}`, {
+    mutationFn: async (updates: any) => {
+      const res = await fetch(`/api/admin/claims/${id}`, {
         method: 'PATCH',
         headers: authJsonHeaders(),
         body: JSON.stringify(updates),
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to update claim');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to update claim');
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/claims', id] });
       toast({ title: 'Success', description: 'Claim updated successfully' });
@@ -69,6 +82,18 @@ export default function AdminClaimDetail() {
     e.preventDefault();
     updateMutation.mutate(formData);
   };
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
 
   if (isLoading || !claim) {
     return (

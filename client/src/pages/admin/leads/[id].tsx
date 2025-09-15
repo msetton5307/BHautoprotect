@@ -13,7 +13,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { ArrowLeft, User, Car, Activity, Phone, Mail, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
-import { getAuthHeaders } from "@/lib/auth";
+import AdminLogin from "@/components/admin-login";
+import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 // Helper to include JSON content type with auth header
 const authJsonHeaders = () => ({
@@ -25,6 +27,7 @@ export default function AdminLeadDetail() {
   const { id } = useParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [isCreatingQuote, setIsCreatingQuote] = useState(false);
   const [quoteForm, setQuoteForm] = useState({
     plan: 'gold',
@@ -50,26 +53,36 @@ export default function AdminLeadDetail() {
 
   const { data: leadData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads', id],
-    queryFn: () => 
-      fetch(`/api/admin/leads/${id}`, {
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/leads/${id}`, {
         headers: getAuthHeaders()
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch lead');
-        return res.json();
-      }),
-    enabled: !!id,
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to fetch lead');
+      return res.json();
+    },
+    enabled: authenticated && !!id,
   });
 
   const updateLeadMutation = useMutation({
-    mutationFn: (updates: any) =>
-      fetch(`/api/admin/leads/${id}`, {
+    mutationFn: async (updates: any) => {
+      const res = await fetch(`/api/admin/leads/${id}`, {
         method: 'PATCH',
         headers: authJsonHeaders(),
         body: JSON.stringify(updates),
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to update lead');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to update lead');
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
       toast({
@@ -87,8 +100,8 @@ export default function AdminLeadDetail() {
   });
 
   const createQuoteMutation = useMutation({
-    mutationFn: (quoteData: any) =>
-      fetch(`/api/leads/${id}/coverage`, {
+    mutationFn: async (quoteData: any) => {
+      const res = await fetch(`/api/leads/${id}/coverage`, {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify({
@@ -97,10 +110,15 @@ export default function AdminLeadDetail() {
           termMonths: quoteData.termMonths,
           priceMonthly: quoteData.priceMonthly / 100,
         }),
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to create quote');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to create quote');
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
       setIsCreatingQuote(false);
@@ -132,6 +150,11 @@ export default function AdminLeadDetail() {
         headers: authJsonHeaders(),
         body: JSON.stringify(policyData),
       });
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
         const message = errorBody?.message ?? 'Failed to convert lead';
@@ -157,15 +180,20 @@ export default function AdminLeadDetail() {
   });
 
   const addNoteMutation = useMutation({
-    mutationFn: (content: string) =>
-      fetch(`/api/admin/leads/${id}/notes`, {
+    mutationFn: async (content: string) => {
+      const res = await fetch(`/api/admin/leads/${id}/notes`, {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify({ content }),
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to add note');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to add note');
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
       setNewNote('');
@@ -210,6 +238,18 @@ export default function AdminLeadDetail() {
       });
     }
   }, [leadData]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
 
   if (isLoading) {
     return (

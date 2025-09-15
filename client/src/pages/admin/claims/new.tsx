@@ -3,13 +3,15 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation, Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
+import AdminLogin from "@/components/admin-login";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const authJsonHeaders = () => ({
   ...getAuthHeaders(),
@@ -30,13 +32,21 @@ export default function AdminClaimNew() {
     message: "",
   });
 
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
+
   const { data: customers, isLoading } = useQuery({
     queryKey: ['/api/admin/policy-holders'],
+    enabled: authenticated,
     queryFn: async () => {
       const [polRes, leadRes] = await Promise.all([
         fetch('/api/admin/policies', { headers: getAuthHeaders() }),
         fetch('/api/admin/leads', { headers: getAuthHeaders() })
       ]);
+      if (polRes.status === 401 || leadRes.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
       if (!polRes.ok || !leadRes.ok) throw new Error('Failed to fetch data');
       const policies = (await polRes.json()).data;
       const leads = (await leadRes.json()).data;
@@ -45,21 +55,38 @@ export default function AdminClaimNew() {
     }
   });
 
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
+
   const filtered = (customers || []).filter((c: any) => {
     const value = `${c.lead.firstName} ${c.lead.lastName} ${c.lead.email} ${c.lead.phone} ${c.policy.id}`.toLowerCase();
     return value.includes(search.toLowerCase());
   });
 
   const createClaim = useMutation({
-    mutationFn: (data: typeof form) =>
-      fetch('/api/admin/claims', {
+    mutationFn: async (data: typeof form) => {
+      const res = await fetch('/api/admin/claims', {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify(data),
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to create claim');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to create claim');
+      return res.json();
+    },
     onSuccess: (res) => {
       toast({ title: 'Success', description: 'Claim created successfully' });
       setLocation(`/admin/claims/${res.data.id}`);
