@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,41 +6,62 @@ import { Users, FileText, Target, TrendingUp, Activity, Calendar, UserPlus } fro
 import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
-import { getAuthHeaders, hasCredentials } from "@/lib/auth";
+import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 export default function AdminDashboard() {
-  const [authenticated, setAuthenticated] = useState(hasCredentials());
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   if (!authenticated) {
-    return <AdminLogin onSuccess={() => setAuthenticated(true)} />;
+    return <AdminLogin onSuccess={markAuthenticated} />;
   }
 
   const { data: stats, isLoading } = useQuery({
     queryKey: ['/api/admin/stats'],
-    queryFn: () =>
-      fetch('/api/admin/stats', {
+    queryFn: async () => {
+      const res = await fetch('/api/admin/stats', {
         headers: getAuthHeaders()
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch stats');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to fetch stats');
+      return res.json();
+    },
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
     staleTime: 0,
+    enabled: authenticated,
   });
 
   const { data: recentLeads } = useQuery({
     queryKey: ['/api/admin/leads'],
-    queryFn: () =>
-      fetch('/api/admin/leads', {
+    queryFn: async () => {
+      const res = await fetch('/api/admin/leads', {
         headers: getAuthHeaders()
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch leads');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to fetch leads');
+      return res.json();
+    },
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
     staleTime: 0,
+    enabled: authenticated,
   });
 
   if (isLoading) {

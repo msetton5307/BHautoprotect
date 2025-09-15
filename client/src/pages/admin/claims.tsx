@@ -4,17 +4,39 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
-import { getAuthHeaders } from "@/lib/auth";
+import AdminLogin from "@/components/admin-login";
+import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 export default function AdminClaims() {
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
+
   const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/claims'],
-    queryFn: () =>
-      fetch('/api/admin/claims', { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch claims');
-        return res.json();
-      })
+    enabled: authenticated,
+    queryFn: async () => {
+      const res = await fetch('/api/admin/claims', { headers: getAuthHeaders() });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to fetch claims');
+      return res.json();
+    }
   });
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
 
   if (isLoading) {
     return (

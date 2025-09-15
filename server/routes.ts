@@ -1,6 +1,8 @@
 import type { Express, RequestHandler, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import session from "express-session";
+import createMemoryStore from "memorystore";
 import { storage } from "./storage";
 import { sendMail } from "./mail";
 import { z } from "zod";
@@ -47,6 +49,12 @@ type AuthenticatedUser = {
   role: "admin" | "staff";
 };
 
+declare module "express-session" {
+  interface SessionData {
+    user?: AuthenticatedUser;
+  }
+}
+
 const getLeadMeta = (id: string): LeadMeta => {
   return leadMeta[id] || DEFAULT_META;
 };
@@ -58,47 +66,41 @@ const getEasternDate = () =>
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.ensureDefaultAdminUser();
-  app.use('/uploads', express.static('uploads'));
 
-  const unauthorizedResponse = (res: Response) => {
-    res.setHeader('WWW-Authenticate', 'Basic realm="Admin Area"');
-    res.status(401).json({ message: 'Unauthorized' });
-  };
+  const MemoryStore = createMemoryStore(session);
+  const secureCookie = process.env.NODE_ENV === "production";
+  const sessionStore = new MemoryStore({ checkPeriod: 24 * 60 * 60 * 1000 });
 
-  const adminAuth: RequestHandler = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Basic ')) {
-      unauthorizedResponse(res);
-      return;
-    }
+  app.set("trust proxy", 1);
+  app.use(
+    session({
+      name: "bh_session",
+      secret: process.env.SESSION_SECRET ?? "change-me",
+      resave: false,
+      saveUninitialized: false,
+      store: sessionStore,
+      cookie: {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: secureCookie,
+        maxAge: 12 * 60 * 60 * 1000,
+      },
+    })
+  );
 
-    const base64Credentials = authHeader.slice(6).trim();
-    let decoded: string;
+  app.use("/uploads", express.static("uploads"));
+
+  const loginSchema = z.object({
+    username: z.string().min(1, "Username is required"),
+    password: z.string().min(1, "Password is required"),
+  });
+
+  app.post("/api/admin/login", async (req, res) => {
     try {
-      decoded = Buffer.from(base64Credentials, 'base64').toString('utf8');
-    } catch (error) {
-      unauthorizedResponse(res);
-      return;
-    }
-
-    const separatorIndex = decoded.indexOf(':');
-    if (separatorIndex === -1) {
-      unauthorizedResponse(res);
-      return;
-    }
-
-    const username = decoded.slice(0, separatorIndex);
-    const password = decoded.slice(separatorIndex + 1);
-
-    if (!username || !password) {
-      unauthorizedResponse(res);
-      return;
-    }
-
-    try {
+      const { username, password } = loginSchema.parse(req.body);
       const user = await storage.getUserByUsername(username);
       if (!user || !verifyPassword(password, user.passwordHash)) {
-        unauthorizedResponse(res);
+        res.status(401).json({ message: "Invalid username or password" });
         return;
       }
 
@@ -107,11 +109,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username: user.username,
         role: user.role,
       };
+
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          req.session.user = authenticatedUser;
+          resolve();
+        });
+      });
+
+      res.json({
+        data: authenticatedUser,
+        message: "Login successful",
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid login payload", errors: error.errors });
+        return;
+      }
+      console.error("Error during login:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  app.post("/api/admin/logout", (req, res) => {
+    const clear = () => {
+      res.clearCookie("bh_session", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: secureCookie,
+        path: "/",
+      });
+      res.json({ message: "Logged out" });
+    };
+
+    if (!req.session) {
+      clear();
+      return;
+    }
+
+    req.session.destroy((err) => {
+      if (err) {
+        console.error("Error destroying session:", err);
+        res.status(500).json({ message: "Failed to log out" });
+        return;
+      }
+      clear();
+    });
+  });
+
+  const adminAuth: RequestHandler = async (req, res, next) => {
+    try {
+      const sessionUser = req.session.user;
+      if (!sessionUser) {
+        res.status(401).json({ message: "Unauthorized" });
+        return;
+      }
+
+      const user = await storage.getUser(sessionUser.id);
+      if (!user) {
+        req.session.user = undefined;
+        res.status(401).json({ message: "Unauthorized" });
+        return;
+      }
+
+      const authenticatedUser: AuthenticatedUser = {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      };
+
+      req.session.user = authenticatedUser;
       res.locals.user = authenticatedUser;
       next();
     } catch (error) {
-      console.error('Error verifying credentials:', error);
-      res.status(500).json({ message: 'Failed to authenticate' });
+      console.error("Error verifying session:", error);
+      res.status(500).json({ message: "Failed to authenticate" });
     }
   };
 

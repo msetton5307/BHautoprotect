@@ -8,21 +8,43 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import AdminNav from "@/components/admin-nav";
-import { getAuthHeaders } from "@/lib/auth";
+import AdminLogin from "@/components/admin-login";
+import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Link } from "wouter";
 import { Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function AdminPolicies() {
   const { toast } = useToast();
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
+
   const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/policies'],
-    queryFn: () =>
-      fetch('/api/admin/policies', { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch policies');
-        return res.json();
-      })
+    enabled: authenticated,
+    queryFn: async () => {
+      const res = await fetch('/api/admin/policies', { headers: getAuthHeaders() });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to fetch policies');
+      return res.json();
+    }
   });
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
 
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<any | null>(null);
@@ -151,6 +173,12 @@ BHAutoProtect Team`;
           body: emailBody,
         }),
       });
+
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
 
       if (!response.ok) {
         let message = 'Failed to send email';

@@ -10,7 +10,8 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
-import { getAuthHeaders, hasCredentials, clearCredentials } from "@/lib/auth";
+import { getAuthHeaders, clearCredentials } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const authJsonHeaders = () => ({
   ...getAuthHeaders(),
@@ -18,7 +19,7 @@ const authJsonHeaders = () => ({
 });
 
 export default function AdminLeads() {
-  const [authenticated, setAuthenticated] = useState(hasCredentials());
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortField, setSortField] = useState<string>('createdAt');
@@ -26,6 +27,14 @@ export default function AdminLeads() {
   const [hideDuplicates, setHideDuplicates] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   const { data: leadsData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads'],
@@ -35,7 +44,7 @@ export default function AdminLeads() {
       });
       if (res.status === 401) {
         clearCredentials();
-        setAuthenticated(false);
+        markLoggedOut();
         throw new Error('Unauthorized');
       }
       if (!res.ok) throw new Error('Failed to fetch leads');
@@ -48,19 +57,24 @@ export default function AdminLeads() {
   });
 
   if (!authenticated) {
-    return <AdminLogin onSuccess={() => setAuthenticated(true)} />;
+    return <AdminLogin onSuccess={markAuthenticated} />;
   }
 
   const updateLeadMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string, updates: any }) =>
-      fetch(`/api/admin/leads/${id}`, {
+    mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
+      const res = await fetch(`/api/admin/leads/${id}`, {
         method: 'PATCH',
         headers: authJsonHeaders(),
         body: JSON.stringify(updates),
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to update lead');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to update lead');
+      return res.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/leads'] });
       toast({
