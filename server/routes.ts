@@ -1,12 +1,21 @@
-import type { Express } from "express";
+import type { Express, RequestHandler, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
-import { insertLeadSchema, insertVehicleSchema, insertPolicySchema, insertClaimSchema, insertPolicyNoteSchema, type InsertLead } from "@shared/schema";
+import {
+  insertLeadSchema,
+  insertVehicleSchema,
+  insertPolicySchema,
+  insertClaimSchema,
+  insertPolicyNoteSchema,
+  type InsertLead,
+  type User,
+} from "@shared/schema";
 import fs from "fs";
 import path from "path";
 import { calculateQuote } from "../client/src/lib/pricing";
+import { verifyPassword, hashPassword } from "./password";
 
 type LeadMeta = {
   tags: string[];
@@ -31,6 +40,12 @@ const DEFAULT_META: LeadMeta = {
 
 const leadMeta: Record<string, LeadMeta> = {};
 
+type AuthenticatedUser = {
+  id: string;
+  username: string;
+  role: "admin" | "staff";
+};
+
 const getLeadMeta = (id: string): LeadMeta => {
   return leadMeta[id] || DEFAULT_META;
 };
@@ -41,7 +56,76 @@ const getEasternDate = () =>
   );
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  await storage.ensureDefaultAdminUser();
   app.use('/uploads', express.static('uploads'));
+
+  const unauthorizedResponse = (res: Response) => {
+    res.setHeader('WWW-Authenticate', 'Basic realm="Admin Area"');
+    res.status(401).json({ message: 'Unauthorized' });
+  };
+
+  const adminAuth: RequestHandler = async (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Basic ')) {
+      unauthorizedResponse(res);
+      return;
+    }
+
+    const base64Credentials = authHeader.slice(6).trim();
+    let decoded: string;
+    try {
+      decoded = Buffer.from(base64Credentials, 'base64').toString('utf8');
+    } catch (error) {
+      unauthorizedResponse(res);
+      return;
+    }
+
+    const separatorIndex = decoded.indexOf(':');
+    if (separatorIndex === -1) {
+      unauthorizedResponse(res);
+      return;
+    }
+
+    const username = decoded.slice(0, separatorIndex);
+    const password = decoded.slice(separatorIndex + 1);
+
+    if (!username || !password) {
+      unauthorizedResponse(res);
+      return;
+    }
+
+    try {
+      const user = await storage.getUserByUsername(username);
+      if (!user || !verifyPassword(password, user.passwordHash)) {
+        unauthorizedResponse(res);
+        return;
+      }
+
+      const authenticatedUser: AuthenticatedUser = {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+      };
+      res.locals.user = authenticatedUser;
+      next();
+    } catch (error) {
+      console.error('Error verifying credentials:', error);
+      res.status(500).json({ message: 'Failed to authenticate' });
+    }
+  };
+
+  const ensureAdminUser = (res: Response): AuthenticatedUser | null => {
+    const user = res.locals.user as AuthenticatedUser | undefined;
+    if (!user || user.role !== 'admin') {
+      res.status(403).json({ message: 'Forbidden' });
+      return null;
+    }
+    return user;
+  };
+
+  const sanitizeUser = ({ passwordHash: _passwordHash, ...user }: User) => user;
+
+  app.use('/api/admin', adminAuth);
 
   // Public quote estimation endpoint
   app.post('/api/quote/estimate', async (req, res) => {
@@ -201,6 +285,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error assigning coverage:', error);
       res.status(400).send('Invalid coverage data');
+    }
+  });
+
+  app.get('/api/admin/me', (_req, res) => {
+    const user = res.locals.user as AuthenticatedUser;
+    res.json({
+      data: user,
+      message: 'Authenticated user retrieved successfully',
+    });
+  });
+
+  app.get('/api/admin/users', async (_req, res) => {
+    if (!ensureAdminUser(res)) return;
+
+    try {
+      const users = await storage.listUsers();
+      res.json({
+        data: users.map(sanitizeUser),
+        message: 'Users retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      res.status(500).json({ message: 'Failed to fetch users' });
+    }
+  });
+
+  app.post('/api/admin/users', async (req, res) => {
+    if (!ensureAdminUser(res)) return;
+
+    const schema = z.object({
+      username: z
+        .string()
+        .trim()
+        .min(3, 'Username must be at least 3 characters long')
+        .max(64, 'Username must be at most 64 characters long')
+        .regex(/^[^\s:]+$/, 'Username cannot contain spaces or colons'),
+      password: z.string().min(8, 'Password must be at least 8 characters long'),
+      role: z.enum(['admin', 'staff']).default('staff'),
+    });
+
+    try {
+      const data = schema.parse(req.body);
+      const existing = await storage.getUserByUsername(data.username);
+      if (existing) {
+        res.status(409).json({ message: 'Username already exists' });
+        return;
+      }
+
+      const user = await storage.createUser({
+        username: data.username,
+        passwordHash: hashPassword(data.password),
+        role: data.role,
+      });
+
+      res.status(201).json({
+        data: sanitizeUser(user),
+        message: 'User created successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid user data', errors: error.errors });
+        return;
+      }
+      console.error('Error creating user:', error);
+      res.status(500).json({ message: 'Failed to create user' });
+    }
+  });
+
+  app.delete('/api/admin/users/:id', async (req, res) => {
+    const currentUser = ensureAdminUser(res);
+    if (!currentUser) return;
+
+    try {
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      if (user.id === currentUser.id) {
+        res.status(400).json({ message: 'You cannot delete your own account' });
+        return;
+      }
+
+      if (user.role === 'admin') {
+        const adminCount = await storage.countAdmins();
+        if (adminCount <= 1) {
+          res.status(400).json({ message: 'Cannot delete the last admin user' });
+          return;
+        }
+      }
+
+      await storage.deleteUser(req.params.id);
+
+      res.json({
+        data: sanitizeUser(user),
+        message: 'User deleted successfully',
+      });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      res.status(500).json({ message: 'Failed to delete user' });
     }
   });
 

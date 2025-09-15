@@ -17,6 +17,7 @@ import AdminPolicyDetail from "@/pages/admin/policies/[id]";
 import AdminClaims from "@/pages/admin/claims";
 import AdminClaimDetail from "@/pages/admin/claims/[id]";
 import AdminClaimNew from "@/pages/admin/claims/new";
+import AdminUsers from "@/pages/admin/users";
 import About from "@/pages/about";
 import FAQ from "@/pages/faq";
 import Claims from "@/pages/claims";
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/admin/claims/new" component={AdminClaimNew} />
       <Route path="/admin/claims/:id" component={AdminClaimDetail} />
       <Route path="/admin/claims" component={AdminClaims} />
+      <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>

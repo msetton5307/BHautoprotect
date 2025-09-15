@@ -7,6 +7,7 @@ import {
   claims,
   policyNotes,
   policyFiles,
+  users,
   type Lead,
   type InsertLead,
   type Vehicle,
@@ -23,9 +24,12 @@ import {
   type InsertPolicyNote,
   type PolicyFile,
   type InsertPolicyFile,
+  type User,
+  type InsertUser,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
+import { hashPassword } from "./password";
 
 const generateLeadId = () => Math.floor(10000000 + Math.random() * 90000000).toString();
 const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -71,6 +75,15 @@ export interface IStorage {
   getClaims(): Promise<Claim[]>;
   getClaim(id: string): Promise<Claim | undefined>;
   updateClaim(id: string, updates: Partial<Omit<Claim, "id" | "createdAt">>): Promise<Claim>;
+
+  // User operations
+  listUsers(): Promise<User[]>;
+  getUser(id: string): Promise<User | undefined>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  createUser(user: InsertUser): Promise<User>;
+  deleteUser(id: string): Promise<User | undefined>;
+  countAdmins(): Promise<number>;
+  ensureDefaultAdminUser(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -271,6 +284,50 @@ export class DatabaseStorage implements IStorage {
       .where(eq(claims.id, id))
       .returning();
     return claim;
+  }
+
+  // User operations
+  async listUsers(): Promise<User[]> {
+    const result = await db.select().from(users).orderBy(desc(users.createdAt));
+    return result;
+  }
+
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(userData).returning();
+    return user;
+  }
+
+  async deleteUser(id: string): Promise<User | undefined> {
+    const [user] = await db.delete(users).where(eq(users.id, id)).returning();
+    return user;
+  }
+
+  async countAdmins(): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(users)
+      .where(eq(users.role, 'admin'));
+    return Number(result?.count ?? 0);
+  }
+
+  async ensureDefaultAdminUser(): Promise<void> {
+    const defaultUsername = process.env.DEFAULT_ADMIN_USERNAME ?? 'admin';
+    const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD ?? 'BHauto123';
+    const existing = await this.getUserByUsername(defaultUsername);
+    if (existing) return;
+
+    const passwordHash = hashPassword(defaultPassword);
+    await this.createUser({ username: defaultUsername, passwordHash, role: 'admin' });
   }
 }
 
