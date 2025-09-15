@@ -32,19 +32,6 @@ export default function AdminLeadNew() {
   });
 
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
-
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return <AdminLogin onSuccess={markAuthenticated} />;
-  }
-
   const createLead = useMutation({
     mutationFn: async (data: typeof form) => {
       const res = await fetchWithAuth('/api/admin/leads', {
@@ -87,6 +74,18 @@ export default function AdminLeadNew() {
       });
     },
   });
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
 
   const handleChange = (field: string, value: string) => {
     setForm(prev => ({ ...prev, [field]: value }));

@@ -44,17 +44,11 @@ export default function AdminUsers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  const queriesEnabled = authenticated && !checking;
 
   const usersQuery = useQuery({
     queryKey: ["/api/admin/users"],
-    enabled: authenticated,
+    enabled: queriesEnabled,
     queryFn: async () => {
       const res = await fetchWithAuth("/api/admin/users", { headers: getAuthHeaders() });
       if (res.status === 401) {
@@ -161,11 +155,19 @@ export default function AdminUsers() {
     onSettled: () => setPendingDeleteId(null),
   });
 
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   if (!authenticated) {
     return <AdminLogin onSuccess={markAuthenticated} />;
   }
 
-  if (usersQuery.isLoading) {
+  if (usersQuery.isLoading && !usersQuery.data) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />

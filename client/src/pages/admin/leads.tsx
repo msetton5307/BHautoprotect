@@ -28,15 +28,9 @@ export default function AdminLeads() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+  const queriesEnabled = authenticated && !checking;
 
-  const { data: leadsData, isLoading } = useQuery({
+  const leadsQuery = useQuery({
     queryKey: ['/api/admin/leads'],
     queryFn: async () => {
       const res = await fetchWithAuth('/api/admin/leads', {
@@ -50,15 +44,11 @@ export default function AdminLeads() {
       if (!res.ok) throw new Error('Failed to fetch leads');
       return res.json();
     },
-    enabled: authenticated,
+    enabled: queriesEnabled,
     refetchInterval: 5000,
     refetchOnWindowFocus: true,
     staleTime: 0,
   });
-
-  if (!authenticated) {
-    return <AdminLogin onSuccess={markAuthenticated} />;
-  }
 
   const updateLeadMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
@@ -91,7 +81,7 @@ export default function AdminLeads() {
     },
   });
 
-  const leads = leadsData?.data || [];
+  const leads = leadsQuery.data?.data || [];
 
   const duplicateIds = useMemo(() => {
     const emails = new Map<string, string>();
@@ -221,7 +211,19 @@ export default function AdminLeads() {
     });
   };
 
-  if (isLoading) {
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
+
+  if (leadsQuery.isLoading && !leadsQuery.data) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
