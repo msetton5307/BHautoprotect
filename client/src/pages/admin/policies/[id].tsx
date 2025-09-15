@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -234,38 +234,12 @@ export default function AdminPolicyDetail() {
       }),
   });
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
-  }
-
-  const policy = data?.data;
-
-  if (!policy) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <AdminNav />
-        <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-          <Button variant="ghost" asChild>
-            <Link href="/admin/policies">
-              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Policies
-            </Link>
-          </Button>
-          <Card>
-            <CardContent className="py-12 text-center text-muted-foreground">Policy not found.</CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
-  const lead = policy.lead ?? {};
-  const vehicle = policy.vehicle ?? {};
-  const notes = policy.notes ?? [];
-  const files = policy.files ?? [];
+  const policy = data?.data ?? null;
+  const lead = policy?.lead ?? {};
+  const leadEmail = typeof lead.email === "string" ? lead.email : "";
+  const vehicle = policy?.vehicle ?? {};
+  const notes = policy?.notes ?? [];
+  const files = policy?.files ?? [];
 
   const defaultTemplate = useMemo(() => buildDefaultEmailTemplate(policy), [policy]);
   const savedTemplates = templatesResponse?.data ?? [];
@@ -282,7 +256,7 @@ export default function AdminPolicyDetail() {
   }, [defaultTemplate, savedTemplates]);
 
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
-  const [emailRecipient, setEmailRecipient] = useState<string>(lead.email || "");
+  const [emailRecipient, setEmailRecipient] = useState<string>(leadEmail);
   const [emailSubject, setEmailSubject] = useState<string>(defaultTemplate.subject);
   const [emailHtml, setEmailHtml] = useState<string>(defaultTemplate.bodyHtml);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplate.id);
@@ -305,8 +279,54 @@ export default function AdminPolicyDetail() {
     </body></html>`;
   }, [emailHtml]);
 
+  useEffect(() => {
+    if (!policy) {
+      return;
+    }
+
+    setEmailRecipient(leadEmail);
+    setEmailSubject(defaultTemplate.subject);
+    setEmailHtml(defaultTemplate.bodyHtml);
+    setSelectedTemplateId(defaultTemplate.id);
+    setIsTemplateCustomized(false);
+    setNewTemplateName("");
+    setPreviewTab("preview");
+  }, [
+    policy?.id,
+    defaultTemplate.subject,
+    defaultTemplate.bodyHtml,
+    defaultTemplate.id,
+    leadEmail,
+  ]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!policy) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <AdminNav />
+        <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+          <Button variant="ghost" asChild>
+            <Link href="/admin/policies">
+              <ArrowLeft className="h-4 w-4 mr-2" /> Back to Policies
+            </Link>
+          </Button>
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">Policy not found.</CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   const handleOpenEmailDialog = () => {
-    setEmailRecipient(lead.email || "");
+    setEmailRecipient(leadEmail);
     setNewTemplateName("");
     setPreviewTab("preview");
 
@@ -567,7 +587,7 @@ export default function AdminPolicyDetail() {
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
             <div><span className="font-medium">Name:</span> {policyHolderName || "N/A"}</div>
-            <div><span className="font-medium">Email:</span> {lead.email || "N/A"}</div>
+            <div><span className="font-medium">Email:</span> {leadEmail || "N/A"}</div>
             <div><span className="font-medium">Phone:</span> {lead.phone || "N/A"}</div>
             <div><span className="font-medium">State:</span> {lead.state || "N/A"}</div>
           </CardContent>
