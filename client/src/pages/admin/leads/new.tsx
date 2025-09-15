@@ -3,11 +3,13 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import AdminNav from "@/components/admin-nav";
+import AdminLogin from "@/components/admin-login";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const authJsonHeaders = () => ({
   ...getAuthHeaders(),
@@ -29,9 +31,23 @@ export default function AdminLeadNew() {
     referrer: '',
   });
 
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
+
   const createLead = useMutation({
-    mutationFn: (data: typeof form) =>
-      fetch('/api/admin/leads', {
+    mutationFn: async (data: typeof form) => {
+      const res = await fetch('/api/admin/leads', {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify({
@@ -50,10 +66,15 @@ export default function AdminLeadNew() {
             odometer: 0,
           },
         }),
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to create lead');
-        return res.json();
-      }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to create lead');
+      return res.json();
+    },
     onSuccess: () => {
       toast({ title: 'Success', description: 'Lead created successfully' });
       setLocation('/admin/leads');

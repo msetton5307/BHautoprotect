@@ -2,7 +2,8 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
-import { hasCredentials, getAuthHeaders, clearCredentials, getStoredUsername } from "@/lib/auth";
+import { getAuthHeaders, clearCredentials, getStoredUsername } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -31,7 +32,7 @@ type CreateUserPayload = {
 };
 
 export default function AdminUsers() {
-  const [authenticated, setAuthenticated] = useState(hasCredentials());
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [forbidden, setForbidden] = useState(false);
   const [form, setForm] = useState<CreateUserPayload>({
     username: "",
@@ -43,6 +44,14 @@ export default function AdminUsers() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   const usersQuery = useQuery({
     queryKey: ["/api/admin/users"],
     enabled: authenticated,
@@ -50,7 +59,7 @@ export default function AdminUsers() {
       const res = await fetch("/api/admin/users", { headers: getAuthHeaders() });
       if (res.status === 401) {
         clearCredentials();
-        setAuthenticated(false);
+        markLoggedOut();
         throw new Error("Unauthorized");
       }
       if (res.status === 403) {
@@ -80,7 +89,7 @@ export default function AdminUsers() {
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
         clearCredentials();
-        setAuthenticated(false);
+        markLoggedOut();
         throw new Error("Unauthorized");
       }
       if (res.status === 403) {
@@ -121,7 +130,7 @@ export default function AdminUsers() {
       const data = await res.json().catch(() => ({}));
       if (res.status === 401) {
         clearCredentials();
-        setAuthenticated(false);
+        markLoggedOut();
         throw new Error("Unauthorized");
       }
       if (res.status === 403) {
@@ -153,7 +162,7 @@ export default function AdminUsers() {
   });
 
   if (!authenticated) {
-    return <AdminLogin onSuccess={() => setAuthenticated(true)} />;
+    return <AdminLogin onSuccess={markAuthenticated} />;
   }
 
   if (usersQuery.isLoading) {

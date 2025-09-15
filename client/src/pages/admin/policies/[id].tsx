@@ -3,21 +3,41 @@ import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import AdminNav from "@/components/admin-nav";
-import { getAuthHeaders } from "@/lib/auth";
+import AdminLogin from "@/components/admin-login";
+import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { ArrowLeft } from "lucide-react";
 
 export default function AdminPolicyDetail() {
   const { id } = useParams();
   const queryClient = useQueryClient();
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const { data, isLoading } = useQuery({
     queryKey: ["/api/admin/policies", id],
-    queryFn: () =>
-      fetch(`/api/admin/policies/${id}`, { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error("Failed to fetch policy");
-        return res.json();
-      }),
-    enabled: !!id,
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/policies/${id}`, { headers: getAuthHeaders() });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+      if (!res.ok) throw new Error("Failed to fetch policy");
+      return res.json();
+    },
+    enabled: authenticated && !!id,
   });
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
 
   if (isLoading) {
     return (
@@ -98,13 +118,25 @@ export default function AdminPolicyDetail() {
                 e.preventDefault();
                 const form = e.currentTarget;
                 const textarea = form.elements.namedItem('note') as HTMLTextAreaElement;
-                await fetch(`/api/admin/policies/${id}/notes`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-                  body: JSON.stringify({ content: textarea.value })
-                });
-                textarea.value = '';
-                queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                try {
+                  const response = await fetch(`/api/admin/policies/${id}/notes`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ content: textarea.value })
+                  });
+                  if (response.status === 401) {
+                    clearCredentials();
+                    markLoggedOut();
+                    return;
+                  }
+                  if (!response.ok) {
+                    throw new Error('Failed to add note');
+                  }
+                  textarea.value = '';
+                  queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                } catch (error) {
+                  console.error('Error adding policy note:', error);
+                }
               }}
               className="space-y-2"
             >
@@ -133,12 +165,24 @@ export default function AdminPolicyDetail() {
                 const formData = new FormData(e.currentTarget as HTMLFormElement);
                 const file = formData.get('file') as File | null;
                 if (file) {
-                  await fetch(`/api/admin/policies/${id}/files`, {
-                    method: 'POST',
-                    headers: { 'x-filename': file.name, ...getAuthHeaders() },
-                    body: file
-                  });
-                  queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                  try {
+                    const response = await fetch(`/api/admin/policies/${id}/files`, {
+                      method: 'POST',
+                      headers: { 'x-filename': file.name, ...getAuthHeaders() },
+                      body: file
+                    });
+                    if (response.status === 401) {
+                      clearCredentials();
+                      markLoggedOut();
+                      return;
+                    }
+                    if (!response.ok) {
+                      throw new Error('Failed to upload file');
+                    }
+                    queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                  } catch (error) {
+                    console.error('Error uploading policy file:', error);
+                  }
                 }
                 (e.currentTarget as HTMLFormElement).reset();
               }}
