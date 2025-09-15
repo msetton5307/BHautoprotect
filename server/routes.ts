@@ -346,6 +346,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       totalPayments: z.coerce.number().optional(),
     });
     try {
+      const existingPolicy = await storage.getPolicyByLeadId(req.params.id);
+      if (existingPolicy) {
+        return res.status(409).json({
+          data: existingPolicy,
+          message: 'Lead has already been converted to a policy',
+        });
+      }
       const data = schema.parse(req.body);
       const policy = await storage.createPolicy({ leadId: req.params.id, ...data });
       const current = getLeadMeta(req.params.id);

@@ -126,26 +126,31 @@ export default function AdminLeadDetail() {
   });
 
   const convertLeadMutation = useMutation({
-    mutationFn: (policyData: any) =>
-      fetch(`/api/admin/leads/${id}/convert`, {
+    mutationFn: async (policyData: any) => {
+      const response = await fetch(`/api/admin/leads/${id}/convert`, {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify(policyData),
-      }).then(res => {
-        if (!res.ok) throw new Error('Failed to convert lead');
-        return res.json();
-      }),
+      });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null);
+        const message = errorBody?.message ?? 'Failed to convert lead';
+        throw new Error(message);
+      }
+      return response.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/policies'] });
       toast({
         title: 'Success',
         description: 'Lead converted to policy',
       });
     },
-    onError: () => {
+    onError: (error) => {
       toast({
         title: 'Error',
-        description: 'Failed to convert lead',
+        description: error instanceof Error ? error.message : 'Failed to convert lead',
         variant: 'destructive',
       });
     },
@@ -227,7 +232,19 @@ export default function AdminLeadDetail() {
     );
   }
 
-  const { quotes, notes } = leadData.data;
+  const { quotes, notes, policy: existingPolicy } = leadData.data;
+  const hasPolicy = Boolean(existingPolicy);
+  const convertButtonDisabled = convertLeadMutation.isPending || hasPolicy;
+  const convertButtonLabel = hasPolicy
+    ? 'Policy Created'
+    : convertLeadMutation.isPending
+      ? 'Converting...'
+      : 'Convert to Policy';
+
+  const handleConvert = () => {
+    if (hasPolicy) return;
+    convertLeadMutation.mutate(policyForm);
+  };
 
   const handleCreateQuote = () => {
     createQuoteMutation.mutate(quoteForm);
@@ -298,10 +315,10 @@ export default function AdminLeadDetail() {
               </Button>
               <Button
                 size="sm"
-                onClick={() => convertLeadMutation.mutate(policyForm)}
-                disabled={convertLeadMutation.isPending}
+                onClick={handleConvert}
+                disabled={convertButtonDisabled}
               >
-                {convertLeadMutation.isPending ? 'Converting...' : 'Convert To Policy'}
+                {convertButtonLabel}
               </Button>
             </div>
           </div>
@@ -702,10 +719,10 @@ export default function AdminLeadDetail() {
                         </div>
                       </div>
                       <Button
-                        onClick={() => convertLeadMutation.mutate(policyForm)}
-                        disabled={convertLeadMutation.isPending}
+                        onClick={handleConvert}
+                        disabled={convertButtonDisabled}
                       >
-                        {convertLeadMutation.isPending ? 'Converting...' : 'Convert to Policy'}
+                        {convertButtonLabel}
                       </Button>
                     </div>
                   </AccordionContent>
