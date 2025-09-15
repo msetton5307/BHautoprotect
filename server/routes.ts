@@ -13,7 +13,10 @@ import {
   insertClaimSchema,
   insertPolicyNoteSchema,
   type InsertLead,
+  type Lead,
+  type Quote,
   type User,
+  type Vehicle,
 } from "@shared/schema";
 import fs from "fs";
 import path from "path";
@@ -113,6 +116,247 @@ const htmlToPlainText = (html: string): string => {
     .replace(/\r/g, '')
     .replace(/\n{3,}/g, '\n\n');
   return decodeHtmlEntities(withLineBreaks).trim();
+};
+
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const formatCurrencyFromCents = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value / 100);
+};
+
+const formatCurrencyFromDollars = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "N/A";
+  }
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+};
+
+const formatTerm = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "Flexible";
+  }
+  const rounded = Math.round(value);
+  const suffix = rounded === 1 ? "month" : "months";
+  return `${rounded} ${suffix}`;
+};
+
+const formatQuoteValidUntil = (value: Date | string | null | undefined): string => {
+  if (!value) {
+    return "Let us know when you’re ready";
+  }
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.valueOf())) {
+    return "Let us know when you’re ready";
+  }
+  return parsed.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+};
+
+const formatOdometer = (value: number | null | undefined): string => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return "On file";
+  }
+  return `${value.toLocaleString()} miles`;
+};
+
+const formatLocation = (lead: Lead): string => {
+  const parts = [lead.state, lead.zip]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean);
+  if (parts.length === 0) {
+    return "On file";
+  }
+  return parts.join(" • ");
+};
+
+const getLeadDisplayName = (lead: Lead): string => {
+  const first = typeof lead.firstName === "string" ? lead.firstName.trim() : "";
+  const last = typeof lead.lastName === "string" ? lead.lastName.trim() : "";
+  const combined = `${first} ${last}`.trim();
+  return combined || "there";
+};
+
+const getVehicleSummary = (vehicle: Vehicle | null | undefined): string => {
+  if (!vehicle) {
+    return "your vehicle";
+  }
+  const summary = `${vehicle.year ?? ""} ${vehicle.make ?? ""} ${vehicle.model ?? ""}`
+    .replace(/\s+/g, " ")
+    .trim();
+  return summary || "your vehicle";
+};
+
+const formatPlanName = (plan: string | null | undefined): string => {
+  if (!plan) {
+    return "Vehicle Protection";
+  }
+  return `${plan.charAt(0).toUpperCase()}${plan.slice(1)}`;
+};
+
+const renderDetailRows = (rows: { label: string; value: string }[]): string =>
+  rows
+    .map((row, index) => {
+      const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
+      return `
+        <tr>
+          <td style="padding:14px 20px;font-size:14px;font-weight:600;color:#1f2937;${border}">
+            ${escapeHtml(row.label)}
+          </td>
+          <td style="padding:14px 20px;font-size:14px;color:#334155;text-align:right;${border}">
+            ${escapeHtml(row.value)}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+const renderCompactRows = (rows: { label: string; value: string }[]): string =>
+  rows
+    .map((row, index) => {
+      const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
+      return `
+        <tr>
+          <td style="padding:12px 18px;font-size:13px;font-weight:600;color:#1f2937;${border}">
+            ${escapeHtml(row.label)}
+          </td>
+          <td style="padding:12px 18px;font-size:13px;color:#475569;text-align:right;${border}">
+            ${escapeHtml(row.value)}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+const buildQuoteEmail = ({
+  lead,
+  vehicle,
+  quote,
+}: {
+  lead: Lead;
+  vehicle: Vehicle | null | undefined;
+  quote: Quote;
+}): { subject: string; html: string } => {
+  const planName = formatPlanName(quote.plan);
+  const subject = `Your ${planName} Coverage Quote is Ready`;
+  const displayName = getLeadDisplayName(lead);
+  const vehicleSummary = getVehicleSummary(vehicle);
+  const quoteId = quote.id ?? "Pending";
+  const monthly = formatCurrencyFromCents(quote.priceMonthly);
+  const total = formatCurrencyFromCents(quote.priceTotal);
+  const deductible = formatCurrencyFromDollars(quote.deductible);
+  const term = formatTerm(quote.termMonths);
+  const validUntil = formatQuoteValidUntil(quote.validUntil ?? undefined);
+
+  const summaryRows = [
+    { label: "Quote ID", value: quoteId },
+    { label: "Coverage Plan", value: planName },
+    { label: "Monthly Investment", value: monthly },
+    { label: "Total Coverage Amount", value: total },
+    { label: "Deductible", value: deductible },
+    { label: "Coverage Term", value: term },
+    { label: "Quote Valid Through", value: validUntil },
+  ];
+
+  const vehicleRows = [
+    { label: "Vehicle", value: vehicleSummary },
+    { label: "VIN", value: vehicle?.vin ? vehicle.vin : "On file" },
+    { label: "Odometer", value: formatOdometer(vehicle?.odometer) },
+    { label: "Location", value: formatLocation(lead) },
+  ];
+
+  const supportRows = [
+    { label: "Next Step", value: "Reply with a good time to activate your coverage." },
+    {
+      label: "Concierge Support",
+      value: "We’ll walk you through the final paperwork in minutes.",
+    },
+    {
+      label: "Need adjustments?",
+      value: "Let us know and we’ll tailor the plan to fit your driving.",
+    },
+  ];
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);">
+          <tr>
+            <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
+              <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
+              <div style="font-size:24px;font-weight:700;margin-top:10px;">Your ${escapeHtml(planName)} Quote is Ready</div>
+              <div style="margin-top:12px;font-size:14px;opacity:0.85;">Quote • ${escapeHtml(quoteId)}</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
+              <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
+                Thanks for connecting with <strong>BHAutoProtect</strong>. Here’s the personalized coverage quote we created for ${escapeHtml(vehicleSummary)}.
+              </p>
+              <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;padding:22px;border-radius:16px;margin-bottom:28px;text-align:center;">
+                <div style="font-size:13px;letter-spacing:0.2em;text-transform:uppercase;opacity:0.8;">Monthly Investment</div>
+                <div style="font-size:32px;font-weight:700;margin-top:6px;">${escapeHtml(monthly)}</div>
+                <div style="font-size:14px;margin-top:6px;opacity:0.9;">${escapeHtml(planName)} coverage for ${escapeHtml(term)}</div>
+              </div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background-color:#f9fafb;border:1px solid #e5e7eb;margin-bottom:28px;">
+                <tbody>
+                  ${renderDetailRows(summaryRows)}
+                </tbody>
+              </table>
+              <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+                  <tbody>
+                    ${renderCompactRows(vehicleRows)}
+                  </tbody>
+                </table>
+                <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+                  <tbody>
+                    ${renderCompactRows(supportRows)}
+                  </tbody>
+                </table>
+              </div>
+              <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+                Ready to lock in this rate or curious about coverage details? Reply to this email and our concierge team will take care of everything for you.
+              </p>
+              <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+                <strong>Pro tip:</strong> We’ll hold this quote through ${escapeHtml(validUntil)}. Let us know if you need any tweaks—adjusting mileage, deductible, or payment options is easy.
+              </div>
+              <p style="margin:0;font-size:15px;line-height:1.7;">With gratitude,<br /><strong>The BHAutoProtect Team</strong></p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color:#f9fafb;padding:22px 32px;color:#6b7280;font-size:12px;line-height:1.6;">
+              You’re receiving this email because you requested coverage details from BHAutoProtect. Reply to this message if anything looks off and we’ll make it right immediately.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, html };
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -410,19 +654,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const leadId = req.params.id;
       const data = schema.parse(req.body);
+
+      const lead = await storage.getLead(leadId);
+      if (!lead) {
+        return res.status(404).json({ message: 'Lead not found' });
+      }
+
+      const recipient = typeof lead.email === 'string' ? lead.email.trim() : '';
+      if (!recipient) {
+        return res.status(400).json({ message: 'Lead must have an email address before sending a quote' });
+      }
+
+      const vehicle = await storage.getVehicleByLeadId(leadId);
+
       const priceMonthlyCents = Math.round(data.priceMonthly * 100);
-      await storage.createQuote({
+      const priceTotalCents = priceMonthlyCents * data.termMonths;
+      const createdAt = getEasternDate();
+      const validUntil = new Date(createdAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+      const quote = await storage.createQuote({
         leadId,
         plan: data.plan,
         deductible: data.deductible,
         termMonths: data.termMonths,
         priceMonthly: priceMonthlyCents,
-        priceTotal: priceMonthlyCents * data.termMonths,
+        priceTotal: priceTotalCents,
+        status: 'sent',
+        validUntil,
       });
-      res.redirect('/admin');
+
+      const currentMeta = getLeadMeta(leadId);
+      leadMeta[leadId] = { ...currentMeta, status: 'quoted' };
+
+      const { subject, html } = buildQuoteEmail({ lead, vehicle, quote });
+      const text = htmlToPlainText(html) || subject;
+
+      await sendMail({
+        to: recipient,
+        subject,
+        html,
+        text,
+      });
+
+      res.status(201).json({
+        data: quote,
+        message: 'Quote created and email sent successfully',
+      });
     } catch (error) {
-      console.error('Error assigning coverage:', error);
-      res.status(400).send('Invalid coverage data');
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid coverage data';
+        return res.status(400).json({ message });
+      }
+      console.error('Error creating quote:', error);
+      const message = error instanceof Error ? error.message : 'Failed to create quote';
+      res.status(500).json({ message });
     }
   });
 
