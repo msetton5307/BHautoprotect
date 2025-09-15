@@ -6,7 +6,7 @@ import { Users, FileText, Target, TrendingUp, Activity, Calendar, UserPlus } fro
 import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
-import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 export default function AdminDashboard() {
@@ -27,7 +27,7 @@ export default function AdminDashboard() {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['/api/admin/stats'],
     queryFn: async () => {
-      const res = await fetch('/api/admin/stats', {
+      const res = await fetchWithAuth('/api/admin/stats', {
         headers: getAuthHeaders()
       });
       if (res.status === 401) {
@@ -47,7 +47,7 @@ export default function AdminDashboard() {
   const { data: recentLeads } = useQuery({
     queryKey: ['/api/admin/leads'],
     queryFn: async () => {
-      const res = await fetch('/api/admin/leads', {
+      const res = await fetchWithAuth('/api/admin/leads', {
         headers: getAuthHeaders()
       });
       if (res.status === 401) {

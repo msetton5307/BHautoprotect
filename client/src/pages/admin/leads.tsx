@@ -10,7 +10,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
-import { getAuthHeaders, clearCredentials } from "@/lib/auth";
+import { getAuthHeaders, clearCredentials, fetchWithAuth } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const authJsonHeaders = () => ({
@@ -39,7 +39,7 @@ export default function AdminLeads() {
   const { data: leadsData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads'],
     queryFn: async () => {
-      const res = await fetch('/api/admin/leads', {
+      const res = await fetchWithAuth('/api/admin/leads', {
         headers: getAuthHeaders()
       });
       if (res.status === 401) {
@@ -62,7 +62,7 @@ export default function AdminLeads() {
 
   const updateLeadMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string, updates: any }) => {
-      const res = await fetch(`/api/admin/leads/${id}`, {
+      const res = await fetchWithAuth(`/api/admin/leads/${id}`, {
         method: 'PATCH',
         headers: authJsonHeaders(),
         body: JSON.stringify(updates),

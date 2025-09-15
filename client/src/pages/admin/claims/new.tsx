@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const authJsonHeaders = () => ({
@@ -39,8 +39,8 @@ export default function AdminClaimNew() {
     enabled: authenticated,
     queryFn: async () => {
       const [polRes, leadRes] = await Promise.all([
-        fetch('/api/admin/policies', { headers: getAuthHeaders() }),
-        fetch('/api/admin/leads', { headers: getAuthHeaders() })
+        fetchWithAuth('/api/admin/policies', { headers: getAuthHeaders() }),
+        fetchWithAuth('/api/admin/leads', { headers: getAuthHeaders() })
       ]);
       if (polRes.status === 401 || leadRes.status === 401) {
         clearCredentials();
@@ -74,7 +74,7 @@ export default function AdminClaimNew() {
 
   const createClaim = useMutation({
     mutationFn: async (data: typeof form) => {
-      const res = await fetch('/api/admin/claims', {
+      const res = await fetchWithAuth('/api/admin/claims', {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify(data),

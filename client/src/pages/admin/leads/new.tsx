@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const authJsonHeaders = () => ({
@@ -47,7 +47,7 @@ export default function AdminLeadNew() {
 
   const createLead = useMutation({
     mutationFn: async (data: typeof form) => {
-      const res = await fetch('/api/admin/leads', {
+      const res = await fetchWithAuth('/api/admin/leads', {
         method: 'POST',
         headers: authJsonHeaders(),
         body: JSON.stringify({

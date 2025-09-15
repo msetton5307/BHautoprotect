@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { clearCredentials, getAuthHeaders } from "@/lib/auth";
+import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 
 const authJsonHeaders = () => ({
@@ -26,7 +26,7 @@ export default function AdminClaimDetail() {
   const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/claims', id],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/claims/${id}`, { headers: getAuthHeaders() });
+      const res = await fetchWithAuth(`/api/admin/claims/${id}`, { headers: getAuthHeaders() });
       if (res.status === 401) {
         clearCredentials();
         markLoggedOut();
@@ -47,7 +47,7 @@ export default function AdminClaimDetail() {
 
   const updateMutation = useMutation({
     mutationFn: async (updates: any) => {
-      const res = await fetch(`/api/admin/claims/${id}`, {
+      const res = await fetchWithAuth(`/api/admin/claims/${id}`, {
         method: 'PATCH',
         headers: authJsonHeaders(),
         body: JSON.stringify(updates),
