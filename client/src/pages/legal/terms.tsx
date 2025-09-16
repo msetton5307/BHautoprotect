@@ -181,7 +181,7 @@ export default function TermsPage() {
                 <p>Customer Service: 1-800-555-0123</p>
                 <p>Claims Department: 1-800-555-CLAIM</p>
                 <p>Email: support@bhautoprotect.com</p>
-                <p>Address: 123 Business Ave, Suite 100, Anytown, ST 12345</p>
+                <p>Address: 800 N King St, Suite 304-2390, Wilmington, DE 19801</p>
                 <p>Business Hours: Monday-Friday 8AM-8PM, Saturday 9AM-5PM EST</p>
               </div>
             </section>

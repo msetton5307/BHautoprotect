@@ -134,7 +134,7 @@ export default function PrivacyPage() {
                 <p><strong>BH Auto Protect</strong></p>
                 <p>Email: privacy@bhautoprotect.com</p>
                 <p>Phone: 1-800-555-0123</p>
-                <p>Address: 123 Business Ave, Suite 100, Anytown, ST 12345</p>
+                <p>Address: 800 N King St, Suite 304-2390, Wilmington, DE 19801</p>
               </div>
             </section>
           </div>
