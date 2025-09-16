@@ -58,8 +58,8 @@ export default function TermsPage() {
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Coverage Details</h3>
                   <p>
-                    Specific coverage details are outlined in your individual warranty contract. Coverage varies 
-                    by plan type (Basic, Gold, Platinum) and includes mechanical breakdown protection for
+                    Specific coverage details are outlined in your individual warranty contract. Coverage varies
+                    by plan type (Bronze, Silver, Gold) and includes mechanical breakdown protection for
                     covered components as specified in your contract terms.
                   </p>
                 </div>
