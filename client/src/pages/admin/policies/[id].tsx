@@ -858,7 +858,7 @@ export default function AdminPolicyDetail() {
           }
         }}
       >
-        <DialogContent className="max-w-3xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Send policy email</DialogTitle>
             <DialogDescription>
@@ -919,7 +919,7 @@ export default function AdminPolicyDetail() {
                       title="Email preview"
                       sandbox=""
                       srcDoc={previewSource}
-                      className="h-[420px] w-full border-0 bg-white"
+                      className="h-[60vh] max-h-[420px] w-full border-0 bg-white"
                     />
                   </div>
                 </TabsContent>
