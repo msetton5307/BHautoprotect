@@ -84,9 +84,8 @@ export const US_STATES = [
 ];
 
 export const COVERAGE_PLANS = {
-  basic: {
-    name: 'Basic',
-    description: 'Essential coverage',
+  bronze: {
+    name: 'Bronze',
     features: [
       'Engine',
       'Transmission',
@@ -102,7 +101,35 @@ export const COVERAGE_PLANS = {
   },
   gold: {
     name: 'Gold',
-    description: 'Comprehensive protection',
+    description: 'Most Comprehensive!',
+    features: [
+      'Engine',
+      'Transmission',
+      'Seals & Gaskets',
+      'Cooling System',
+      'Brake System',
+      'Electrical System',
+      'Drive Axle',
+      'Trip Interruption',
+      'Gas Refill',
+      'Roadside Assistance',
+      'Rental Car',
+      'Lock Out',
+      'Steering System',
+      'ABS Brakes',
+      'AC System',
+      'Heating System',
+      'Fuel System',
+      'Turbo/Supercharger',
+      'Hi-Tech',
+      'Front Suspension',
+      'Back Suspension',
+      'AWD 4x4',
+      'Hybrid & EV Components',
+    ],
+  },
+  silver: {
+    name: 'Silver',
     features: [
       'Engine',
       'Transmission',
@@ -127,35 +154,14 @@ export const COVERAGE_PLANS = {
       'AWD 4x4',
     ],
   },
-  platinum: {
-    name: 'Platinum',
-    description: 'Maximum coverage',
-    features: [
-      'Engine',
-      'Transmission',
-      'Seals & Gaskets',
-      'Cooling System',
-      'Brake System',
-      'Electrical System',
-      'Drive Axle',
-      'Trip Interruption',
-      'Gas Refill',
-      'Roadside Assistance',
-      'Rental Car',
-      'Steering System',
-      'ABS Brakes',
-      'AC System',
-      'Heating System',
-      'Fuel System',
-      'Turbo/Supercharger',
-      'Hi-Tech',
-      'Front Suspension',
-      'Back Suspension',
-      'AWD 4x4',
-      'Hybrid & EV Components',
-    ],
-  },
-};
+} satisfies Record<
+  'bronze' | 'gold' | 'silver',
+  {
+    name: string;
+    features: readonly string[];
+    description?: string;
+  }
+>;
 
 export const DEDUCTIBLE_OPTIONS = [
   { value: 100, label: '$100', description: 'Higher premium' },

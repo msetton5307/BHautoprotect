@@ -687,9 +687,9 @@ export default function AdminLeadDetail() {
                               <SelectValue placeholder="--- Please Select ---" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="basic">Basic</SelectItem>
+                              <SelectItem value="bronze">Bronze</SelectItem>
+                              <SelectItem value="silver">Silver</SelectItem>
                               <SelectItem value="gold">Gold</SelectItem>
-                              <SelectItem value="platinum">Platinum</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -888,9 +888,9 @@ export default function AdminLeadDetail() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="basic">Basic</SelectItem>
+                          <SelectItem value="bronze">Bronze</SelectItem>
+                          <SelectItem value="silver">Silver</SelectItem>
                           <SelectItem value="gold">Gold</SelectItem>
-                          <SelectItem value="platinum">Platinum</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

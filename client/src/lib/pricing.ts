@@ -6,7 +6,7 @@ export interface VehicleInfo {
 }
 
 export interface CoverageInfo {
-  plan: "basic" | "gold" | "platinum";
+  plan: "bronze" | "silver" | "gold";
   deductible: number;
 }
 
@@ -24,7 +24,7 @@ export interface QuoteEstimate {
 }
 
 /**
- * Basic quote estimation utility used by both client and server.
+ * Simple quote estimation utility used by both client and server.
  * The algorithm is intentionally simple and should be replaced with
  * real pricing logic in production.
  */
@@ -39,13 +39,13 @@ export function calculateQuote(
   // Base monthly price by coverage plan in dollars
   let basePrice = 0;
   switch (coverage.plan) {
-    case "basic":
+    case "bronze":
       basePrice = 60;
       break;
-    case "gold":
+    case "silver":
       basePrice = 80;
       break;
-    case "platinum":
+    case "gold":
       basePrice = 100;
       break;
   }
