@@ -66,82 +66,53 @@ const sanitizeHtmlForPreview = (value: string): string =>
     .replace(/javascript:/gi, "")
     .trim();
 
-const buildDefaultEmailTemplate = (policy: any): EmailTemplateRecord => {
-  const name = getPolicyHolderName(policy);
-  const displayName = name || "there";
-  const policyPackage = policy?.package
-    ? `${policy.package.charAt(0).toUpperCase()}${policy.package.slice(1)}`
-    : "Vehicle Protection";
-  const subject = `Your ${policyPackage} Coverage Summary`;
-  const vehicle = policy?.vehicle;
-  const vehicleSummary = vehicle
-    ? `${vehicle.year ?? ""} ${vehicle.make ?? ""} ${vehicle.model ?? ""}`.replace(/\s+/g, " ").trim() ||
-      "your vehicle"
-    : "your vehicle";
+type DetailRow = { label: string; value: string };
 
-  const coverageRows = [
-    { label: "Policy ID", value: policy?.id ?? "N/A" },
-    { label: "Coverage Package", value: policyPackage },
-    { label: "Effective Date", value: formatDate(policy?.policyStartDate) },
-    { label: "Expiration Date", value: formatDate(policy?.expirationDate) },
-    { label: "Expiration Miles", value: policy?.expirationMiles != null ? String(policy.expirationMiles) : "N/A" },
-    { label: "Deductible", value: formatCurrency(policy?.deductible) },
-    { label: "Total Premium", value: formatCurrency(policy?.totalPremium) },
-  ];
+const renderDetailRows = (rows: DetailRow[]) =>
+  rows
+    .map((row, index) => {
+      const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
+      return `
+        <tr>
+          <td style="padding:14px 20px;font-size:14px;font-weight:600;color:#1f2937;${border}">
+            ${escapeHtml(row.label)}
+          </td>
+          <td style="padding:14px 20px;font-size:14px;color:#334155;text-align:right;${border}">
+            ${escapeHtml(row.value)}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
 
-  const vehicleRows = [
-    { label: "Vehicle", value: vehicleSummary },
-    { label: "VIN", value: vehicle?.vin || "On file" },
-    {
-      label: "Odometer",
-      value:
-        vehicle?.odometer != null && !Number.isNaN(Number(vehicle.odometer))
-          ? `${vehicle.odometer} miles`
-          : "On file",
-    },
-  ];
+const renderCompactRows = (rows: DetailRow[]) =>
+  rows
+    .map((row, index) => {
+      const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
+      return `
+        <tr>
+          <td style="padding:12px 16px;font-size:13px;color:#6b7280;${border}">
+            ${escapeHtml(row.label)}
+          </td>
+          <td style="padding:12px 16px;font-size:13px;font-weight:600;color:#1f2937;text-align:right;${border}">
+            ${escapeHtml(row.value)}
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
 
-  const paymentRows = [
-    { label: "Down Payment", value: formatCurrency(policy?.downPayment) },
-    { label: "Monthly Payment", value: formatCurrency(policy?.monthlyPayment) },
-    { label: "Total Payments", value: formatCurrency(policy?.totalPayments) },
-  ];
-
-  const renderDetailRows = (rows: { label: string; value: string }[]) =>
-    rows
-      .map((row, index) => {
-        const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
-        return `
-          <tr>
-            <td style="padding:14px 20px;font-size:14px;font-weight:600;color:#1f2937;${border}">
-              ${escapeHtml(row.label)}
-            </td>
-            <td style="padding:14px 20px;font-size:14px;color:#334155;text-align:right;${border}">
-              ${escapeHtml(row.value)}
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
-
-  const renderCompactRows = (rows: { label: string; value: string }[]) =>
-    rows
-      .map((row, index) => {
-        const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
-        return `
-          <tr>
-            <td style="padding:12px 18px;font-size:13px;font-weight:600;color:#1f2937;${border}">
-              ${escapeHtml(row.label)}
-            </td>
-            <td style="padding:12px 18px;font-size:13px;color:#334155;text-align:right;${border}">
-              ${escapeHtml(row.value)}
-            </td>
-          </tr>
-        `;
-      })
-      .join("");
-
-  const html = `<!DOCTYPE html>
+const buildEmailLayout = ({
+  subject,
+  heroTitle,
+  heroSubtitle,
+  bodyContent,
+}: {
+  subject: string;
+  heroTitle: string;
+  heroSubtitle: string;
+  bodyContent: string;
+}): string => `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charSet="UTF-8" />
@@ -156,40 +127,13 @@ const buildDefaultEmailTemplate = (policy: any): EmailTemplateRecord => {
           <tr>
             <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
               <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
-              <div style="font-size:24px;font-weight:700;margin-top:10px;">${escapeHtml(policyPackage)} Coverage Update</div>
-              <div style="margin-top:12px;font-size:14px;opacity:0.85;">Policy ID • ${escapeHtml(policy?.id ?? "N/A")}</div>
+              <div style="font-size:24px;font-weight:700;margin-top:10px;">${escapeHtml(heroTitle)}</div>
+              <div style="margin-top:12px;font-size:14px;opacity:0.85;">${escapeHtml(heroSubtitle)}</div>
             </td>
           </tr>
           <tr>
             <td style="padding:32px;">
-              <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
-              <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
-                Thank you for choosing <strong>BHAutoProtect</strong>. Below is a polished summary of your coverage so you always know exactly what is protected.
-              </p>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background-color:#f9fafb;border:1px solid #e5e7eb;margin-bottom:28px;">
-                <tbody>
-                  ${renderDetailRows(coverageRows)}
-                </tbody>
-              </table>
-              <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
-                  <tbody>
-                    ${renderCompactRows(vehicleRows)}
-                  </tbody>
-                </table>
-                <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
-                  <tbody>
-                    ${renderCompactRows(paymentRows)}
-                  </tbody>
-                </table>
-              </div>
-              <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
-                Need to update something or start a claim? Reply to this email and our concierge team will jump in immediately to help.
-              </p>
-              <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
-                <strong>Quick tip:</strong> Keep this message handy so your coverage information is always just a tap away.
-              </div>
-              <p style="margin:0;font-size:15px;line-height:1.7;">With gratitude,<br /><strong>The BHAutoProtect Team</strong></p>
+              ${bodyContent}
             </td>
           </tr>
           <tr>
@@ -204,7 +148,194 @@ const buildDefaultEmailTemplate = (policy: any): EmailTemplateRecord => {
 </body>
 </html>`;
 
-  return { id: "default", name: "Standard Policy Update", subject, bodyHtml: html };
+const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
+  const name = getPolicyHolderName(policy);
+  const displayName = name || "there";
+  const policyPackage = policy?.package
+    ? `${policy.package.charAt(0).toUpperCase()}${policy.package.slice(1)}`
+    : "Vehicle Protection";
+  const policyId = policy?.id ?? "N/A";
+  const heroSubtitle = `Policy ID • ${policyId}`;
+  const vehicle = policy?.vehicle;
+  const vehicleSummary = vehicle
+    ? `${vehicle.year ?? ""} ${vehicle.make ?? ""} ${vehicle.model ?? ""}`.replace(/\s+/g, " ").trim() ||
+      "your vehicle"
+    : "your vehicle";
+
+  const coverageRows: DetailRow[] = [
+    { label: "Policy ID", value: policyId },
+    { label: "Coverage Package", value: policyPackage },
+    { label: "Effective Date", value: formatDate(policy?.policyStartDate) },
+    { label: "Expiration Date", value: formatDate(policy?.expirationDate) },
+    { label: "Expiration Miles", value: policy?.expirationMiles != null ? String(policy.expirationMiles) : "N/A" },
+    { label: "Deductible", value: formatCurrency(policy?.deductible) },
+    { label: "Total Premium", value: formatCurrency(policy?.totalPremium) },
+  ];
+
+  const vehicleRows: DetailRow[] = [
+    { label: "Vehicle", value: vehicleSummary },
+    { label: "VIN", value: vehicle?.vin || "On file" },
+    {
+      label: "Odometer",
+      value:
+        vehicle?.odometer != null && !Number.isNaN(Number(vehicle.odometer))
+          ? `${vehicle.odometer} miles`
+          : "On file",
+    },
+  ];
+
+  const paymentRows: DetailRow[] = [
+    { label: "Down Payment", value: formatCurrency(policy?.downPayment) },
+    { label: "Monthly Payment", value: formatCurrency(policy?.monthlyPayment) },
+    { label: "Total Payments", value: formatCurrency(policy?.totalPayments) },
+  ];
+
+  const coverageTables = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background-color:#f9fafb;border:1px solid #e5e7eb;margin-bottom:28px;">
+      <tbody>
+        ${renderDetailRows(coverageRows)}
+      </tbody>
+    </table>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+        <tbody>
+          ${renderCompactRows(vehicleRows)}
+        </tbody>
+      </table>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+        <tbody>
+          ${renderCompactRows(paymentRows)}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  const templates: EmailTemplateRecord[] = [];
+
+  const policyActivatedSubject = `Your ${policyPackage} Coverage is Activated`;
+  const policyActivatedBody = `
+    <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
+    <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
+      Great news—your <strong>${escapeHtml(policyPackage)}</strong> protection is now active. Here's a quick summary so you can reference your coverage anytime.
+    </p>
+    ${coverageTables}
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+      Keep this email for your records. If you ever need help, just reply and our concierge team will jump in immediately.
+    </p>
+    <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+      <strong>Pro tip:</strong> Save our number so support is only a tap away when you need it.
+    </div>
+    <p style="margin:0;font-size:15px;line-height:1.7;">We're glad to have you with us,<br /><strong>The BHAutoProtect Team</strong></p>
+  `;
+
+  templates.push({
+    id: "policy-activated",
+    name: "Policy activated",
+    subject: policyActivatedSubject,
+    bodyHtml: buildEmailLayout({
+      subject: policyActivatedSubject,
+      heroTitle: `${policyPackage} Coverage Activated`,
+      heroSubtitle,
+      bodyContent: policyActivatedBody,
+    }),
+  });
+
+  const monthlyPayment = policy?.monthlyPayment != null ? formatCurrency(policy.monthlyPayment) : null;
+  const pastDueSubject = "Action Required: Account Past Due";
+  const pastDueBody = `
+    <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+      We noticed the account for your policy ${escapeHtml(policyId)} is past due. ${
+        monthlyPayment
+          ? `Your regular payment of ${escapeHtml(monthlyPayment)} is still pending.`
+          : "A payment on your account still needs attention."
+      }
+    </p>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">To keep every benefit active, please take one of these quick steps:</p>
+    <ul style="margin:0 0 20px 20px;padding:0;font-size:15px;line-height:1.7;color:#334155;">
+      <li style="margin-bottom:8px;">Reply to this email and let us know the best time to connect.</li>
+      <li style="margin-bottom:8px;">Give our concierge team a call so we can walk through payment options together.</li>
+      <li>Update your preferred payment method if anything has recently changed.</li>
+    </ul>
+    <div style="background:linear-gradient(135deg,#dc2626,#f97316);color:#ffffff;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+      We're ready to help right away—once we hear from you, we'll confirm next steps and send a receipt for your records.
+    </div>
+    <p style="margin:0;font-size:15px;line-height:1.7;">Thank you for the quick attention,<br /><strong>The BHAutoProtect Team</strong></p>
+  `;
+
+  templates.push({
+    id: "account-past-due",
+    name: "Account past due",
+    subject: pastDueSubject,
+    bodyHtml: buildEmailLayout({
+      subject: pastDueSubject,
+      heroTitle: "Account Past Due Notice",
+      heroSubtitle,
+      bodyContent: pastDueBody,
+    }),
+  });
+
+  const rimTireSubject = "Rim & Tire Voucher – Up to $150 Toward Repairs";
+  const rimTireBody = `
+    <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+      We’ve set aside up to ${escapeHtml(formatCurrency(150))} to help with rim or tire repairs on your vehicle. Handle the repair wherever you feel most comfortable—we’ll back you up.
+    </p>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">When you’re ready, simply:</p>
+    <ul style="margin:0 0 20px 20px;padding:0;font-size:15px;line-height:1.7;color:#334155;">
+      <li style="margin-bottom:8px;">Take care of the repair at your preferred shop.</li>
+      <li style="margin-bottom:8px;">Hang on to the itemized receipt and a quick note about what was repaired.</li>
+      <li>Send the documents back to us so we can confirm reimbursement eligibility right away.</li>
+    </ul>
+    <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+      Reply to this email with your paperwork whenever you’re ready and we’ll guide you through the final steps.
+    </div>
+    <p style="margin:0;font-size:15px;line-height:1.7;">We’re standing by to assist,<br /><strong>The BHAutoProtect Team</strong></p>
+  `;
+
+  templates.push({
+    id: "rim-tire-voucher",
+    name: "Rim and tire voucher $150",
+    subject: rimTireSubject,
+    bodyHtml: buildEmailLayout({
+      subject: rimTireSubject,
+      heroTitle: "Rim & Tire Voucher Available",
+      heroSubtitle,
+      bodyContent: rimTireBody,
+    }),
+  });
+
+  const maintenanceSubject = "Maintenance Voucher – $200 Toward Service";
+  const maintenanceBody = `
+    <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+      A maintenance voucher worth ${escapeHtml(formatCurrency(200))} is now available for routine service like oil changes or inspections. Use it wherever you already trust your vehicle.
+    </p>
+    <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">To make everything smooth:</p>
+    <ul style="margin:0 0 20px 20px;padding:0;font-size:15px;line-height:1.7;color:#334155;">
+      <li style="margin-bottom:8px;">Schedule service with any licensed repair facility.</li>
+      <li style="margin-bottom:8px;">Keep the detailed invoice that shows what was completed.</li>
+      <li>Share the paperwork with us so we can wrap up the reimbursement quickly.</li>
+    </ul>
+    <div style="background:linear-gradient(135deg,#16a34a,#22c55e);color:#ffffff;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+      Send everything over by replying to this message—our team will take it from there.
+    </div>
+    <p style="margin:0;font-size:15px;line-height:1.7;">Talk soon,<br /><strong>The BHAutoProtect Team</strong></p>
+  `;
+
+  templates.push({
+    id: "maintenance-voucher",
+    name: "Maintenance voucher $200",
+    subject: maintenanceSubject,
+    bodyHtml: buildEmailLayout({
+      subject: maintenanceSubject,
+      heroTitle: "Maintenance Voucher Ready",
+      heroSubtitle,
+      bodyContent: maintenanceBody,
+    }),
+  });
+
+  return templates;
 };
 export default function AdminPolicyDetail() {
   const { id } = useParams();
@@ -241,32 +372,39 @@ export default function AdminPolicyDetail() {
   const notes = policy?.notes ?? [];
   const files = policy?.files ?? [];
 
-  const defaultTemplate = useMemo(() => buildDefaultEmailTemplate(policy), [policy]);
+  const policyHolderName = getPolicyHolderName(policy);
+  const defaultTemplates = useMemo(() => buildDefaultEmailTemplates(policy), [policy]);
   const savedTemplates = templatesResponse?.data ?? [];
 
   const templateOptions = useMemo<TemplateOption[]>(() => {
     const options: TemplateOption[] = [];
-    if (defaultTemplate) {
-      options.push({ ...defaultTemplate, source: "default" });
+    for (const template of defaultTemplates) {
+      options.push({ ...template, source: "default" });
     }
     for (const template of savedTemplates) {
       options.push({ ...template, source: "saved" });
     }
     return options;
-  }, [defaultTemplate, savedTemplates]);
+  }, [defaultTemplates, savedTemplates]);
+
+  const fallbackSubject = `Policy Update for ${policyHolderName || "you"}`;
+  const initialTemplate = defaultTemplates[0] ?? {
+    id: CUSTOM_TEMPLATE_ID,
+    name: "Custom draft",
+    subject: fallbackSubject,
+    bodyHtml: "",
+  };
 
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState<string>(leadEmail);
-  const [emailSubject, setEmailSubject] = useState<string>(defaultTemplate.subject);
-  const [emailHtml, setEmailHtml] = useState<string>(defaultTemplate.bodyHtml);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(defaultTemplate.id);
-  const [isTemplateCustomized, setIsTemplateCustomized] = useState(false);
+  const [emailSubject, setEmailSubject] = useState<string>(initialTemplate.subject);
+  const [emailHtml, setEmailHtml] = useState<string>(initialTemplate.bodyHtml);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialTemplate.id);
+  const [isTemplateCustomized, setIsTemplateCustomized] = useState(initialTemplate.id === CUSTOM_TEMPLATE_ID);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [previewTab, setPreviewTab] = useState<"preview" | "html">("preview");
-
-  const policyHolderName = getPolicyHolderName(policy);
 
   const previewSource = useMemo(() => {
     const sanitized = sanitizeHtmlForPreview(emailHtml);
@@ -285,19 +423,21 @@ export default function AdminPolicyDetail() {
     }
 
     setEmailRecipient(leadEmail);
-    setEmailSubject(defaultTemplate.subject);
-    setEmailHtml(defaultTemplate.bodyHtml);
-    setSelectedTemplateId(defaultTemplate.id);
-    setIsTemplateCustomized(false);
+    const firstOption = templateOptions[0];
+    if (firstOption) {
+      setSelectedTemplateId(firstOption.id);
+      setEmailSubject(firstOption.subject);
+      setEmailHtml(firstOption.bodyHtml);
+      setIsTemplateCustomized(false);
+    } else {
+      setSelectedTemplateId(CUSTOM_TEMPLATE_ID);
+      setEmailSubject(fallbackSubject);
+      setEmailHtml("");
+      setIsTemplateCustomized(true);
+    }
     setNewTemplateName("");
     setPreviewTab("preview");
-  }, [
-    policy?.id,
-    defaultTemplate.subject,
-    defaultTemplate.bodyHtml,
-    defaultTemplate.id,
-    leadEmail,
-  ]);
+  }, [policy?.id, leadEmail, templateOptions, fallbackSubject]);
 
   if (isLoading) {
     return (
@@ -325,23 +465,31 @@ export default function AdminPolicyDetail() {
     );
   }
 
-  const handleOpenEmailDialog = () => {
+  const handleOpenEmailDialog = (templateId?: string) => {
     setEmailRecipient(leadEmail);
     setNewTemplateName("");
     setPreviewTab("preview");
 
-    const firstTemplate = templateOptions[0] ?? defaultTemplate;
-    if (firstTemplate) {
-      setSelectedTemplateId(firstTemplate.id);
-      setEmailSubject(firstTemplate.subject);
-      setEmailHtml(firstTemplate.bodyHtml);
-      setIsTemplateCustomized(false);
-    } else {
-      const fallbackSubject = `Policy Update for ${policyHolderName || "you"}`;
+    if (templateId === CUSTOM_TEMPLATE_ID) {
       setSelectedTemplateId(CUSTOM_TEMPLATE_ID);
       setEmailSubject(fallbackSubject);
       setEmailHtml("");
       setIsTemplateCustomized(true);
+    } else {
+      let template = templateId
+        ? templateOptions.find(option => option.id === templateId)
+        : templateOptions[0];
+      if (template) {
+        setSelectedTemplateId(template.id);
+        setEmailSubject(template.subject);
+        setEmailHtml(template.bodyHtml);
+        setIsTemplateCustomized(false);
+      } else {
+        setSelectedTemplateId(CUSTOM_TEMPLATE_ID);
+        setEmailSubject(fallbackSubject);
+        setEmailHtml("");
+        setIsTemplateCustomized(true);
+      }
     }
 
     setIsEmailDialogOpen(true);
@@ -559,7 +707,21 @@ export default function AdminPolicyDetail() {
               Manage documents, notes, and send beautifully formatted updates in just a few clicks.
             </p>
           </div>
-          <Button onClick={handleOpenEmailDialog}>Send policy email</Button>
+          <div className="flex flex-wrap gap-2 justify-end">
+            {defaultTemplates.map(template => (
+              <Button
+                key={template.id}
+                variant="secondary"
+                onClick={() => handleOpenEmailDialog(template.id)}
+              >
+                {template.name}
+              </Button>
+            ))}
+            <Button variant="outline" onClick={() => handleOpenEmailDialog(CUSTOM_TEMPLATE_ID)}>
+              Custom email
+            </Button>
+            <Button onClick={() => handleOpenEmailDialog()}>Open composer</Button>
+          </div>
         </div>
 
         <Card>
