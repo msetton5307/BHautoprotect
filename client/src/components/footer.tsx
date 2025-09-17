@@ -58,6 +58,7 @@ export default function Footer() {
               <li><a href="/claims" className="hover:text-white">File a Claim</a></li>
               <li><a href="/contact" className="hover:text-white">Customer Support</a></li>
               <li><a href="/faq" className="hover:text-white">FAQ</a></li>
+              <li><a href="/portal" className="hover:text-white">Customer Portal</a></li>
             </ul>
           </div>
           <div>

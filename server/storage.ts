@@ -10,6 +10,9 @@ import {
   emailTemplates,
   siteSettings,
   users,
+  customerAccounts,
+  customerPolicies,
+  customerPaymentProfiles,
   type Lead,
   type InsertLead,
   type Vehicle,
@@ -32,9 +35,15 @@ import {
   type InsertSiteSetting,
   type User,
   type InsertUser,
+  type CustomerAccount,
+  type InsertCustomerAccount,
+  type CustomerPolicy,
+  type InsertCustomerPolicy,
+  type CustomerPaymentProfile,
+  type InsertCustomerPaymentProfile,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, and } from "drizzle-orm";
 import { hashPassword } from "./password";
 
 const generateLeadId = () => Math.floor(10000000 + Math.random() * 90000000).toString();
@@ -164,6 +173,29 @@ export interface IStorage {
   countAdmins(): Promise<number>;
   ensureDefaultAdminUser(): Promise<void>;
   ensureDefaultEmailTemplates(): Promise<void>;
+
+  // Customer account operations
+  getCustomerAccount(id: string): Promise<CustomerAccount | undefined>;
+  getCustomerAccountByEmail(email: string): Promise<CustomerAccount | undefined>;
+  createCustomerAccount(account: InsertCustomerAccount): Promise<CustomerAccount>;
+  updateCustomerAccount(
+    id: string,
+    updates: Partial<InsertCustomerAccount> & { lastLoginAt?: Date },
+  ): Promise<CustomerAccount>;
+  linkCustomerToPolicy(customerId: string, policyId: string): Promise<CustomerPolicy>;
+  syncCustomerPoliciesByEmail(customerId: string, email: string): Promise<void>;
+  getCustomerPolicies(
+    customerId: string,
+  ): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null })[]>;
+  getCustomerClaims(customerId: string): Promise<Claim[]>;
+  getCustomerPaymentProfiles(customerId: string): Promise<CustomerPaymentProfile[]>;
+  getCustomerPaymentProfile(
+    customerId: string,
+    policyId: string,
+  ): Promise<CustomerPaymentProfile | undefined>;
+  upsertCustomerPaymentProfile(
+    profile: InsertCustomerPaymentProfile & { customerId: string },
+  ): Promise<CustomerPaymentProfile>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -490,6 +522,208 @@ export class DatabaseStorage implements IStorage {
         updatedAt: timestamp,
       });
     }
+  }
+
+  // Customer account operations
+  async getCustomerAccount(id: string): Promise<CustomerAccount | undefined> {
+    const [account] = await db
+      .select()
+      .from(customerAccounts)
+      .where(eq(customerAccounts.id, id));
+    return account;
+  }
+
+  async getCustomerAccountByEmail(email: string): Promise<CustomerAccount | undefined> {
+    const normalized = email.trim().toLowerCase();
+    const [account] = await db
+      .select()
+      .from(customerAccounts)
+      .where(sql`LOWER(${customerAccounts.email}) = ${normalized}`);
+    return account;
+  }
+
+  async createCustomerAccount(accountData: InsertCustomerAccount): Promise<CustomerAccount> {
+    const timestamp = getEasternDate();
+    const normalizedEmail = accountData.email.trim().toLowerCase();
+    const [account] = await db
+      .insert(customerAccounts)
+      .values({
+        ...accountData,
+        email: normalizedEmail,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      })
+      .returning();
+    return account;
+  }
+
+  async updateCustomerAccount(
+    id: string,
+    updates: Partial<InsertCustomerAccount> & { lastLoginAt?: Date },
+  ): Promise<CustomerAccount> {
+    const timestamp = getEasternDate();
+    const payload: Partial<typeof customerAccounts.$inferInsert> = {
+      updatedAt: timestamp,
+    };
+
+    if (typeof updates.email === 'string') {
+      payload.email = updates.email.trim().toLowerCase();
+    }
+    if (typeof updates.displayName === 'string' || updates.displayName === null) {
+      payload.displayName = updates.displayName ?? null;
+    }
+    if (typeof updates.passwordHash === 'string') {
+      payload.passwordHash = updates.passwordHash;
+    }
+    if (updates.lastLoginAt instanceof Date) {
+      payload.lastLoginAt = updates.lastLoginAt;
+    }
+
+    const [account] = await db
+      .update(customerAccounts)
+      .set(payload)
+      .where(eq(customerAccounts.id, id))
+      .returning();
+    return account;
+  }
+
+  async linkCustomerToPolicy(customerId: string, policyId: string): Promise<CustomerPolicy> {
+    const [link] = await db
+      .insert(customerPolicies)
+      .values({ customerId, policyId })
+      .onConflictDoNothing({
+        target: [customerPolicies.customerId, customerPolicies.policyId],
+      })
+      .returning();
+
+    if (link) {
+      return link;
+    }
+
+    const [existing] = await db
+      .select()
+      .from(customerPolicies)
+      .where(
+        and(
+          eq(customerPolicies.customerId, customerId),
+          eq(customerPolicies.policyId, policyId),
+        ),
+      );
+    return existing as CustomerPolicy;
+  }
+
+  async syncCustomerPoliciesByEmail(customerId: string, email: string): Promise<void> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) {
+      return;
+    }
+
+    const policyRows = await db
+      .select({ policyId: policies.id })
+      .from(policies)
+      .leftJoin(leads, eq(policies.leadId, leads.id))
+      .where(sql`LOWER(${leads.email}) = ${normalized}`);
+
+    const values = policyRows
+      .map((row: { policyId: string | null }) => row.policyId)
+      .filter((policyId: string | null): policyId is string => typeof policyId === 'string');
+
+    if (values.length === 0) {
+      return;
+    }
+
+    await db
+      .insert(customerPolicies)
+      .values(values.map((policyId: string) => ({ customerId, policyId })))
+      .onConflictDoNothing({
+        target: [customerPolicies.customerId, customerPolicies.policyId],
+      });
+  }
+
+  async getCustomerPolicies(
+    customerId: string,
+  ): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null })[]> {
+    const rows = await db
+      .select({
+        policy: policies,
+        lead: leads,
+        vehicle: vehicles,
+      })
+      .from(customerPolicies)
+      .innerJoin(policies, eq(customerPolicies.policyId, policies.id))
+      .leftJoin(leads, eq(policies.leadId, leads.id))
+      .leftJoin(vehicles, eq(vehicles.leadId, leads.id))
+      .where(eq(customerPolicies.customerId, customerId))
+      .orderBy(desc(policies.createdAt));
+
+    return rows.map((row: { policy: Policy; lead: Lead | null; vehicle: Vehicle | null }) => ({
+      ...row.policy,
+      lead: row.lead,
+      vehicle: row.vehicle,
+    }));
+  }
+
+  async getCustomerClaims(customerId: string): Promise<Claim[]> {
+    const rows = await db
+      .select({ claim: claims })
+      .from(claims)
+      .innerJoin(customerPolicies, eq(claims.policyId, customerPolicies.policyId))
+      .where(eq(customerPolicies.customerId, customerId))
+      .orderBy(desc(claims.createdAt));
+
+    return rows.map((row: { claim: Claim }) => row.claim);
+  }
+
+  async getCustomerPaymentProfiles(customerId: string): Promise<CustomerPaymentProfile[]> {
+    const rows = await db
+      .select()
+      .from(customerPaymentProfiles)
+      .where(eq(customerPaymentProfiles.customerId, customerId))
+      .orderBy(desc(customerPaymentProfiles.updatedAt));
+    return rows;
+  }
+
+  async getCustomerPaymentProfile(
+    customerId: string,
+    policyId: string,
+  ): Promise<CustomerPaymentProfile | undefined> {
+    const [profile] = await db
+      .select()
+      .from(customerPaymentProfiles)
+      .where(
+        and(
+          eq(customerPaymentProfiles.customerId, customerId),
+          eq(customerPaymentProfiles.policyId, policyId),
+        ),
+      );
+    return profile;
+  }
+
+  async upsertCustomerPaymentProfile(
+    profile: InsertCustomerPaymentProfile & { customerId: string },
+  ): Promise<CustomerPaymentProfile> {
+    const timestamp = getEasternDate();
+    const payload = {
+      customerId: profile.customerId,
+      policyId: profile.policyId,
+      paymentMethod: profile.paymentMethod ?? null,
+      accountName: profile.accountName ?? null,
+      accountIdentifier: profile.accountIdentifier ?? null,
+      autopayEnabled: profile.autopayEnabled ?? false,
+      notes: profile.notes ?? null,
+      updatedAt: timestamp,
+    };
+
+    const [record] = await db
+      .insert(customerPaymentProfiles)
+      .values({ ...payload, createdAt: timestamp })
+      .onConflictDoUpdate({
+        target: [customerPaymentProfiles.customerId, customerPaymentProfiles.policyId],
+        set: payload,
+      })
+      .returning();
+
+    return record;
   }
 }
 
