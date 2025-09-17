@@ -799,7 +799,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           odometer: z.number(),
         }),
         coverage: z.object({
-          plan: z.enum(['bronze', 'silver', 'gold']),
+          plan: z.enum(['basic', 'bronze', 'silver', 'gold']),
           deductible: z.number(),
         }),
         location: z.object({
@@ -1006,7 +1006,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Assign coverage plan to a lead
   app.post('/api/leads/:id/coverage', async (req, res) => {
     const schema = z.object({
-      plan: z.enum(['bronze', 'silver', 'gold']),
+      plan: z.enum(['basic', 'bronze', 'silver', 'gold']),
       deductible: z.coerce.number(),
       termMonths: z.coerce.number().default(36),
       priceMonthly: z.coerce.number(),

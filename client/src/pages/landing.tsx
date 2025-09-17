@@ -332,7 +332,7 @@ export default function Landing() {
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">Comprehensive coverage options for every budget</p>
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
-            {["bronze", "gold", "silver"].map((tier, index) => {
+            {["basic", "silver", "gold"].map((tier, index) => {
               const plan = COVERAGE_PLANS[tier as keyof typeof COVERAGE_PLANS];
               const highlight = tier === "gold";
 
