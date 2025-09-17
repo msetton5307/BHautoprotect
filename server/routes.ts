@@ -20,6 +20,8 @@ import {
   type User,
   type Vehicle,
   type CustomerAccount,
+  documentRequestTypeEnum,
+  documentRequestStatusEnum,
 } from "@shared/schema";
 import fs from "fs";
 import path from "path";
@@ -54,6 +56,21 @@ const leadWebhookSecret = process.env.LEAD_WEBHOOK_SECRET;
 if (!leadWebhookSecret) {
   console.warn("LEAD_WEBHOOK_SECRET is not set. Lead webhook requests will be rejected.");
 }
+
+const DOCUMENT_REQUEST_TYPE_VALUES = documentRequestTypeEnum.enumValues as [
+  'vin_photo',
+  'odometer_photo',
+  'diagnosis_report',
+  'repair_invoice',
+  'other',
+];
+
+const DOCUMENT_REQUEST_STATUS_VALUES = documentRequestStatusEnum.enumValues as [
+  'pending',
+  'submitted',
+  'completed',
+  'cancelled',
+];
 
 const leadWebhookRateLimitWindowMs = 60 * 1000;
 const leadWebhookRateLimitMax = 30;
@@ -535,6 +552,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const PUBLIC_BRANDING_PATH = "/uploads/branding";
 
   const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+  const MAX_DOCUMENT_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+  const toIsoString = (value: Date | string | null | undefined): string | null => {
+    if (!value) {
+      return null;
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.valueOf())) {
+      return null;
+    }
+    return parsed.toISOString();
+  };
+
+  const mapUploadMetadata = (upload: any) => ({
+    id: upload.id,
+    fileName: upload.fileName,
+    fileType: upload.fileType ?? null,
+    fileSize: upload.fileSize ?? null,
+    createdAt: toIsoString(upload.createdAt ?? null),
+  });
+
+  const mapDocumentRequestForAdmin = (request: any) => ({
+    id: request.id,
+    policyId: request.policyId,
+    customerId: request.customerId,
+    type: request.type,
+    title: request.title,
+    instructions: request.instructions ?? null,
+    status: request.status,
+    dueDate: toIsoString(request.dueDate ?? null),
+    requestedBy: request.requestedBy ?? null,
+    createdAt: toIsoString(request.createdAt ?? null),
+    updatedAt: toIsoString(request.updatedAt ?? null),
+    customer: request.customer
+      ? {
+          id: request.customer.id,
+          email: request.customer.email,
+          displayName: request.customer.displayName ?? null,
+        }
+      : null,
+    uploads: Array.isArray(request.uploads) ? request.uploads.map(mapUploadMetadata) : [],
+  });
+
+  const mapDocumentRequestForCustomer = (request: any) => ({
+    id: request.id,
+    policyId: request.policyId,
+    type: request.type,
+    title: request.title,
+    instructions: request.instructions ?? null,
+    status: request.status,
+    dueDate: toIsoString(request.dueDate ?? null),
+    requestedBy: request.requestedBy ?? null,
+    createdAt: toIsoString(request.createdAt ?? null),
+    updatedAt: toIsoString(request.updatedAt ?? null),
+    policy: request.policy
+      ? {
+          id: request.policy.id,
+          package: request.policy.package,
+          policyStartDate: toIsoString(request.policy.policyStartDate ?? null),
+          expirationDate: toIsoString(request.policy.expirationDate ?? null),
+          lead: request.policy.lead
+            ? {
+                firstName: request.policy.lead.firstName ?? null,
+                lastName: request.policy.lead.lastName ?? null,
+              }
+            : null,
+          vehicle: request.policy.vehicle
+            ? {
+                year: request.policy.vehicle.year ?? null,
+                make: request.policy.vehicle.make ?? null,
+                model: request.policy.vehicle.model ?? null,
+                vin: request.policy.vehicle.vin ?? null,
+              }
+            : null,
+        }
+      : null,
+    uploads: Array.isArray(request.uploads) ? request.uploads.map(mapUploadMetadata) : [],
+  });
 
   const MemoryStore = createMemoryStore(session);
   const secureCookie = process.env.NODE_ENV === "production";
@@ -761,6 +859,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
         odometer: z.number().int().min(0).max(2000000).optional(),
       })
       .optional(),
+  });
+
+  const documentRequestCreateSchema = z.object({
+    customerId: z.string().min(1, 'Customer is required'),
+    type: z.enum(DOCUMENT_REQUEST_TYPE_VALUES),
+    title: z
+      .string()
+      .trim()
+      .min(1, 'Title is required')
+      .max(160, 'Title is too long'),
+    instructions: z
+      .string()
+      .trim()
+      .max(2000, 'Instructions are too long')
+      .optional(),
+    dueDate: z.coerce.date().optional(),
+  });
+
+  const documentRequestStatusUpdateSchema = z.object({
+    status: z.enum(DOCUMENT_REQUEST_STATUS_VALUES),
+  });
+
+  const documentUploadSchema = z.object({
+    fileName: z
+      .string()
+      .trim()
+      .min(1, 'File name is required')
+      .max(240, 'File name is too long'),
+    fileType: z
+      .string()
+      .trim()
+      .max(120, 'File type is invalid')
+      .optional(),
+    fileSize: z.number().int().min(1, 'File size is required').max(MAX_DOCUMENT_UPLOAD_BYTES).optional(),
+    data: z.string().min(1, 'File data is required'),
   });
 
   app.post('/api/customer/register', async (req, res) => {
@@ -1121,6 +1254,137 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('Error submitting policy request:', error);
       res.status(500).json({ message: 'Failed to submit request' });
+    }
+  });
+
+  app.get('/api/customer/document-requests', customerAuth, async (_req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const requests = await storage.getCustomerDocumentRequests(account.id);
+      res.json({
+        data: { requests: requests.map(mapDocumentRequestForCustomer) },
+        message: 'Document requests retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error loading customer document requests:', error);
+      res.status(500).json({ message: 'Failed to load document requests' });
+    }
+  });
+
+  app.post('/api/customer/document-requests/:id/upload', customerAuth, async (req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const payload = documentUploadSchema.parse(req.body ?? {});
+      const requestRecord = await storage.getCustomerDocumentRequestForCustomer(req.params.id, account.id);
+      if (!requestRecord) {
+        res.status(404).json({ message: 'Document request not found' });
+        return;
+      }
+
+      if (requestRecord.status === 'cancelled') {
+        res.status(400).json({ message: 'This request has been cancelled by our team.' });
+        return;
+      }
+
+      if (requestRecord.status === 'completed') {
+        res.status(400).json({ message: 'This request has already been completed.' });
+        return;
+      }
+
+      if (payload.fileType) {
+        const normalizedType = payload.fileType.toLowerCase();
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/heic', 'image/heif', 'application/pdf'];
+        if (!allowedMimeTypes.includes(normalizedType)) {
+          res.status(400).json({ message: 'Please upload a photo (JPG, PNG, HEIC) or a PDF document.' });
+          return;
+        }
+      }
+
+      const base64Data = payload.data.includes(',') ? payload.data.split(',').pop() ?? '' : payload.data;
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(base64Data, 'base64');
+      } catch {
+        res.status(400).json({ message: 'We could not read that file. Please try again.' });
+        return;
+      }
+
+      if (buffer.length === 0) {
+        res.status(400).json({ message: 'The uploaded file is empty.' });
+        return;
+      }
+
+      if (buffer.length > MAX_DOCUMENT_UPLOAD_BYTES) {
+        res.status(400).json({ message: 'Files must be 5MB or smaller.' });
+        return;
+      }
+
+      if (payload.fileSize && payload.fileSize > MAX_DOCUMENT_UPLOAD_BYTES) {
+        res.status(400).json({ message: 'Files must be 5MB or smaller.' });
+        return;
+      }
+
+      const upload = await storage.createCustomerDocumentUpload({
+        requestId: requestRecord.id,
+        customerId: account.id,
+        policyId: requestRecord.policyId,
+        fileName: payload.fileName,
+        fileType: payload.fileType ?? null,
+        fileSize: buffer.length,
+        fileData: base64Data,
+      });
+
+      await storage.updateCustomerDocumentRequest(requestRecord.id, { status: 'submitted' });
+
+      const requests = await storage.getCustomerDocumentRequests(account.id);
+      const updated = requests.find((item) => item.id === requestRecord.id);
+
+      res.status(201).json({
+        data: {
+          request: updated
+            ? mapDocumentRequestForCustomer(updated)
+            : mapDocumentRequestForCustomer({ ...requestRecord, policy: null, uploads: [upload] }),
+          upload: mapUploadMetadata(upload),
+        },
+        message: 'File uploaded successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Please double-check the file details and try again.';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error uploading customer document:', error);
+      res.status(500).json({ message: 'Failed to upload file' });
+    }
+  });
+
+  app.get('/api/customer/document-uploads/:id', customerAuth, async (req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const upload = await storage.getCustomerDocumentUploadForCustomer(req.params.id, account.id);
+      if (!upload) {
+        res.status(404).json({ message: 'Document upload not found' });
+        return;
+      }
+
+      const mimeType = upload.fileType ?? 'application/octet-stream';
+      const dataUrl = `data:${mimeType};base64,${upload.fileData}`;
+
+      res.json({
+        data: {
+          id: upload.id,
+          fileName: upload.fileName,
+          fileType: upload.fileType ?? null,
+          fileSize: upload.fileSize ?? null,
+          createdAt: toIsoString(upload.createdAt ?? null),
+          dataUrl,
+        },
+        message: 'Document retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error retrieving customer document upload:', error);
+      res.status(500).json({ message: 'Failed to retrieve document' });
     }
   });
 
@@ -1921,6 +2185,153 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching policy:', error);
       res.status(500).json({ message: 'Failed to fetch policy' });
+    }
+  });
+
+  app.get('/api/admin/policies/:id/document-requests', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const requests = await storage.listDocumentRequestsForPolicy(req.params.id);
+      res.json({
+        data: { requests: requests.map(mapDocumentRequestForAdmin) },
+        message: 'Document requests retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error loading document requests:', error);
+      res.status(500).json({ message: 'Failed to load document requests' });
+    }
+  });
+
+  app.post('/api/admin/policies/:id/document-requests', async (req, res) => {
+    const currentUser = ensureAdminUser(res);
+    if (!currentUser) {
+      return;
+    }
+
+    try {
+      const payload = documentRequestCreateSchema.parse(req.body ?? {});
+      const policy = await storage.getPolicy(req.params.id);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const customer = policy.customers?.find((account: CustomerAccount) => account.id === payload.customerId);
+      if (!customer) {
+        res.status(400).json({ message: 'Selected customer is not linked to this policy' });
+        return;
+      }
+
+      const record = await storage.createCustomerDocumentRequest({
+        policyId: req.params.id,
+        customerId: payload.customerId,
+        type: payload.type,
+        title: payload.title,
+        instructions: payload.instructions ?? null,
+        dueDate: payload.dueDate ?? null,
+        requestedBy: currentUser.id,
+      });
+
+      const responseData = mapDocumentRequestForAdmin({
+        ...record,
+        customer,
+        uploads: [],
+      });
+
+      res.status(201).json({
+        data: responseData,
+        message: 'Document request created successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid document request payload';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error creating document request:', error);
+      res.status(500).json({ message: 'Failed to create document request' });
+    }
+  });
+
+  app.post('/api/admin/document-requests/:id/status', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const payload = documentRequestStatusUpdateSchema.parse(req.body ?? {});
+      const existing = await storage.getCustomerDocumentRequest(req.params.id);
+      if (!existing) {
+        res.status(404).json({ message: 'Document request not found' });
+        return;
+      }
+
+      await storage.updateCustomerDocumentRequest(existing.id, { status: payload.status });
+      const requests = await storage.listDocumentRequestsForPolicy(existing.policyId);
+      const enriched = requests.find((request) => request.id === existing.id);
+
+      if (!enriched) {
+        res.json({
+          data: mapDocumentRequestForAdmin({ ...existing, customer: null, uploads: [] }),
+          message: 'Document request updated',
+        });
+        return;
+      }
+
+      res.json({
+        data: mapDocumentRequestForAdmin(enriched),
+        message: 'Document request updated',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid update payload';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error updating document request:', error);
+      res.status(500).json({ message: 'Failed to update document request' });
+    }
+  });
+
+  app.get('/api/admin/document-uploads/:id', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const upload = await storage.getCustomerDocumentUpload(req.params.id);
+      if (!upload) {
+        res.status(404).json({ message: 'Document upload not found' });
+        return;
+      }
+
+      const requests = await storage.listDocumentRequestsForPolicy(upload.request.policyId);
+      const enriched = requests.find((request) => request.id === upload.request.id);
+      const requestData = enriched
+        ? mapDocumentRequestForAdmin(enriched)
+        : mapDocumentRequestForAdmin({ ...upload.request, customer: null, uploads: [upload] });
+
+      const mimeType = upload.fileType ?? 'application/octet-stream';
+      const dataUrl = `data:${mimeType};base64,${upload.fileData}`;
+
+      res.json({
+        data: {
+          id: upload.id,
+          fileName: upload.fileName,
+          fileType: upload.fileType ?? null,
+          fileSize: upload.fileSize ?? null,
+          createdAt: toIsoString(upload.createdAt ?? null),
+          dataUrl,
+          request: requestData,
+        },
+        message: 'Document retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error retrieving document upload:', error);
+      res.status(500).json({ message: 'Failed to load document upload' });
     }
   });
 
