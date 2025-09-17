@@ -25,6 +25,9 @@ export default function AdminNav() {
             <Link href="/admin/users" className="text-gray-700 hover:text-primary">
               Users
             </Link>
+            <Link href="/admin/settings" className="text-gray-700 hover:text-primary">
+              Branding
+            </Link>
           </div>
           <div className="text-sm text-gray-600">
             Logged in as: {username}{" "}
