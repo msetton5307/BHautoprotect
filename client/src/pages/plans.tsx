@@ -21,19 +21,19 @@ export default function Plans() {
           Explore our plans and choose the level of protection that's right for you.
         </p>
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Bronze Plan */}
+          {/* Basic Plan */}
           <Card className="relative hover:shadow-lg transition-shadow">
             <CardContent className="p-8">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold mb-2">{COVERAGE_PLANS.bronze.name}</h3>
-                {COVERAGE_PLANS.bronze.description && (
+                <h3 className="text-2xl font-bold mb-2">{COVERAGE_PLANS.basic.name}</h3>
+                {COVERAGE_PLANS.basic.description && (
                   <p className="text-sm font-semibold text-primary">
-                    {COVERAGE_PLANS.bronze.description}
+                    {COVERAGE_PLANS.basic.description}
                   </p>
                 )}
               </div>
               <ul className="space-y-4 mb-8">
-                {COVERAGE_PLANS.bronze.features.map((feature) => (
+                {COVERAGE_PLANS.basic.features.map((feature) => (
                   <li key={feature} className="flex items-center">
                     <Check className="w-5 h-5 text-accent mr-3" />
                     <span>{feature}</span>

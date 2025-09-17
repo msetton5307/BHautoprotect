@@ -83,21 +83,27 @@ export const US_STATES = [
   { value: 'WY', label: 'Wyoming' },
 ];
 
+const CORE_PLAN_FEATURES = [
+  'Engine',
+  'Transmission',
+  'Cooling System',
+  'Brake System',
+  'Electrical System',
+  'Drive Axle',
+  'Trip Interruption',
+  'Gas Refill',
+  'Roadside Assistance',
+  'Rental Car',
+] as const;
+
 export const COVERAGE_PLANS = {
+  basic: {
+    name: 'Basic',
+    features: CORE_PLAN_FEATURES,
+  },
   bronze: {
     name: 'Bronze',
-    features: [
-      'Engine',
-      'Transmission',
-      'Cooling System',
-      'Brake System',
-      'Electrical System',
-      'Drive Axle',
-      'Trip Interruption',
-      'Gas Refill',
-      'Roadside Assistance',
-      'Rental Car',
-    ],
+    features: CORE_PLAN_FEATURES,
   },
   gold: {
     name: 'Gold',
@@ -146,7 +152,7 @@ export const COVERAGE_PLANS = {
     ],
   },
 } satisfies Record<
-  'bronze' | 'gold' | 'silver',
+  'basic' | 'bronze' | 'gold' | 'silver',
   {
     name: string;
     features: readonly string[];
