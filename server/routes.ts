@@ -1,4 +1,4 @@
-import type { Express, RequestHandler, Response } from "express";
+import type { Express, Request, RequestHandler, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
@@ -45,6 +45,160 @@ const DEFAULT_META: LeadMeta = {
 };
 
 const leadMeta: Record<string, LeadMeta> = {};
+
+const leadWebhookSecret = process.env.LEAD_WEBHOOK_SECRET;
+
+if (!leadWebhookSecret) {
+  console.warn("LEAD_WEBHOOK_SECRET is not set. Lead webhook requests will be rejected.");
+}
+
+const leadWebhookRateLimitWindowMs = 60 * 1000;
+const leadWebhookRateLimitMax = 30;
+
+type RateLimitEntry = {
+  count: number;
+  resetAt: number;
+};
+
+const leadWebhookRateLimiters = new Map<string, RateLimitEntry>();
+
+const allowLeadWebhookRequest = (key: string): boolean => {
+  const now = Date.now();
+  const entry = leadWebhookRateLimiters.get(key);
+
+  if (!entry || entry.resetAt <= now) {
+    leadWebhookRateLimiters.set(key, {
+      count: 1,
+      resetAt: now + leadWebhookRateLimitWindowMs,
+    });
+    return true;
+  }
+
+  if (entry.count >= leadWebhookRateLimitMax) {
+    return false;
+  }
+
+  entry.count += 1;
+  return true;
+};
+
+const normalizeString = (value: unknown): string | undefined => {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }
+
+  try {
+    const stringValue = String(value).trim();
+    return stringValue.length > 0 ? stringValue : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const normalizeEmail = (value: unknown): string | undefined => {
+  const normalized = normalizeString(value);
+  return normalized ? normalized.toLowerCase() : undefined;
+};
+
+const parseConsentFlag = (value: unknown): boolean => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return value > 0;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (["true", "1", "yes", "y", "on", "consented"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no", "n", "off"].includes(normalized)) {
+      return false;
+    }
+  }
+
+  return false;
+};
+
+const parseTimestamp = (value: unknown): Date | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  if (value instanceof Date) {
+    return Number.isNaN(value.valueOf()) ? undefined : value;
+  }
+
+  const normalized = normalizeString(value);
+  if (!normalized) {
+    return undefined;
+  }
+
+  const timestamp = new Date(normalized);
+  if (!Number.isNaN(timestamp.valueOf())) {
+    return timestamp;
+  }
+
+  const numeric = Number(normalized);
+  if (!Number.isNaN(numeric)) {
+    const fromNumeric = new Date(numeric);
+    return Number.isNaN(fromNumeric.valueOf()) ? undefined : fromNumeric;
+  }
+
+  return undefined;
+};
+
+const getClientIp = (req: Request): string => {
+  const forwarded = req.headers["x-forwarded-for"]; // May be string or string[]
+  if (Array.isArray(forwarded)) {
+    const candidate = normalizeString(forwarded[0]);
+    if (candidate) {
+      return candidate;
+    }
+  } else if (typeof forwarded === "string") {
+    const candidate = normalizeString(forwarded.split(",")[0]);
+    if (candidate) {
+      return candidate;
+    }
+  }
+
+  const ip = normalizeString((req.ip || req.socket.remoteAddress) ?? undefined);
+  return ip ?? "unknown";
+};
+
+const leadWebhookPayloadSchema = z
+  .object({
+    first_name: z.string().optional(),
+    last_name: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    zip: z.string().optional(),
+    state: z.string().optional(),
+    consent_tcpa: z.union([z.boolean(), z.string(), z.number()]).optional(),
+    tcpa_consent: z.union([z.boolean(), z.string(), z.number()]).optional(),
+    consent: z.union([z.boolean(), z.string(), z.number()]).optional(),
+    tcpa: z.union([z.boolean(), z.string(), z.number()]).optional(),
+    consent_timestamp: z.union([z.string(), z.number(), z.date()]).optional(),
+    tcpa_consent_timestamp: z.union([z.string(), z.number(), z.date()]).optional(),
+    timestamp: z.union([z.string(), z.number(), z.date()]).optional(),
+    consent_ip: z.string().optional(),
+    ip: z.string().optional(),
+    consent_user_agent: z.string().optional(),
+    user_agent: z.string().optional(),
+    source: z.string().optional(),
+    lead_source: z.string().optional(),
+    utm_source: z.string().optional(),
+    utm_medium: z.string().optional(),
+    utm_campaign: z.string().optional(),
+  })
+  .passthrough();
 
 type AuthenticatedUser = {
   id: string;
@@ -540,6 +694,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error calculating quote:", error);
       res.status(400).json({ message: "Invalid quote data" });
+    }
+  });
+
+  app.post("/webhooks/leads", async (req, res) => {
+    if (!leadWebhookSecret) {
+      console.error("Lead webhook received but LEAD_WEBHOOK_SECRET is not configured.");
+      return res.status(503).json({ ok: false, error: "lead webhook not configured" });
+    }
+
+    const providedSecret = req.get("X-Lead-Secret");
+    if (providedSecret !== leadWebhookSecret) {
+      return res.status(401).send("Unauthorized.");
+    }
+
+    const clientIp = getClientIp(req);
+    if (!allowLeadWebhookRequest(clientIp)) {
+      return res.status(429).json({ ok: false, error: "Too many requests" });
+    }
+
+    try {
+      const payload = leadWebhookPayloadSchema.parse(req.body ?? {});
+
+      const email = normalizeEmail(payload.email);
+      const phone = normalizeString(payload.phone);
+      if (!email && !phone) {
+        console.error("Lead webhook rejected: email or phone required.");
+        return res.status(400).json({ ok: false, error: "email or phone required" });
+      }
+
+      const consentFlagSource =
+        payload.consent_tcpa ??
+        payload.tcpa_consent ??
+        payload.consent ??
+        payload.tcpa;
+      const consentTCPA = parseConsentFlag(consentFlagSource);
+
+      const consentTimestamp =
+        parseTimestamp(
+          payload.consent_timestamp ??
+            payload.tcpa_consent_timestamp ??
+            payload.timestamp,
+        ) ?? (consentTCPA ? getEasternDate() : undefined);
+
+      const fallbackIp = clientIp === "unknown" ? undefined : clientIp;
+      const consentIP =
+        normalizeString(payload.consent_ip ?? payload.ip) ?? fallbackIp;
+      const consentUserAgent =
+        normalizeString(payload.consent_user_agent ?? payload.user_agent) ??
+        normalizeString(req.get("User-Agent"));
+
+      const leadInput = {
+        firstName: normalizeString(payload.first_name),
+        lastName: normalizeString(payload.last_name),
+        email,
+        phone,
+        zip: normalizeString(payload.zip),
+        state: normalizeString(payload.state),
+        consentTCPA,
+        consentTimestamp,
+        consentIP,
+        consentUserAgent,
+        source: normalizeString(payload.source ?? payload.lead_source),
+        utmSource: normalizeString(payload.utm_source),
+        utmMedium: normalizeString(payload.utm_medium),
+        utmCampaign: normalizeString(payload.utm_campaign),
+      } satisfies Partial<InsertLead>;
+
+      const leadData = insertLeadSchema.parse(leadInput);
+      const lead = await storage.createLead(leadData);
+
+      leadMeta[lead.id] = leadMeta[lead.id] ?? DEFAULT_META;
+
+      res.status(201).json({ ok: true, id: lead.id });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        console.error("Lead webhook validation error:", error);
+        const message = error.issues.at(0)?.message ?? "Invalid webhook payload";
+        return res.status(400).json({ ok: false, error: message });
+      }
+
+      console.error("Lead webhook processing error:", error);
+      return res.status(500).json({ ok: false, error: "Failed to record lead" });
     }
   });
 
