@@ -517,6 +517,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.ensureDefaultAdminUser();
   await storage.ensureDefaultEmailTemplates();
 
+  const uploadsDir = path.resolve("uploads");
+  const brandingUploadsDir = path.join(uploadsDir, "branding");
+  await fs.promises.mkdir(brandingUploadsDir, { recursive: true });
+
+  const BRANDING_LOGO_SETTING_KEY = "branding.logoUrl";
+  const PUBLIC_BRANDING_PATH = "/uploads/branding";
+
+  const MAX_LOGO_BYTES = 2 * 1024 * 1024;
+
   const MemoryStore = createMemoryStore(session);
   const secureCookie = process.env.NODE_ENV === "production";
   const sessionStore = new MemoryStore({ checkPeriod: 24 * 60 * 60 * 1000 });
@@ -539,6 +548,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   app.use("/uploads", express.static("uploads"));
+
+  const buildBrandingResponse = async () => {
+    const setting = await storage.getSiteSetting(BRANDING_LOGO_SETTING_KEY);
+    return { logoUrl: setting?.value ?? null };
+  };
+
+  app.get("/api/branding", async (_req, res) => {
+    try {
+      const data = await buildBrandingResponse();
+      res.json({ data, message: "Branding retrieved successfully" });
+    } catch (error) {
+      console.error("Error fetching branding:", error);
+      res.status(500).json({ message: "Failed to load branding" });
+    }
+  });
 
   const loginSchema = z.object({
     username: z.string().min(1, "Username is required"),
@@ -663,6 +687,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.use('/api/admin', adminAuth);
+
+  app.get('/api/admin/branding', async (_req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const data = await buildBrandingResponse();
+      res.json({ data, message: 'Branding retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching branding for admin:', error);
+      res.status(500).json({ message: 'Failed to load branding' });
+    }
+  });
+
+  app.post('/api/admin/branding/logo', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    const payloadSchema = z.object({
+      data: z.string().min(1, 'Logo data is required'),
+      fileName: z.string().optional(),
+      mimeType: z.string().optional(),
+    });
+
+    try {
+      const payload = payloadSchema.parse(req.body ?? {});
+      const base64Content = payload.data.includes(',') ? payload.data.split(',').pop() ?? '' : payload.data;
+
+      if (!base64Content) {
+        res.status(400).json({ message: 'Logo data is invalid' });
+        return;
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(base64Content, 'base64');
+      } catch {
+        res.status(400).json({ message: 'Logo data is invalid' });
+        return;
+      }
+
+      if (buffer.length === 0) {
+        res.status(400).json({ message: 'Logo data is empty' });
+        return;
+      }
+
+      if (buffer.length > MAX_LOGO_BYTES) {
+        res.status(400).json({ message: 'Logo must be 2MB or smaller.' });
+        return;
+      }
+
+      const normalizedMime = payload.mimeType?.toLowerCase();
+      const allowedMimes = ['image/jpeg', 'image/pjpeg', 'image/jpg'];
+      if (normalizedMime && !allowedMimes.includes(normalizedMime)) {
+        res.status(400).json({ message: 'Only JPG images are allowed' });
+        return;
+      }
+
+      const isLikelyJpeg =
+        buffer[0] === 0xff &&
+        buffer[1] === 0xd8 &&
+        buffer[buffer.length - 2] === 0xff &&
+        buffer[buffer.length - 1] === 0xd9;
+
+      if (!isLikelyJpeg) {
+        res.status(400).json({ message: 'The uploaded file is not a valid JPG image.' });
+        return;
+      }
+
+      const fileName = `logo-${Date.now()}.jpg`;
+      const absolutePath = path.join(brandingUploadsDir, fileName);
+      await fs.promises.writeFile(absolutePath, buffer);
+
+      const publicPath = `${PUBLIC_BRANDING_PATH}/${fileName}`;
+      const previous = await storage.getSiteSetting(BRANDING_LOGO_SETTING_KEY);
+      await storage.upsertSiteSetting({ key: BRANDING_LOGO_SETTING_KEY, value: publicPath });
+
+      if (previous?.value && previous.value !== publicPath) {
+        const relativePrevious = previous.value.replace(/^\/?uploads\/?/, '');
+        if (relativePrevious) {
+          const absolutePrevious = path.resolve(uploadsDir, relativePrevious);
+          if (absolutePrevious.startsWith(uploadsDir)) {
+            await fs.promises.unlink(absolutePrevious).catch(() => undefined);
+          }
+        }
+      }
+
+      const data = await buildBrandingResponse();
+      res.json({ data, message: 'Logo updated successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid logo payload', errors: error.errors });
+        return;
+      }
+      console.error('Error saving uploaded logo:', error);
+      res.status(500).json({ message: 'Failed to update logo' });
+    }
+  });
 
   // Public quote estimation endpoint
   app.post('/api/quote/estimate', async (req, res) => {

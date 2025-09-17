@@ -8,6 +8,7 @@ import {
   policyNotes,
   policyFiles,
   emailTemplates,
+  siteSettings,
   users,
   type Lead,
   type InsertLead,
@@ -27,6 +28,8 @@ import {
   type InsertPolicyFile,
   type EmailTemplate,
   type InsertEmailTemplate,
+  type SiteSetting,
+  type InsertSiteSetting,
   type User,
   type InsertUser,
 } from "@shared/schema";
@@ -141,6 +144,10 @@ export interface IStorage {
   createEmailTemplate(template: InsertEmailTemplate): Promise<EmailTemplate>;
   updateEmailTemplate(id: string, updates: Partial<InsertEmailTemplate>): Promise<EmailTemplate>;
   deleteEmailTemplate(id: string): Promise<EmailTemplate | undefined>;
+
+  // Site settings operations
+  getSiteSetting(key: string): Promise<SiteSetting | undefined>;
+  upsertSiteSetting(setting: InsertSiteSetting): Promise<SiteSetting>;
 
   // Claim operations
   createClaim(claim: InsertClaim): Promise<Claim>;
@@ -371,6 +378,27 @@ export class DatabaseStorage implements IStorage {
       .where(eq(emailTemplates.id, id))
       .returning();
     return template;
+  }
+
+  async getSiteSetting(key: string): Promise<SiteSetting | undefined> {
+    const [setting] = await db
+      .select()
+      .from(siteSettings)
+      .where(eq(siteSettings.key, key));
+    return setting;
+  }
+
+  async upsertSiteSetting(setting: InsertSiteSetting): Promise<SiteSetting> {
+    const timestamp = getEasternDate();
+    const [result] = await db
+      .insert(siteSettings)
+      .values({ ...setting, updatedAt: timestamp })
+      .onConflictDoUpdate({
+        target: siteSettings.key,
+        set: { value: setting.value, updatedAt: timestamp },
+      })
+      .returning();
+    return result;
   }
 
   // Claim operations

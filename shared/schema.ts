@@ -162,6 +162,12 @@ export const emailTemplates = pgTable("email_templates", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+export const siteSettings = pgTable("site_settings", {
+  key: varchar("key", { length: 120 }).primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Relations
 export const leadsRelations = relations(leads, ({ one, many }) => ({
   vehicle: one(vehicles),
@@ -270,6 +276,10 @@ export const insertEmailTemplateSchema = createInsertSchema(emailTemplates).omit
   updatedAt: true,
 });
 
+export const insertSiteSettingSchema = createInsertSchema(siteSettings).omit({
+  updatedAt: true,
+});
+
 // Types
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
@@ -291,3 +301,5 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
+export type SiteSetting = typeof siteSettings.$inferSelect;
+export type InsertSiteSetting = z.infer<typeof insertSiteSettingSchema>;
