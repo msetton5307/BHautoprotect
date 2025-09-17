@@ -29,7 +29,7 @@ export function Logo({
         <img
           src={logoUrl}
           alt="BH Auto Protect logo"
-          className="h-12 w-auto object-contain"
+          className="h-16 w-auto object-contain sm:h-20"
           loading="lazy"
         />
       ) : (
@@ -37,7 +37,7 @@ export function Logo({
           viewBox="0 0 320 120"
           role="img"
           aria-labelledby="bh-logo-title bh-logo-desc"
-          className="h-12 w-auto"
+          className="h-16 w-auto sm:h-20"
         >
           <title id="bh-logo-title">BH Auto Protect</title>
           <desc id="bh-logo-desc">Stylized car silhouette above a shield with a checkmark</desc>
@@ -76,7 +76,7 @@ export function Logo({
         <div className={cn("flex flex-col leading-tight", textClassName)}>
           <span
             className={cn(
-              "text-xl sm:text-2xl font-black tracking-tight text-slate-900",
+              "text-2xl sm:text-3xl font-black tracking-tight text-slate-900",
               titleClassName,
             )}
           >
