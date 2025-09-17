@@ -1,4 +1,5 @@
 import { Facebook, Twitter, Instagram } from "lucide-react";
+import Logo from "@/components/logo";
 
 export default function Footer() {
   return (
@@ -6,7 +7,12 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-4 gap-8">
           <div>
-            <h3 className="text-2xl font-bold mb-4">BH Auto Protect</h3>
+            <Logo
+              className="mb-4"
+              titleClassName="text-white"
+              subtitleClassName="text-blue-200"
+              textClassName="gap-1"
+            />
             <p className="text-gray-400 mb-4">
               Protecting your vehicle and your wallet with comprehensive extended warranty coverage.
             </p>
