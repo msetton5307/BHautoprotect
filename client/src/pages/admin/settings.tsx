@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
-const ACCEPTED_TYPES = ["image/jpeg", "image/pjpeg"];
+const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/pjpeg", "image/png", "image/x-png"];
+const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png"];
 
 type BrandingResponse = {
   data?: {
@@ -90,13 +91,23 @@ export default function AdminSettings() {
         throw new Error(message);
       }
 
+      const normalizedFileName = file.name?.toLowerCase() ?? "";
+      const normalizedType = file.type?.toLowerCase() ?? "";
+      const fallbackMimeType =
+        normalizedType ||
+        (normalizedFileName.endsWith(".png")
+          ? "image/png"
+          : normalizedFileName.endsWith(".jpeg") || normalizedFileName.endsWith(".jpg")
+            ? "image/jpeg"
+            : "image/jpeg");
+
       const response = await fetchWithAuth("/api/admin/branding/logo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           data: base64,
           fileName: file.name,
-          mimeType: file.type || "image/jpeg",
+          mimeType: fallbackMimeType,
         }),
       });
 
@@ -155,9 +166,14 @@ export default function AdminSettings() {
       return;
     }
 
-    if (!ACCEPTED_TYPES.includes(file.type)) {
+    const normalizedName = file.name?.toLowerCase() ?? "";
+    const normalizedType = file.type?.toLowerCase() ?? "";
+    const hasAcceptedMime = normalizedType ? ACCEPTED_MIME_TYPES.includes(normalizedType) : false;
+    const hasAcceptedExtension = ACCEPTED_EXTENSIONS.some((extension) => normalizedName.endsWith(extension));
+
+    if ((normalizedType && !hasAcceptedMime) || (!normalizedType && !hasAcceptedExtension)) {
       setSelectedFile(null);
-      setValidationError("Please upload a JPG image file.");
+      setValidationError("Please upload a JPG or PNG image file.");
       return;
     }
 
@@ -176,7 +192,7 @@ export default function AdminSettings() {
     event.preventDefault();
 
     if (!selectedFile) {
-      setValidationError("Please choose a JPG logo before saving.");
+      setValidationError("Please choose a JPG or PNG logo before saving.");
       return;
     }
 
@@ -227,7 +243,7 @@ export default function AdminSettings() {
               Site Branding
             </CardTitle>
             <CardDescription>
-              Upload a JPG logo to replace the default illustration shown across the public site.
+              Upload a JPG or PNG logo to replace the default illustration shown across the public site.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -258,12 +274,12 @@ export default function AdminSettings() {
                   <Input
                     id="logo"
                     type="file"
-                    accept=".jpg,.jpeg,image/jpeg"
+                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                     onChange={handleFileChange}
                     disabled={uploadMutation.isPending}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Upload a high-resolution JPG (max 2MB). We recommend at least 320×120 pixels with transparent or solid
+                    Upload a high-resolution JPG or PNG (max 2MB). We recommend at least 320×120 pixels with transparent or solid
                     background.
                   </p>
                 </div>

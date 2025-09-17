@@ -741,9 +741,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const normalizedMime = payload.mimeType?.toLowerCase();
-      const allowedMimes = ['image/jpeg', 'image/pjpeg', 'image/jpg'];
+      const allowedMimes = ['image/jpeg', 'image/pjpeg', 'image/jpg', 'image/png', 'image/x-png'];
       if (normalizedMime && !allowedMimes.includes(normalizedMime)) {
-        res.status(400).json({ message: 'Only JPG images are allowed' });
+        res.status(400).json({ message: 'Only JPG or PNG images are allowed' });
         return;
       }
 
@@ -753,12 +753,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         buffer[buffer.length - 2] === 0xff &&
         buffer[buffer.length - 1] === 0xd9;
 
-      if (!isLikelyJpeg) {
-        res.status(400).json({ message: 'The uploaded file is not a valid JPG image.' });
+      const isLikelyPng =
+        buffer.length >= 8 &&
+        buffer[0] === 0x89 &&
+        buffer[1] === 0x50 &&
+        buffer[2] === 0x4e &&
+        buffer[3] === 0x47 &&
+        buffer[4] === 0x0d &&
+        buffer[5] === 0x0a &&
+        buffer[6] === 0x1a &&
+        buffer[7] === 0x0a;
+
+      let detectedExtension: 'jpg' | 'png' | null = null;
+      if (isLikelyPng) {
+        detectedExtension = 'png';
+      } else if (isLikelyJpeg) {
+        detectedExtension = 'jpg';
+      }
+
+      if (!detectedExtension) {
+        res.status(400).json({ message: 'The uploaded file is not a valid JPG or PNG image.' });
         return;
       }
 
-      const fileName = `logo-${Date.now()}.jpg`;
+      if (normalizedMime?.includes('png') && detectedExtension !== 'png') {
+        res.status(400).json({ message: 'The uploaded file does not match the expected PNG format.' });
+        return;
+      }
+
+      if (normalizedMime?.includes('jpg') || normalizedMime?.includes('jpeg') || normalizedMime?.includes('pjpeg')) {
+        if (detectedExtension !== 'jpg') {
+          res.status(400).json({ message: 'The uploaded file does not match the expected JPG format.' });
+          return;
+        }
+      }
+
+      const fileName = `logo-${Date.now()}.${detectedExtension}`;
       const absolutePath = path.join(brandingUploadsDir, fileName);
       await fs.promises.writeFile(absolutePath, buffer);
 
