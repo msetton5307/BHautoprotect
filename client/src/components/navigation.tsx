@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Phone, Mail, Clock } from "lucide-react";
+import Logo from "@/components/logo";
 
 interface NavigationProps {
   onGetQuote: () => void;
@@ -51,17 +52,16 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
       <nav className="bg-white/90 backdrop-blur border-b border-blue-100/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
-            <div className="flex items-center space-x-3">
-              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary via-secondary to-primary flex items-center justify-center text-white font-bold shadow-lg">
-                BH
-              </div>
-              <a
-                href="/"
-                className="text-2xl lg:text-3xl font-extrabold tracking-tight text-primary hover:text-secondary transition-colors"
-              >
-                BH Auto Protect
-              </a>
-            </div>
+            <a
+              href="/"
+              className="group flex items-center"
+              aria-label="BH Auto Protect home"
+            >
+              <Logo
+                titleClassName="group-hover:text-secondary transition-colors"
+                subtitleClassName="group-hover:text-primary/70 transition-colors"
+              />
+            </a>
             <div className="hidden md:flex items-center gap-8">
               {navLinks.map((link) => (
                 <a
