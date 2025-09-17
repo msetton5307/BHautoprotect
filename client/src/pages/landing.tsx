@@ -332,7 +332,7 @@ export default function Landing() {
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">Comprehensive coverage options for every budget</p>
           </div>
           <div className="grid lg:grid-cols-3 gap-8">
-            {["basic", "silver", "gold"].map((tier, index) => {
+            {["basic", "gold", "silver"].map((tier, index) => {
               const plan = COVERAGE_PLANS[tier as keyof typeof COVERAGE_PLANS];
               const highlight = tier === "gold";
 
@@ -353,11 +353,11 @@ export default function Landing() {
                     } transition-transform duration-500 hover:-translate-y-2`}
                   >
                     {highlight && (
-                      <div className="absolute top-6 right-6 rounded-full bg-gradient-to-r from-primary via-secondary to-primary px-4 py-1 text-xs font-semibold uppercase tracking-[0.3em] text-white">
+                      <div className="absolute top-6 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary via-secondary to-primary px-6 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-white shadow-lg">
                         Most Popular
                       </div>
                     )}
-                    <CardContent className="p-10">
+                    <CardContent className={`p-10 ${highlight ? "pt-16" : ""}`}>
                       <div className="text-center mb-8">
                         <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                         {plan.description && (
