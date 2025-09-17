@@ -6,6 +6,7 @@ import CustomerPortalOverview from "./overview";
 import CustomerPortalClaims from "./claims";
 import CustomerPortalPayments from "./payments";
 import CustomerPortalPolicyRequest from "./policy-request";
+import CustomerPortalDocuments from "./documents";
 import {
   checkCustomerSession,
   logoutCustomer,
@@ -16,6 +17,7 @@ const NAV_LINKS = [
   { href: "/portal", label: "Overview" },
   { href: "/portal/claims", label: "Claims" },
   { href: "/portal/payments", label: "Payments" },
+  { href: "/portal/documents", label: "Documents" },
   { href: "/portal/policies/new", label: "Add Coverage" },
 ];
 
@@ -85,33 +87,42 @@ export default function CustomerPortal() {
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <header className="bg-slate-900 text-white shadow">
-        <div className="max-w-6xl mx-auto px-4 py-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-slate-400">BH Auto Protect</p>
-            <h1 className="text-2xl font-semibold">Customer Portal</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right text-sm text-slate-300">
-              <p className="font-medium text-white">{displayName}</p>
-              {session.customer.displayName && session.customer.displayName !== session.customer.email ? (
-                <p>{session.customer.email}</p>
-              ) : null}
+      <header className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-slate-950" />
+        <div className="absolute inset-x-0 top-0 h-full bg-gradient-to-br from-primary/30 via-transparent to-slate-900 opacity-80" />
+        <div className="relative">
+          <div className="max-w-6xl mx-auto px-4 py-10">
+            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-3 text-white">
+                <p className="text-xs uppercase tracking-[0.32em] text-white/70">BH Auto Protect</p>
+                <h1 className="text-3xl font-semibold tracking-tight">Welcome back, {displayName || "there"}</h1>
+                <p className="max-w-xl text-sm text-white/70">
+                  Keep your coverage, claims, and paperwork organized in one place. We’ll highlight anything that needs your attention first.
+                </p>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-white/80">
+                <div className="text-right">
+                  <p className="font-medium text-white">{displayName}</p>
+                  {session.customer.displayName && session.customer.displayName !== session.customer.email ? (
+                    <p className="text-white/70">{session.customer.email}</p>
+                  ) : null}
+                </div>
+                <Button variant="outline" onClick={handleLogout} className="border-white/40 bg-white/5 hover:bg-white/10">
+                  Sign out
+                </Button>
+              </div>
             </div>
-            <Button variant="outline" onClick={handleLogout} className="bg-white/10 hover:bg-white/20">
-              Sign out
-            </Button>
           </div>
         </div>
-        <nav className="bg-slate-800">
+        <nav className="relative border-t border-white/10 bg-slate-900/60 backdrop-blur">
           <div className="max-w-6xl mx-auto px-4 py-3 flex flex-wrap gap-2">
             {NAV_LINKS.map((link) => (
               <Link key={link.href} href={link.href} className="group">
                 <span
-                  className={`inline-flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`inline-flex items-center rounded-full px-3.5 py-2 text-sm font-medium transition-all ${
                     isActiveLink(link.href)
                       ? "bg-white text-slate-900 shadow"
-                      : "text-slate-200 hover:text-white hover:bg-slate-700"
+                      : "text-white/80 hover:text-white hover:bg-white/10"
                   }`}
                 >
                   {link.label}
@@ -132,6 +143,9 @@ export default function CustomerPortal() {
           </Route>
           <Route path="/portal/payments">
             <CustomerPortalPayments session={session} />
+          </Route>
+          <Route path="/portal/documents">
+            <CustomerPortalDocuments session={session} />
           </Route>
           <Route path="/portal/policies/new">
             <CustomerPortalPolicyRequest session={session} />

@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminNav from "@/components/admin-nav";
 import { fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import PolicyDocumentRequests from "@/components/admin-policy-document-requests";
 import { ArrowLeft } from "lucide-react";
 
 const CUSTOM_TEMPLATE_ID = "custom";
@@ -847,6 +848,8 @@ export default function AdminPolicyDetail() {
             </ul>
           </CardContent>
         </Card>
+
+        <PolicyDocumentRequests policyId={policy.id} customers={policy.customers ?? []} />
       </div>
       <Dialog
         open={isEmailDialogOpen}

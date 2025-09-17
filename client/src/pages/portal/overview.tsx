@@ -8,6 +8,9 @@ import {
   type CustomerPolicy,
   type CustomerClaim,
 } from "@/lib/customer-auth";
+import type { CustomerDocumentRequestRecord } from "@/lib/document-requests";
+import { DOCUMENT_REQUEST_TYPE_COPY, summarizeVehicle as summarizeDocumentVehicle } from "@/lib/document-requests";
+import { UploadCloud, CheckCircle2, Clock3 } from "lucide-react";
 
 type Props = {
   session: CustomerSessionSnapshot;
@@ -63,6 +66,9 @@ export default function CustomerPortalOverview({ session }: Props) {
   const claimsQuery = useQuery<{ data?: { claims?: CustomerClaim[] } }>([
     "/api/customer/claims",
   ]);
+  const documentsQuery = useQuery<{ data?: { requests?: CustomerDocumentRequestRecord[] } }>([
+    "/api/customer/document-requests",
+  ]);
 
   const policies = useMemo(() => {
     const apiPolicies = policiesQuery.data?.data?.policies;
@@ -73,9 +79,30 @@ export default function CustomerPortalOverview({ session }: Props) {
   }, [policiesQuery.data, session.policies]);
 
   const claims = useMemo(() => claimsQuery.data?.data?.claims ?? [], [claimsQuery.data]);
+  const documentRequests = useMemo(
+    () => documentsQuery.data?.data?.requests ?? [],
+    [documentsQuery.data],
+  );
 
   const monthlyTotal = computeMonthlyTotal(policies);
   const activeClaims = computeOpenClaims(claims);
+  const outstandingDocuments = useMemo(
+    () =>
+      documentRequests.filter(
+        (request) => request.status !== "completed" && request.status !== "cancelled",
+      ),
+    [documentRequests],
+  );
+  const nextDocumentDue = useMemo(() => {
+    let earliest: string | null = null;
+    for (const request of outstandingDocuments) {
+      if (!request.dueDate) continue;
+      if (!earliest || new Date(request.dueDate).valueOf() < new Date(earliest).valueOf()) {
+        earliest = request.dueDate;
+      }
+    }
+    return earliest;
+  }, [outstandingDocuments]);
 
   return (
     <div className="space-y-8">
@@ -86,7 +113,7 @@ export default function CustomerPortalOverview({ session }: Props) {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card className="border-primary/10 bg-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-600">Active Policies</CardTitle>
@@ -130,7 +157,85 @@ export default function CustomerPortalOverview({ session }: Props) {
             <p className="text-sm text-emerald-700/80 mt-1">Estimated monthly payment across all policies</p>
           </CardContent>
         </Card>
+
+        <Card className="border-sky-200 bg-sky-50/70">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-sky-700">Document Tasks</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {documentsQuery.isLoading ? (
+              <Skeleton className="h-8 w-16" />
+            ) : (
+              <p className="text-3xl font-semibold text-sky-900">{outstandingDocuments.length}</p>
+            )}
+            <p className="text-sm text-sky-700/80 mt-1">
+              {outstandingDocuments.length === 0
+                ? "No uploads needed right now"
+                : nextDocumentDue
+                  ? `Next due ${formatDate(nextDocumentDue)}`
+                  : "We’ll review files as soon as you send them"}
+            </p>
+          </CardContent>
+        </Card>
       </div>
+
+      <Card className="border-slate-200 bg-white/70 shadow-sm">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-slate-800">
+            <UploadCloud className="h-4 w-4 text-primary" />
+            Action center
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-slate-600">
+          {documentsQuery.isLoading ? (
+            <div className="space-y-2">
+              <Skeleton className="h-5 w-1/2" />
+              <Skeleton className="h-5 w-2/3" />
+            </div>
+          ) : outstandingDocuments.length === 0 ? (
+            <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3">
+              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+              <div>
+                <p className="font-medium text-slate-800">You’re all caught up</p>
+                <p className="text-xs text-slate-500">We’ll notify you here whenever new documents are needed.</p>
+              </div>
+            </div>
+          ) : (
+            <ul className="space-y-3">
+              {outstandingDocuments.slice(0, 2).map((request) => (
+                <li
+                  key={request.id}
+                  className="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                >
+                  <div className="mt-1">
+                    <UploadCloud className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium text-slate-800">{request.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {DOCUMENT_REQUEST_TYPE_COPY[request.type].label} • {summarizeDocumentVehicle(request.policy)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {request.dueDate ? (
+                        <span className="inline-flex items-center gap-1 text-amber-600">
+                          <Clock3 className="h-3.5 w-3.5" /> Due {formatDate(request.dueDate)}
+                        </span>
+                      ) : (
+                        "Send when ready"
+                      )}
+                    </p>
+                  </div>
+                </li>
+              ))}
+              {outstandingDocuments.length > 2 ? (
+                <li className="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-3 text-xs text-slate-500">
+                  {outstandingDocuments.length - 2} more request(s) waiting in the Documents tab.
+                </li>
+              ) : null}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

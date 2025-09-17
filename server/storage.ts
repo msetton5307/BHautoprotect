@@ -13,6 +13,8 @@ import {
   customerAccounts,
   customerPolicies,
   customerPaymentProfiles,
+  customerDocumentRequests,
+  customerDocumentUploads,
   type Lead,
   type InsertLead,
   type Vehicle,
@@ -41,9 +43,13 @@ import {
   type InsertCustomerPolicy,
   type CustomerPaymentProfile,
   type InsertCustomerPaymentProfile,
+  type CustomerDocumentRequest,
+  type InsertCustomerDocumentRequest,
+  type CustomerDocumentUpload,
+  type InsertCustomerDocumentUpload,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, sql, and } from "drizzle-orm";
+import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import { hashPassword } from "./password";
 
 const generateLeadId = () => Math.floor(10000000 + Math.random() * 90000000).toString();
@@ -111,6 +117,20 @@ const DEFAULT_EMAIL_TEMPLATES: { name: string; subject: string; bodyHtml: string
   },
 ];
 
+type CustomerDocumentRequestWithCustomer = CustomerDocumentRequest & {
+  customer: CustomerAccount;
+  uploads: CustomerDocumentUpload[];
+};
+
+type CustomerDocumentRequestWithPolicy = CustomerDocumentRequest & {
+  policy: Policy & { lead: Lead | null; vehicle: Vehicle | null };
+  uploads: CustomerDocumentUpload[];
+};
+
+type CustomerDocumentUploadWithRequest = CustomerDocumentUpload & {
+  request: CustomerDocumentRequest;
+};
+
 // Interface for storage operations
 export interface IStorage {
   // Lead operations
@@ -135,7 +155,16 @@ export interface IStorage {
   // Policy operations
   createPolicy(policy: InsertPolicy): Promise<Policy>;
   getPolicies(): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null })[]>;
-  getPolicy(id: string): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null; notes: PolicyNote[]; files: PolicyFile[] }) | undefined>;
+  getPolicy(id: string): Promise<
+    | (Policy & {
+        lead: Lead | null;
+        vehicle: Vehicle | null;
+        notes: PolicyNote[];
+        files: PolicyFile[];
+        customers: CustomerAccount[];
+      })
+    | undefined
+  >;
   getPolicyByLeadId(leadId: string): Promise<Policy | undefined>;
   updatePolicy(leadId: string, updates: Partial<InsertPolicy>): Promise<Policy>;
 
@@ -196,6 +225,41 @@ export interface IStorage {
   upsertCustomerPaymentProfile(
     profile: InsertCustomerPaymentProfile & { customerId: string },
   ): Promise<CustomerPaymentProfile>;
+  createCustomerDocumentRequest(
+    request: InsertCustomerDocumentRequest,
+  ): Promise<CustomerDocumentRequest>;
+  updateCustomerDocumentRequest(
+    id: string,
+    updates: Partial<Omit<InsertCustomerDocumentRequest, 'policyId' | 'customerId'>> & {
+      status?: CustomerDocumentRequest['status'];
+    },
+  ): Promise<CustomerDocumentRequest | undefined>;
+  getCustomerDocumentRequest(
+    id: string,
+  ): Promise<CustomerDocumentRequest | undefined>;
+  getCustomerDocumentRequestForCustomer(
+    id: string,
+    customerId: string,
+  ): Promise<CustomerDocumentRequest | undefined>;
+  listDocumentRequestsForPolicy(
+    policyId: string,
+  ): Promise<CustomerDocumentRequestWithCustomer[]>;
+  getCustomerDocumentRequests(
+    customerId: string,
+  ): Promise<CustomerDocumentRequestWithPolicy[]>;
+  createCustomerDocumentUpload(
+    upload: InsertCustomerDocumentUpload,
+  ): Promise<CustomerDocumentUpload>;
+  listUploadsForRequests(
+    requestIds: string[],
+  ): Promise<CustomerDocumentUpload[]>;
+  getCustomerDocumentUploadForCustomer(
+    uploadId: string,
+    customerId: string,
+  ): Promise<CustomerDocumentUpload | undefined>;
+  getCustomerDocumentUpload(
+    uploadId: string,
+  ): Promise<CustomerDocumentUploadWithRequest | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -300,7 +364,18 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getPolicy(id: string): Promise<(Policy & { lead: Lead | null; vehicle: Vehicle | null; notes: PolicyNote[]; files: PolicyFile[] }) | undefined> {
+  async getPolicy(
+    id: string,
+  ): Promise<
+    | (Policy & {
+        lead: Lead | null;
+        vehicle: Vehicle | null;
+        notes: PolicyNote[];
+        files: PolicyFile[];
+        customers: CustomerAccount[];
+      })
+    | undefined
+  > {
     const [row] = await db
       .select({
         policy: policies,
@@ -315,7 +390,13 @@ export class DatabaseStorage implements IStorage {
     if (!row) return undefined;
     const notes = await this.getPolicyNotes(id);
     const files = await this.getPolicyFiles(id);
-    return { ...row.policy, lead: row.lead, vehicle: row.vehicle, notes, files };
+    const customerRows = await db
+      .select({ account: customerAccounts })
+      .from(customerPolicies)
+      .innerJoin(customerAccounts, eq(customerPolicies.customerId, customerAccounts.id))
+      .where(eq(customerPolicies.policyId, id));
+    const customers = customerRows.map((item: { account: CustomerAccount }) => item.account);
+    return { ...row.policy, lead: row.lead, vehicle: row.vehicle, notes, files, customers };
   }
 
   async getPolicyByLeadId(leadId: string): Promise<Policy | undefined> {
@@ -724,6 +805,232 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return record;
+  }
+
+  async createCustomerDocumentRequest(
+    request: InsertCustomerDocumentRequest,
+  ): Promise<CustomerDocumentRequest> {
+    const timestamp = getEasternDate();
+    const payload = {
+      ...request,
+      requestedBy: request.requestedBy ?? null,
+      instructions: request.instructions ?? null,
+      status: request.status ?? 'pending',
+      dueDate: request.dueDate ?? null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    } satisfies Partial<typeof customerDocumentRequests.$inferInsert>;
+
+    const [record] = await db
+      .insert(customerDocumentRequests)
+      .values(payload)
+      .returning();
+    return record;
+  }
+
+  async updateCustomerDocumentRequest(
+    id: string,
+    updates: Partial<Omit<InsertCustomerDocumentRequest, 'policyId' | 'customerId'>> & {
+      status?: CustomerDocumentRequest['status'];
+    },
+  ): Promise<CustomerDocumentRequest | undefined> {
+    const payload: Partial<typeof customerDocumentRequests.$inferInsert> = {
+      updatedAt: getEasternDate(),
+    };
+
+    if (updates.title !== undefined) {
+      payload.title = updates.title;
+    }
+    if (updates.instructions !== undefined) {
+      payload.instructions = updates.instructions;
+    }
+    if (updates.type !== undefined) {
+      payload.type = updates.type;
+    }
+    if (updates.status !== undefined) {
+      payload.status = updates.status;
+    }
+    if (updates.requestedBy !== undefined) {
+      payload.requestedBy = updates.requestedBy;
+    }
+    if (updates.dueDate !== undefined) {
+      payload.dueDate = updates.dueDate;
+    }
+
+    const [record] = await db
+      .update(customerDocumentRequests)
+      .set(payload)
+      .where(eq(customerDocumentRequests.id, id))
+      .returning();
+    return record;
+  }
+
+  async getCustomerDocumentRequest(id: string): Promise<CustomerDocumentRequest | undefined> {
+    const [record] = await db
+      .select()
+      .from(customerDocumentRequests)
+      .where(eq(customerDocumentRequests.id, id));
+    return record;
+  }
+
+  async getCustomerDocumentRequestForCustomer(
+    id: string,
+    customerId: string,
+  ): Promise<CustomerDocumentRequest | undefined> {
+    const [record] = await db
+      .select()
+      .from(customerDocumentRequests)
+      .where(
+        and(
+          eq(customerDocumentRequests.id, id),
+          eq(customerDocumentRequests.customerId, customerId),
+        ),
+      );
+    return record;
+  }
+
+  async listUploadsForRequests(requestIds: string[]): Promise<CustomerDocumentUpload[]> {
+    if (requestIds.length === 0) {
+      return [];
+    }
+
+    const uploadsList = await db
+      .select()
+      .from(customerDocumentUploads)
+      .where(inArray(customerDocumentUploads.requestId, requestIds))
+      .orderBy(desc(customerDocumentUploads.createdAt));
+    return uploadsList;
+  }
+
+  async listDocumentRequestsForPolicy(
+    policyId: string,
+  ): Promise<CustomerDocumentRequestWithCustomer[]> {
+    const rows = await db
+      .select({
+        request: customerDocumentRequests,
+        customer: customerAccounts,
+      })
+      .from(customerDocumentRequests)
+      .innerJoin(customerAccounts, eq(customerDocumentRequests.customerId, customerAccounts.id))
+      .where(eq(customerDocumentRequests.policyId, policyId))
+      .orderBy(desc(customerDocumentRequests.createdAt));
+
+    const requestIds = rows.map((row: { request: CustomerDocumentRequest }) => row.request.id);
+    const uploads = await this.listUploadsForRequests(requestIds);
+    const uploadsByRequest = new Map<string, CustomerDocumentUpload[]>();
+    for (const upload of uploads) {
+      const list = uploadsByRequest.get(upload.requestId) ?? [];
+      list.push(upload);
+      uploadsByRequest.set(upload.requestId, list);
+    }
+
+    return rows.map(
+      (row: { request: CustomerDocumentRequest; customer: CustomerAccount }) => ({
+        ...row.request,
+        customer: row.customer,
+        uploads: uploadsByRequest.get(row.request.id) ?? [],
+      }),
+    );
+  }
+
+  async getCustomerDocumentRequests(
+    customerId: string,
+  ): Promise<CustomerDocumentRequestWithPolicy[]> {
+    const rows = await db
+      .select({
+        request: customerDocumentRequests,
+        policy: policies,
+        lead: leads,
+        vehicle: vehicles,
+      })
+      .from(customerDocumentRequests)
+      .innerJoin(policies, eq(customerDocumentRequests.policyId, policies.id))
+      .leftJoin(leads, eq(policies.leadId, leads.id))
+      .leftJoin(vehicles, eq(vehicles.leadId, leads.id))
+      .where(eq(customerDocumentRequests.customerId, customerId))
+      .orderBy(desc(customerDocumentRequests.createdAt));
+
+    const requestIds = rows.map((row: { request: CustomerDocumentRequest }) => row.request.id);
+    const uploads = await this.listUploadsForRequests(requestIds);
+    const uploadsByRequest = new Map<string, CustomerDocumentUpload[]>();
+    for (const upload of uploads) {
+      const list = uploadsByRequest.get(upload.requestId) ?? [];
+      list.push(upload);
+      uploadsByRequest.set(upload.requestId, list);
+    }
+
+    return rows.map(
+      (row: {
+        request: CustomerDocumentRequest;
+        policy: Policy;
+        lead: Lead | null;
+        vehicle: Vehicle | null;
+      }) => ({
+        ...row.request,
+        policy: {
+          ...row.policy,
+          lead: row.lead,
+          vehicle: row.vehicle,
+        },
+        uploads: uploadsByRequest.get(row.request.id) ?? [],
+      }),
+    );
+  }
+
+  async createCustomerDocumentUpload(
+    upload: InsertCustomerDocumentUpload,
+  ): Promise<CustomerDocumentUpload> {
+    const timestamp = getEasternDate();
+    const payload = {
+      ...upload,
+      fileType: upload.fileType ?? null,
+      fileSize: upload.fileSize ?? null,
+      createdAt: timestamp,
+    } satisfies Partial<typeof customerDocumentUploads.$inferInsert>;
+
+    const [record] = await db
+      .insert(customerDocumentUploads)
+      .values(payload)
+      .returning();
+    return record;
+  }
+
+  async getCustomerDocumentUploadForCustomer(
+    uploadId: string,
+    customerId: string,
+  ): Promise<CustomerDocumentUpload | undefined> {
+    const [record] = await db
+      .select()
+      .from(customerDocumentUploads)
+      .where(
+        and(
+          eq(customerDocumentUploads.id, uploadId),
+          eq(customerDocumentUploads.customerId, customerId),
+        ),
+      );
+    return record;
+  }
+
+  async getCustomerDocumentUpload(
+    uploadId: string,
+  ): Promise<CustomerDocumentUploadWithRequest | undefined> {
+    const [row] = await db
+      .select({
+        upload: customerDocumentUploads,
+        request: customerDocumentRequests,
+      })
+      .from(customerDocumentUploads)
+      .innerJoin(customerDocumentRequests, eq(customerDocumentUploads.requestId, customerDocumentRequests.id))
+      .where(eq(customerDocumentUploads.id, uploadId));
+
+    if (!row) {
+      return undefined;
+    }
+
+    return {
+      ...row.upload,
+      request: row.request,
+    };
   }
 }
 

@@ -28,6 +28,19 @@ export const claimStatusEnum = pgEnum('claim_status', [
   'claim_covered_closed',
 ]);
 export const userRoleEnum = pgEnum('user_role', ['admin', 'staff']);
+export const documentRequestTypeEnum = pgEnum('document_request_type', [
+  'vin_photo',
+  'odometer_photo',
+  'diagnosis_report',
+  'repair_invoice',
+  'other',
+]);
+export const documentRequestStatusEnum = pgEnum('document_request_status', [
+  'pending',
+  'submitted',
+  'completed',
+  'cancelled',
+]);
 
 const shortId = sql`substring(replace(gen_random_uuid()::text, '-', ''), 1, 8)`;
 
@@ -189,6 +202,32 @@ export const customerPaymentProfiles = pgTable('customer_payment_profiles', {
   customerPaymentProfileUniqueIdx: uniqueIndex('customer_payment_profiles_unique_idx').on(table.customerId, table.policyId),
 }));
 
+export const customerDocumentRequests = pgTable('customer_document_requests', {
+  id: varchar('id').primaryKey().default(shortId),
+  policyId: varchar('policy_id').references(() => policies.id, { onDelete: 'cascade' }).notNull(),
+  customerId: varchar('customer_id').references(() => customerAccounts.id, { onDelete: 'cascade' }).notNull(),
+  requestedBy: varchar('requested_by').references(() => users.id, { onDelete: 'set null' }),
+  type: documentRequestTypeEnum('type').notNull().default('other'),
+  title: varchar('title', { length: 160 }).notNull(),
+  instructions: text('instructions'),
+  status: documentRequestStatusEnum('status').notNull().default('pending'),
+  dueDate: timestamp('due_date'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const customerDocumentUploads = pgTable('customer_document_uploads', {
+  id: varchar('id').primaryKey().default(shortId),
+  requestId: varchar('request_id').references(() => customerDocumentRequests.id, { onDelete: 'cascade' }).notNull(),
+  customerId: varchar('customer_id').references(() => customerAccounts.id, { onDelete: 'cascade' }).notNull(),
+  policyId: varchar('policy_id').references(() => policies.id, { onDelete: 'cascade' }).notNull(),
+  fileName: text('file_name').notNull(),
+  fileType: text('file_type'),
+  fileSize: integer('file_size'),
+  fileData: text('file_data').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 export const emailTemplates = pgTable("email_templates", {
   id: varchar("id").primaryKey().default(shortId),
   name: varchar("name", { length: 120 }).notNull(),
@@ -319,6 +358,17 @@ export const insertCustomerPaymentProfileSchema = createInsertSchema(customerPay
   updatedAt: true,
 });
 
+export const insertCustomerDocumentRequestSchema = createInsertSchema(customerDocumentRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCustomerDocumentUploadSchema = createInsertSchema(customerDocumentUploads).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -363,3 +413,7 @@ export type CustomerPolicy = typeof customerPolicies.$inferSelect;
 export type InsertCustomerPolicy = z.infer<typeof insertCustomerPolicySchema>;
 export type CustomerPaymentProfile = typeof customerPaymentProfiles.$inferSelect;
 export type InsertCustomerPaymentProfile = z.infer<typeof insertCustomerPaymentProfileSchema>;
+export type CustomerDocumentRequest = typeof customerDocumentRequests.$inferSelect;
+export type InsertCustomerDocumentRequest = z.infer<typeof insertCustomerDocumentRequestSchema>;
+export type CustomerDocumentUpload = typeof customerDocumentUploads.$inferSelect;
+export type InsertCustomerDocumentUpload = z.infer<typeof insertCustomerDocumentUploadSchema>;
