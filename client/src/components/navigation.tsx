@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, X, Phone, Mail, Clock } from "lucide-react";
 
 interface NavigationProps {
   onGetQuote: () => void;
@@ -15,100 +15,125 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
     setIsMenuOpen(false);
   };
 
+  const navLinks = [
+    { href: "/plans", label: "Coverage Plans" },
+    { href: "/about", label: "About" },
+    { href: "/faq", label: "FAQ" },
+    { href: "/claims", label: "Claims" },
+  ];
+
   return (
-    <nav className="bg-white shadow-sm sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <a href="/" className="text-2xl font-bold text-primary">
+    <header className="sticky top-0 z-50">
+      <div className="hidden md:block bg-gradient-to-r from-primary via-secondary to-primary text-white">
+        <div className="max-w-7xl mx-auto px-6 py-2 flex items-center justify-between text-sm">
+          <div className="flex items-center gap-6">
+            <span className="flex items-center gap-2 uppercase tracking-[0.2em] text-xs text-blue-100">
+              Premium Vehicle Protection
+            </span>
+            <span className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              <span className="font-medium">Claims Support 24/7</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-6">
+            <a href="tel:18882001234" className="flex items-center gap-2 font-semibold hover:text-blue-100 transition-colors">
+              <Phone className="w-4 h-4" /> 1 (888) 200-1234
+            </a>
+            <a
+              href="mailto:hello@bhautoprotect.com"
+              className="flex items-center gap-2 font-medium hover:text-blue-100 transition-colors"
+            >
+              <Mail className="w-4 h-4" /> hello@bhautoprotect.com
+            </a>
+          </div>
+        </div>
+      </div>
+      <nav className="bg-white/90 backdrop-blur border-b border-blue-100/50 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-20">
+            <div className="flex items-center space-x-3">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary via-secondary to-primary flex items-center justify-center text-white font-bold shadow-lg">
+                BH
+              </div>
+              <a
+                href="/"
+                className="text-2xl lg:text-3xl font-extrabold tracking-tight text-primary hover:text-secondary transition-colors"
+              >
                 BH Auto Protect
               </a>
             </div>
-          </div>
-          <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-4">
-              <a
-                href="/plans"
-                className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Coverage Plans
-              </a>
-              <a
-                href="/about"
-                className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
-              >
-                About
-              </a>
-              <a
-                href="/faq"
-                className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
-              >
-                FAQ
-              </a>
-              <a
-                href="/claims"
-                className="text-gray-700 hover:text-primary px-3 py-2 rounded-md text-sm font-medium"
-              >
-                Claims
-              </a>
+            <div className="hidden md:flex items-center gap-8">
+              {navLinks.map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-600 hover:text-primary transition-colors"
+                >
+                  {link.label}
+                </a>
+              ))}
+              <div className="h-10 w-px bg-gradient-to-b from-transparent via-blue-200 to-transparent" aria-hidden />
               <Button
-                className="bg-blue-600 text-white hover:bg-blue-700"
-                size="sm"
+                className="bg-gradient-to-r from-primary via-secondary to-primary text-white shadow-lg shadow-blue-200 hover:opacity-90 transition"
+                size="lg"
                 onClick={onGetQuote}
               >
-                Get Quote
+                Get My Quote
               </Button>
             </div>
+            <div className="md:hidden flex items-center gap-4">
+              <a href="tel:18882001234" className="hidden sm:flex items-center gap-2 text-sm font-semibold text-primary">
+                <Phone className="w-4 h-4" />
+                Call
+              </a>
+              <button
+                className="text-gray-700 rounded-full border border-gray-200 p-2 hover:bg-gray-50 transition"
+                onClick={toggleMenu}
+                aria-label="Toggle Menu"
+              >
+                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </button>
+            </div>
           </div>
-          <div className="md:hidden">
-            <button className="text-gray-700" onClick={toggleMenu} aria-label="Toggle Menu">
-              {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
-          </div>
+          {isMenuOpen && (
+            <div className="md:hidden pb-6 space-y-4">
+              <div className="grid gap-3">
+                {navLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="px-4 py-3 rounded-xl bg-white/80 shadow-sm text-base font-medium text-gray-700 hover:text-primary hover:shadow-md transition"
+                    onClick={toggleMenu}
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+              <div className="px-4 flex flex-col gap-3">
+                <a
+                  href="tel:18882001234"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-primary"
+                >
+                  <Phone className="w-4 h-4" /> 1 (888) 200-1234
+                </a>
+                <a
+                  href="mailto:hello@bhautoprotect.com"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700"
+                >
+                  <Mail className="w-4 h-4" /> hello@bhautoprotect.com
+                </a>
+                <Button
+                  className="w-full bg-gradient-to-r from-primary via-secondary to-primary text-white"
+                  size="lg"
+                  onClick={handleQuote}
+                >
+                  Get My Quote
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-        {isMenuOpen && (
-          <div className="md:hidden">
-            <div className="px-2 pt-2 pb-3 space-y-1">
-              <a
-                href="/plans"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
-                onClick={toggleMenu}
-              >
-                Coverage Plans
-              </a>
-              <a
-                href="/about"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
-                onClick={toggleMenu}
-              >
-                About
-              </a>
-              <a
-                href="/faq"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
-                onClick={toggleMenu}
-              >
-                FAQ
-              </a>
-              <a
-                href="/claims"
-                className="block px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:text-primary"
-                onClick={toggleMenu}
-              >
-                Claims
-              </a>
-              <Button
-                className="w-full bg-blue-600 text-white hover:bg-blue-700 mt-2"
-                size="sm"
-                onClick={handleQuote}
-              >
-                Get Quote
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }
