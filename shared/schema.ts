@@ -153,6 +153,42 @@ export const policyFiles = pgTable("policy_files", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const customerAccounts = pgTable('customer_accounts', {
+  id: varchar('id').primaryKey().default(shortId),
+  email: varchar('email', { length: 255 }).notNull(),
+  passwordHash: text('password_hash').notNull(),
+  displayName: varchar('display_name', { length: 120 }),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+  lastLoginAt: timestamp('last_login_at'),
+}, (table) => ({
+  emailIdx: uniqueIndex('customer_accounts_email_idx').on(table.email),
+}));
+
+export const customerPolicies = pgTable('customer_policies', {
+  id: varchar('id').primaryKey().default(shortId),
+  customerId: varchar('customer_id').references(() => customerAccounts.id, { onDelete: 'cascade' }).notNull(),
+  policyId: varchar('policy_id').references(() => policies.id, { onDelete: 'cascade' }).notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+}, (table) => ({
+  customerPolicyUniqueIdx: uniqueIndex('customer_policies_unique_idx').on(table.customerId, table.policyId),
+}));
+
+export const customerPaymentProfiles = pgTable('customer_payment_profiles', {
+  id: varchar('id').primaryKey().default(shortId),
+  customerId: varchar('customer_id').references(() => customerAccounts.id, { onDelete: 'cascade' }).notNull(),
+  policyId: varchar('policy_id').references(() => policies.id, { onDelete: 'cascade' }).notNull(),
+  paymentMethod: varchar('payment_method', { length: 120 }),
+  accountName: varchar('account_name', { length: 120 }),
+  accountIdentifier: varchar('account_identifier', { length: 120 }),
+  autopayEnabled: boolean('autopay_enabled').default(false),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => ({
+  customerPaymentProfileUniqueIdx: uniqueIndex('customer_payment_profiles_unique_idx').on(table.customerId, table.policyId),
+}));
+
 export const emailTemplates = pgTable("email_templates", {
   id: varchar("id").primaryKey().default(shortId),
   name: varchar("name", { length: 120 }).notNull(),
@@ -265,6 +301,24 @@ export const insertPolicyFileSchema = createInsertSchema(policyFiles).omit({
   createdAt: true,
 });
 
+export const insertCustomerAccountSchema = createInsertSchema(customerAccounts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastLoginAt: true,
+});
+
+export const insertCustomerPolicySchema = createInsertSchema(customerPolicies).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertCustomerPaymentProfileSchema = createInsertSchema(customerPaymentProfiles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -303,3 +357,9 @@ export type EmailTemplate = typeof emailTemplates.$inferSelect;
 export type InsertEmailTemplate = z.infer<typeof insertEmailTemplateSchema>;
 export type SiteSetting = typeof siteSettings.$inferSelect;
 export type InsertSiteSetting = z.infer<typeof insertSiteSettingSchema>;
+export type CustomerAccount = typeof customerAccounts.$inferSelect;
+export type InsertCustomerAccount = z.infer<typeof insertCustomerAccountSchema>;
+export type CustomerPolicy = typeof customerPolicies.$inferSelect;
+export type InsertCustomerPolicy = z.infer<typeof insertCustomerPolicySchema>;
+export type CustomerPaymentProfile = typeof customerPaymentProfiles.$inferSelect;
+export type InsertCustomerPaymentProfile = z.infer<typeof insertCustomerPaymentProfileSchema>;

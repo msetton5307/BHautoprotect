@@ -21,6 +21,7 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
     { href: "/about", label: "About" },
     { href: "/faq", label: "FAQ" },
     { href: "/claims", label: "Claims" },
+    { href: "/portal", label: "Customer Portal" },
   ];
 
   return (

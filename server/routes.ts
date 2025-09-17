@@ -12,11 +12,14 @@ import {
   insertPolicySchema,
   insertClaimSchema,
   insertPolicyNoteSchema,
+  type Claim,
   type InsertLead,
   type Lead,
+  type Policy,
   type Quote,
   type User,
   type Vehicle,
+  type CustomerAccount,
 } from "@shared/schema";
 import fs from "fs";
 import path from "path";
@@ -206,9 +209,16 @@ type AuthenticatedUser = {
   role: "admin" | "staff";
 };
 
+type AuthenticatedCustomer = {
+  id: string;
+  email: string;
+  displayName?: string | null;
+};
+
 declare module "express-session" {
   interface SessionData {
     user?: AuthenticatedUser;
+    customer?: AuthenticatedCustomer;
   }
 }
 
@@ -675,6 +685,444 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   const sanitizeUser = ({ passwordHash: _passwordHash, ...user }: User) => user;
+  const sanitizeCustomerAccount = ({ passwordHash: _passwordHash, ...account }: CustomerAccount) => account;
+
+  const toAuthenticatedCustomer = (account: CustomerAccount): AuthenticatedCustomer => ({
+    id: account.id,
+    email: account.email,
+    displayName: account.displayName ?? null,
+  });
+
+  const customerAuth: RequestHandler = async (req, res, next) => {
+    try {
+      const sessionCustomer = req.session.customer;
+      if (!sessionCustomer) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const account = await storage.getCustomerAccount(sessionCustomer.id);
+      if (!account) {
+        req.session.customer = undefined;
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      await storage.syncCustomerPoliciesByEmail(account.id, account.email);
+      req.session.customer = toAuthenticatedCustomer(account);
+      res.locals.customerAccount = account;
+      next();
+    } catch (error) {
+      console.error('Error verifying customer session:', error);
+      res.status(500).json({ message: 'Failed to authenticate' });
+    }
+  };
+
+  const customerRegistrationSchema = z.object({
+    email: z.string().trim().email('A valid email is required'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    policyId: z.string().min(1, 'Policy number is required'),
+    displayName: z.string().trim().min(2, 'Name must be at least 2 characters').max(120).optional(),
+  });
+
+  const customerLoginSchema = z.object({
+    email: z.string().trim().email('A valid email is required'),
+    password: z.string().min(1, 'Password is required'),
+  });
+
+  const customerClaimPayloadSchema = z.object({
+    policyId: z.string().min(1, 'Policy is required'),
+    message: z.string().trim().min(1, 'Message is required').max(4000),
+    claimReason: z.string().trim().max(2000).optional(),
+    currentOdometer: z.number().int().min(0).max(2000000).optional(),
+    previousNotes: z.string().trim().max(2000).optional(),
+    preferredPhone: z.string().trim().min(7).max(40).optional(),
+  });
+
+  const customerPaymentProfileSchema = z.object({
+    paymentMethod: z.string().trim().max(120).optional(),
+    accountName: z.string().trim().max(120).optional(),
+    accountIdentifier: z.string().trim().max(120).optional(),
+    autopayEnabled: z.boolean().optional(),
+    notes: z.string().trim().max(2000).optional(),
+  });
+
+  const currentYear = new Date().getFullYear();
+  const customerPolicyRequestSchema = z.object({
+    message: z.string().trim().min(1, 'Please include a short note so our team knows how to help').max(2000),
+    phone: z.string().trim().min(7).max(40).optional(),
+    vehicle: z
+      .object({
+        year: z.number().int().min(1900).max(currentYear + 2).optional(),
+        make: z.string().trim().max(120).optional(),
+        model: z.string().trim().max(120).optional(),
+        trim: z.string().trim().max(120).optional(),
+        vin: z.string().trim().max(64).optional(),
+        odometer: z.number().int().min(0).max(2000000).optional(),
+      })
+      .optional(),
+  });
+
+  app.post('/api/customer/register', async (req, res) => {
+    try {
+      const { email, password, policyId, displayName } = customerRegistrationSchema.parse(req.body);
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const policy = await storage.getPolicy(policyId);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const leadEmail = policy.lead?.email?.trim().toLowerCase();
+      if (!leadEmail || leadEmail !== normalizedEmail) {
+        res.status(403).json({ message: 'We could not match that policy with the provided email address.' });
+        return;
+      }
+
+      const existingAccount = await storage.getCustomerAccountByEmail(normalizedEmail);
+      if (existingAccount) {
+        await storage.linkCustomerToPolicy(existingAccount.id, policyId);
+        await storage.syncCustomerPoliciesByEmail(existingAccount.id, normalizedEmail);
+        res.status(409).json({ message: 'An account already exists for this email. Please log in instead.' });
+        return;
+      }
+
+      const passwordHash = hashPassword(password);
+      const account = await storage.createCustomerAccount({
+        email: normalizedEmail,
+        passwordHash,
+        displayName: displayName?.trim() ?? null,
+      });
+
+      await storage.linkCustomerToPolicy(account.id, policyId);
+      await storage.syncCustomerPoliciesByEmail(account.id, normalizedEmail);
+      const policies = await storage.getCustomerPolicies(account.id);
+
+      const authenticatedCustomer = toAuthenticatedCustomer(account);
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          req.session.customer = authenticatedCustomer;
+          resolve();
+        });
+      });
+
+      res.json({
+        data: {
+          customer: sanitizeCustomerAccount(account),
+          policies,
+        },
+        message: 'Registration successful',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid registration details', errors: error.errors });
+        return;
+      }
+      console.error('Error registering customer:', error);
+      res.status(500).json({ message: 'Failed to create account' });
+    }
+  });
+
+  app.post('/api/customer/login', async (req, res) => {
+    try {
+      const { email, password } = customerLoginSchema.parse(req.body);
+      const normalizedEmail = email.trim().toLowerCase();
+
+      const account = await storage.getCustomerAccountByEmail(normalizedEmail);
+      if (!account || !verifyPassword(password, account.passwordHash)) {
+        res.status(401).json({ message: 'Invalid email or password' });
+        return;
+      }
+
+      await storage.syncCustomerPoliciesByEmail(account.id, account.email);
+      const updatedAccount = await storage.updateCustomerAccount(account.id, {
+        lastLoginAt: getEasternDate(),
+      });
+      const policies = await storage.getCustomerPolicies(account.id);
+      const authenticatedCustomer = toAuthenticatedCustomer(updatedAccount);
+
+      await new Promise<void>((resolve, reject) => {
+        req.session.regenerate((err) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          req.session.customer = authenticatedCustomer;
+          resolve();
+        });
+      });
+
+      res.json({
+        data: {
+          customer: sanitizeCustomerAccount(updatedAccount),
+          policies,
+        },
+        message: 'Login successful',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid login details', errors: error.errors });
+        return;
+      }
+      console.error('Error logging in customer:', error);
+      res.status(500).json({ message: 'Failed to login' });
+    }
+  });
+
+  app.post('/api/customer/logout', (req, res) => {
+    if (req.session) {
+      req.session.customer = undefined;
+    }
+    res.json({ message: 'Logged out' });
+  });
+
+  app.get('/api/customer/session', async (req, res) => {
+    try {
+      const sessionCustomer = req.session.customer;
+      if (!sessionCustomer) {
+        res.json({ data: { authenticated: false } });
+        return;
+      }
+
+      const account = await storage.getCustomerAccount(sessionCustomer.id);
+      if (!account) {
+        req.session.customer = undefined;
+        res.json({ data: { authenticated: false } });
+        return;
+      }
+
+      await storage.syncCustomerPoliciesByEmail(account.id, account.email);
+      const policies = await storage.getCustomerPolicies(account.id);
+      req.session.customer = toAuthenticatedCustomer(account);
+
+      res.json({
+        data: {
+          authenticated: true,
+          customer: sanitizeCustomerAccount(account),
+          policies,
+        },
+        message: 'Session verified',
+      });
+    } catch (error) {
+      console.error('Error verifying customer session:', error);
+      res.status(500).json({ message: 'Failed to verify session' });
+    }
+  });
+
+  app.get('/api/customer/policies', customerAuth, async (_req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const policies = await storage.getCustomerPolicies(account.id);
+      res.json({ data: { policies }, message: 'Policies retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching customer policies:', error);
+      res.status(500).json({ message: 'Failed to load policies' });
+    }
+  });
+
+  app.get('/api/customer/claims', customerAuth, async (_req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const claims = await storage.getCustomerClaims(account.id);
+      res.json({ data: { claims }, message: 'Claims retrieved successfully' });
+    } catch (error) {
+      console.error('Error loading customer claims:', error);
+      res.status(500).json({ message: 'Failed to load claims' });
+    }
+  });
+
+  app.post('/api/customer/claims', customerAuth, async (req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const payload = customerClaimPayloadSchema.parse(req.body);
+
+      const policies = await storage.getCustomerPolicies(account.id);
+      const policy = policies.find((item) => item.id === payload.policyId);
+      if (!policy) {
+        res.status(403).json({ message: 'You do not have access to that policy' });
+        return;
+      }
+
+      const lead = policy.lead;
+      const vehicle = policy.vehicle;
+      const nameBasis = (account.displayName ?? account.email).trim();
+      const nameParts = nameBasis.split(/\s+/).filter(Boolean);
+      const firstName = lead?.firstName?.trim() || nameParts[0] || 'Customer';
+      const lastName = lead?.lastName?.trim() || nameParts.slice(1).join(' ') || 'Account';
+      const phone = payload.preferredPhone?.trim() || lead?.phone?.trim();
+      if (!phone) {
+        res.status(400).json({ message: 'A phone number is required so we can reach you.' });
+        return;
+      }
+
+      const email = lead?.email?.trim() || account.email;
+      if (!email) {
+        res.status(400).json({ message: 'A contact email is required.' });
+        return;
+      }
+
+      const claim = await storage.createClaim({
+        policyId: policy.id,
+        firstName,
+        lastName,
+        email,
+        phone,
+        message: payload.message.trim(),
+        claimReason: payload.claimReason?.trim(),
+        currentOdometer: payload.currentOdometer ?? undefined,
+        previousNotes: payload.previousNotes?.trim(),
+        year: vehicle?.year ?? undefined,
+        make: vehicle?.make ?? undefined,
+        model: vehicle?.model ?? undefined,
+        trim: vehicle?.trim ?? undefined,
+        vin: vehicle?.vin ?? undefined,
+        odometer: vehicle?.odometer ?? undefined,
+      });
+
+      res.json({ data: claim, message: 'Claim submitted successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid claim details', errors: error.errors });
+        return;
+      }
+      console.error('Error submitting customer claim:', error);
+      res.status(500).json({ message: 'Failed to submit claim' });
+    }
+  });
+
+  app.get('/api/customer/payment-profiles', customerAuth, async (_req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const paymentProfiles = await storage.getCustomerPaymentProfiles(account.id);
+      res.json({ data: { paymentProfiles }, message: 'Payment details retrieved successfully' });
+    } catch (error) {
+      console.error('Error loading customer payment profiles:', error);
+      res.status(500).json({ message: 'Failed to load payment details' });
+    }
+  });
+
+  app.get('/api/customer/policies/:id/payment-profile', customerAuth, async (req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const policyId = req.params.id;
+      const policies = await storage.getCustomerPolicies(account.id);
+      const policy = policies.find((item) => item.id === policyId);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const profile = await storage.getCustomerPaymentProfile(account.id, policyId);
+      res.json({ data: { paymentProfile: profile ?? null }, message: 'Payment details retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching payment profile:', error);
+      res.status(500).json({ message: 'Failed to load payment information' });
+    }
+  });
+
+  app.put('/api/customer/policies/:id/payment-profile', customerAuth, async (req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const policyId = req.params.id;
+      const update = customerPaymentProfileSchema.parse(req.body);
+
+      const policies = await storage.getCustomerPolicies(account.id);
+      const policy = policies.find((item) => item.id === policyId);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const profile = await storage.upsertCustomerPaymentProfile({
+        customerId: account.id,
+        policyId,
+        paymentMethod: update.paymentMethod?.trim() || undefined,
+        accountName: update.accountName?.trim() || undefined,
+        accountIdentifier: update.accountIdentifier?.trim() || undefined,
+        autopayEnabled: update.autopayEnabled ?? false,
+        notes: update.notes?.trim() || undefined,
+      });
+
+      res.json({ data: profile, message: 'Payment information saved' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid payment information', errors: error.errors });
+        return;
+      }
+      console.error('Error updating payment profile:', error);
+      res.status(500).json({ message: 'Failed to save payment information' });
+    }
+  });
+
+  app.post('/api/customer/policies/request', customerAuth, async (req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const payload = customerPolicyRequestSchema.parse(req.body);
+
+      const policies = await storage.getCustomerPolicies(account.id);
+      const sourceLead = policies.find((policy) => policy.lead)?.lead ?? null;
+      const nameBasis = (account.displayName ?? account.email).trim();
+      const nameParts = nameBasis.split(/\s+/).filter(Boolean);
+      const firstName = sourceLead?.firstName ?? nameParts[0] ?? 'Customer';
+      const lastName = (sourceLead?.lastName ?? nameParts.slice(1).join(' ')) || 'Account';
+
+      const leadData: InsertLead = {
+        firstName,
+        lastName,
+        email: account.email,
+        phone: payload.phone?.trim() || sourceLead?.phone || undefined,
+        state: sourceLead?.state || undefined,
+        zip: sourceLead?.zip || undefined,
+        consentTCPA: true,
+        consentTimestamp: getEasternDate(),
+        source: 'customer-portal',
+      };
+
+      const newLead = await storage.createLead(leadData);
+
+      const vehicle = payload.vehicle;
+      if (
+        vehicle &&
+        typeof vehicle.year === 'number' &&
+        typeof vehicle.make === 'string' &&
+        typeof vehicle.model === 'string' &&
+        typeof vehicle.odometer === 'number'
+      ) {
+        await storage.createVehicle({
+          leadId: newLead.id,
+          year: vehicle.year,
+          make: vehicle.make,
+          model: vehicle.model,
+          trim: vehicle.trim ?? undefined,
+          vin: vehicle.vin ?? undefined,
+          odometer: vehicle.odometer,
+          usage: 'personal',
+        });
+      }
+
+      await storage.createNote({
+        leadId: newLead.id,
+        content: `Customer portal request from ${account.email}:\n${payload.message.trim()}`,
+      });
+
+      res.json({
+        data: { leadId: newLead.id },
+        message: 'Request received. Our team will reach out shortly.',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid request details', errors: error.errors });
+        return;
+      }
+      console.error('Error submitting policy request:', error);
+      res.status(500).json({ message: 'Failed to submit request' });
+    }
+  });
 
   const emailTemplatePayloadSchema = z.object({
     name: z
