@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   DOCUMENT_REQUEST_STATUS_COPY,
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useLocation } from "wouter";
 import {
   AlertCircle,
   CheckCircle2,
@@ -83,14 +84,23 @@ function buildDownloadLink(dataUrl: string, filename: string) {
 
 type DocumentRequestCardProps = {
   request: CustomerDocumentRequestRecord;
+  highlighted?: boolean;
 };
 
-function DocumentRequestCard({ request }: DocumentRequestCardProps) {
+function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [fileState, setFileState] = useState<{ file: File; dataUrl: string } | null>(null);
   const [isReading, setIsReading] = useState(false);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (highlighted && containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      containerRef.current.focus({ preventScroll: true });
+    }
+  }, [highlighted]);
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: UploadPayload) => {
@@ -202,7 +212,15 @@ function DocumentRequestCard({ request }: DocumentRequestCardProps) {
   const uploadDisabled = request.status === "completed" || request.status === "cancelled";
 
   return (
-    <Card className="overflow-hidden border-slate-200 shadow-sm">
+    <Card
+      ref={containerRef}
+      className={cn(
+        "overflow-hidden border shadow-sm transition",
+        highlighted ? "border-primary ring-2 ring-primary/20" : "border-slate-200",
+      )}
+      id={`document-request-${request.id}`}
+      tabIndex={-1}
+    >
       <CardHeader className="space-y-4 border-b border-slate-100 bg-gradient-to-br from-white via-slate-50 to-white">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary">
@@ -294,6 +312,7 @@ function DocumentRequestCard({ request }: DocumentRequestCardProps) {
 }
 
 export default function CustomerPortalDocuments({ session }: Props) {
+  const [location] = useLocation();
   const { data, isLoading } = useQuery<{ data?: { requests?: CustomerDocumentRequestRecord[] } }>({
     queryKey: ["/api/customer/document-requests"],
     staleTime: 0,
@@ -335,6 +354,18 @@ export default function CustomerPortalDocuments({ session }: Props) {
   }, [openRequests]);
 
   const totalPolicies = session.policies.length;
+  const highlightedRequestId = useMemo(() => {
+    if (!location) return "";
+    const queryIndex = location.indexOf("?");
+    if (queryIndex === -1) return "";
+    try {
+      const params = new URLSearchParams(location.slice(queryIndex + 1));
+      return params.get("request") ?? "";
+    } catch (error) {
+      console.error("Unable to parse document highlight", error);
+      return "";
+    }
+  }, [location]);
 
   return (
     <div className="space-y-10">
@@ -415,7 +446,11 @@ export default function CustomerPortalDocuments({ session }: Props) {
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             {openRequests.map((request) => (
-              <DocumentRequestCard key={request.id} request={request} />
+              <DocumentRequestCard
+                key={request.id}
+                request={request}
+                highlighted={request.id === highlightedRequestId}
+              />
             ))}
           </div>
         )}

@@ -72,6 +72,42 @@ const DOCUMENT_REQUEST_STATUS_VALUES = documentRequestStatusEnum.enumValues as [
   'cancelled',
 ];
 
+const DOCUMENT_REQUEST_TYPE_COPY: Record<(typeof DOCUMENT_REQUEST_TYPE_VALUES)[number], { label: string; hint: string }> = {
+  vin_photo: {
+    label: 'VIN Photo',
+    hint: 'Upload a clear photo of the VIN plate or door jamb sticker.',
+  },
+  odometer_photo: {
+    label: 'Odometer Reading',
+    hint: 'Capture the current mileage in your dashboard display.',
+  },
+  diagnosis_report: {
+    label: 'Diagnosis Report',
+    hint: 'Share the technician or dealership findings for your issue.',
+  },
+  repair_invoice: {
+    label: 'Repair Invoice',
+    hint: 'Send the itemized invoice so we can process reimbursement quickly.',
+  },
+  other: {
+    label: 'Supporting Document',
+    hint: 'Provide any additional paperwork our team asked for.',
+  },
+};
+
+const portalBaseUrlEnv =
+  process.env.PORTAL_BASE_URL ||
+  process.env.APP_BASE_URL ||
+  process.env.PUBLIC_SITE_URL ||
+  process.env.SITE_URL ||
+  process.env.APP_URL ||
+  '';
+const trimmedPortalBaseUrl = portalBaseUrlEnv.trim().replace(/\/$/, '');
+const defaultPortalBaseUrl = 'https://bhautoprotect.com';
+const portalDocumentsBaseUrl = trimmedPortalBaseUrl
+  ? `${trimmedPortalBaseUrl}/portal/documents`
+  : `${defaultPortalBaseUrl}/portal/documents`;
+
 const leadWebhookRateLimitWindowMs = 60 * 1000;
 const leadWebhookRateLimitMax = 30;
 
@@ -384,6 +420,117 @@ const formatPlanName = (plan: string | null | undefined): string => {
     return "Vehicle Protection";
   }
   return `${plan.charAt(0).toUpperCase()}${plan.slice(1)}`;
+};
+
+const documentDueDateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'long',
+  day: 'numeric',
+  year: 'numeric',
+});
+
+const formatDocumentDueDate = (value: Date | string | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.valueOf())) {
+    return null;
+  }
+  return documentDueDateFormatter.format(parsed);
+};
+
+const buildDocumentRequestEmail = ({
+  customerName,
+  policyId,
+  vehicleSummary,
+  requestTitle,
+  requestLabel,
+  instructions,
+  dueDate,
+  requestLink,
+}: {
+  customerName: string;
+  policyId: string;
+  vehicleSummary: string;
+  requestTitle: string;
+  requestLabel: string;
+  instructions: string;
+  dueDate: Date | string | null | undefined;
+  requestLink: string;
+}): { subject: string; html: string } => {
+  const subject = `Document request: ${requestTitle}`;
+  const greetingName = customerName.trim() || 'there';
+  const dueDateCopy = formatDocumentDueDate(dueDate);
+  const instructionLines = instructions
+    .split(/\r?\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const instructionsHtml = instructionLines.length
+    ? instructionLines
+        .map(
+          (line) =>
+            `<p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#1f2937;">${escapeHtml(line)}</p>`,
+        )
+        .join('')
+    : `<p style="margin:0 0 12px;font-size:15px;line-height:1.7;color:#1f2937;">${escapeHtml(instructions)}</p>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;color:#1e293b;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc;padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 24px 48px rgba(15,23,42,0.08);">
+            <tr>
+              <td style="padding:28px 32px;background:linear-gradient(135deg,#111827,#1d4ed8);color:#ffffff;">
+                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
+                <div style="margin-top:10px;font-size:22px;font-weight:600;">We need ${escapeHtml(requestLabel)}</div>
+                <div style="margin-top:6px;font-size:13px;opacity:0.8;">Policy ${escapeHtml(policyId)}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">Hi ${escapeHtml(greetingName)},</p>
+                <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+                  We’re requesting <strong>${escapeHtml(requestTitle)}</strong> for ${escapeHtml(vehicleSummary)} so we can keep everything on track.
+                </p>
+                ${
+                  dueDateCopy
+                    ? `<p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#b91c1c;"><strong>Due:</strong> ${escapeHtml(dueDateCopy)}</p>`
+                    : ''
+                }
+                <div style="border:1px solid #e2e8f0;border-radius:12px;padding:20px;background-color:#f8fafc;margin-bottom:24px;">
+                  <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.18em;color:#2563eb;margin-bottom:12px;">What to upload</div>
+                  ${instructionsHtml}
+                </div>
+                <div style="text-align:center;margin-bottom:28px;">
+                  <a
+                    href="${escapeHtml(requestLink)}"
+                    style="display:inline-block;padding:14px 28px;border-radius:9999px;background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;text-decoration:none;font-weight:600;"
+                  >Upload document</a>
+                </div>
+                <p style="margin:0 0 18px;font-size:14px;line-height:1.7;color:#475569;">
+                  If the button doesn’t work, copy and paste this link into your browser:<br />
+                  <span style="word-break:break-all;color:#2563eb;">${escapeHtml(requestLink)}</span>
+                </p>
+                <p style="margin:24px 0 0;font-size:14px;line-height:1.7;color:#475569;">
+                  Need a hand? Reply to this email or call <strong>1 (888) 200-1234</strong> and our team will help.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  return { subject, html };
 };
 
 const renderDetailRows = (rows: { label: string; value: string }[]): string =>
@@ -875,6 +1022,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .max(2000, 'Instructions are too long')
       .optional(),
     dueDate: z.coerce.date().optional(),
+    sendEmail: z.boolean().optional(),
   });
 
   const documentRequestStatusUpdateSchema = z.object({
@@ -2268,6 +2416,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         requestedBy: currentUser.id,
       });
 
+      const instructionsCopy = payload.instructions?.trim() || DOCUMENT_REQUEST_TYPE_COPY[payload.type].hint;
+      let emailSent = false;
+
+      if (payload.sendEmail) {
+        try {
+          const requestLink = `${portalDocumentsBaseUrl}?request=${record.id}`;
+          const { subject, html } = buildDocumentRequestEmail({
+            customerName: customer.displayName?.trim() || customer.email,
+            policyId: policy.id,
+            vehicleSummary: getVehicleSummary(policy.vehicle ?? null),
+            requestTitle: payload.title,
+            requestLabel: DOCUMENT_REQUEST_TYPE_COPY[payload.type].label,
+            instructions: instructionsCopy,
+            dueDate: payload.dueDate ?? null,
+            requestLink,
+          });
+          const text = htmlToPlainText(html) || subject;
+          await sendMail({
+            to: customer.email,
+            subject,
+            html,
+            text,
+          });
+          emailSent = true;
+        } catch (error) {
+          console.error('Error sending document request email:', error);
+          res.status(500).json({ message: 'Document request saved but email could not be sent. Please try again.' });
+          return;
+        }
+      }
+
       const responseData = mapDocumentRequestForAdmin({
         ...record,
         customer,
@@ -2277,6 +2456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({
         data: responseData,
         message: 'Document request created successfully',
+        meta: { emailSent },
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
