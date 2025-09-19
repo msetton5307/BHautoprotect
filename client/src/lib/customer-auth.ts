@@ -132,12 +132,7 @@ export type AuthResult = AuthSuccess | AuthFailure;
 
 type Credentials = {
   email: string;
-  password: string;
-};
-
-export type RegistrationPayload = Credentials & {
   policyId: string;
-  displayName?: string;
 };
 
 function mapAuthResponse(data: unknown): AuthSuccess | null {
@@ -196,10 +191,6 @@ async function handleAuthRequest(
   } catch {
     return { success: false, message: "Unable to reach the server. Please try again." };
   }
-}
-
-export async function registerCustomer(payload: RegistrationPayload): Promise<AuthResult> {
-  return handleAuthRequest("/api/customer/register", payload);
 }
 
 export async function loginCustomer(payload: Credentials): Promise<AuthResult> {

@@ -825,7 +825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const customerLoginSchema = z.object({
     email: z.string().trim().email('A valid email is required'),
-    password: z.string().min(1, 'Password is required'),
+    policyId: z.string().trim().min(1, 'Policy number is required'),
   });
 
   const customerClaimPayloadSchema = z.object({
@@ -963,19 +963,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/customer/login', async (req, res) => {
     try {
-      const { email, password } = customerLoginSchema.parse(req.body);
+      const { email, policyId } = customerLoginSchema.parse(req.body);
       const normalizedEmail = email.trim().toLowerCase();
+      const normalizedPolicyId = policyId.trim();
 
-      const account = await storage.getCustomerAccountByEmail(normalizedEmail);
-      if (!account || !verifyPassword(password, account.passwordHash)) {
-        res.status(401).json({ message: 'Invalid email or password' });
+      const policy = await storage.getPolicy(normalizedPolicyId);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
         return;
       }
 
-      await storage.syncCustomerPoliciesByEmail(account.id, account.email);
-      const updatedAccount = await storage.updateCustomerAccount(account.id, {
+      const policyEmail = policy.lead?.email?.trim().toLowerCase();
+      if (!policyEmail || policyEmail !== normalizedEmail) {
+        res
+          .status(403)
+          .json({ message: 'We could not match that policy with the provided email address.' });
+        return;
+      }
+
+      const displayNameParts = [
+        typeof policy.lead?.firstName === 'string' ? policy.lead.firstName.trim() : '',
+        typeof policy.lead?.lastName === 'string' ? policy.lead.lastName.trim() : '',
+      ].filter((value) => value.length > 0);
+      const inferredDisplayName = displayNameParts.join(' ');
+      const displayName = inferredDisplayName.length > 0 ? inferredDisplayName : null;
+
+      let account = await storage.getCustomerAccountByEmail(normalizedEmail);
+      if (!account) {
+        account = await storage.createCustomerAccount({
+          email: normalizedEmail,
+          passwordHash: hashPassword(normalizedPolicyId),
+          displayName,
+        });
+      }
+
+      await storage.linkCustomerToPolicy(account.id, normalizedPolicyId);
+      await storage.syncCustomerPoliciesByEmail(account.id, normalizedEmail);
+
+      const accountUpdates: { lastLoginAt: Date; displayName?: string | null } = {
         lastLoginAt: getEasternDate(),
-      });
+      };
+
+      if ((!account.displayName || account.displayName.trim().length === 0) && displayName) {
+        accountUpdates.displayName = displayName;
+      }
+
+      const updatedAccount = await storage.updateCustomerAccount(account.id, accountUpdates);
       const policies = await storage.getCustomerPolicies(account.id);
       const authenticatedCustomer = toAuthenticatedCustomer(updatedAccount);
 
