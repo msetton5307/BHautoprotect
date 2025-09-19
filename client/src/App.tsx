@@ -26,6 +26,7 @@ import Plans from "@/pages/plans";
 import Contact from "@/pages/contact";
 import ThankYou from "@/pages/thank-you";
 import CustomerPortal from "@/pages/portal";
+import PolicyOverview from "@/pages/policy";
 
 function Router() {
   return (
@@ -44,6 +45,7 @@ function Router() {
       <Route path="/admin/leads" component={AdminLeads} />
       <Route path="/admin/policies/:id" component={AdminPolicyDetail} />
       <Route path="/admin/policies" component={AdminPolicies} />
+      <Route path="/policy" component={PolicyOverview} />
       <Route path="/policy/:id" component={AdminPolicyDetail} />
       <Route path="/admin/claims/new" component={AdminClaimNew} />
       <Route path="/admin/claims/:id" component={AdminClaimDetail} />

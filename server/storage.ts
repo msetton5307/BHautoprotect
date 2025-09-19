@@ -207,6 +207,7 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   deleteUser(id: string): Promise<User | undefined>;
   countAdmins(): Promise<number>;
+  ensureNumericIdSequences(): Promise<void>;
   ensureDefaultAdminUser(): Promise<void>;
   ensureDefaultEmailTemplates(): Promise<void>;
 
@@ -587,6 +588,33 @@ export class DatabaseStorage implements IStorage {
       .from(users)
       .where(eq(users.role, 'admin'));
     return Number(result?.count ?? 0);
+  }
+
+  async ensureNumericIdSequences(): Promise<void> {
+    await db.execute(sql`CREATE SEQUENCE IF NOT EXISTS lead_id_seq START WITH 10000000 MINVALUE 10000000;`);
+    await db.execute(sql`CREATE SEQUENCE IF NOT EXISTS policy_id_seq START WITH 10000000 MINVALUE 10000000;`);
+    await db.execute(sql`ALTER SEQUENCE lead_id_seq MINVALUE 10000000 OWNED BY leads.id;`);
+    await db.execute(sql`ALTER SEQUENCE policy_id_seq MINVALUE 10000000 OWNED BY policies.id;`);
+    await db.execute(sql`ALTER TABLE leads ALTER COLUMN id SET DEFAULT lpad(nextval('lead_id_seq')::text, 8, '0');`);
+    await db.execute(sql`ALTER TABLE policies ALTER COLUMN id SET DEFAULT lpad(nextval('policy_id_seq')::text, 8, '0');`);
+    await db.execute(sql`
+      SELECT setval(
+        'lead_id_seq',
+        GREATEST(
+          COALESCE((SELECT MAX(id::bigint) FROM leads), 9999999),
+          9999999
+        )
+      );
+    `);
+    await db.execute(sql`
+      SELECT setval(
+        'policy_id_seq',
+        GREATEST(
+          COALESCE((SELECT MAX(id::bigint) FROM policies), 9999999),
+          9999999
+        )
+      );
+    `);
   }
 
   async ensureDefaultAdminUser(): Promise<void> {
