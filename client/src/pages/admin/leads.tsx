@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Search, Filter, Eye, ArrowUpDown, LayoutList, RefreshCw } from "lucide-react";
-import { Link } from "wouter";
+import { Search, Filter, ArrowUpDown, LayoutList, RefreshCw } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
@@ -23,6 +23,7 @@ const authJsonHeaders = () => ({
 
 export default function AdminLeads() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
+  const [, navigate] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortField, setSortField] = useState<string>('createdAt');
@@ -246,6 +247,17 @@ export default function AdminLeads() {
     });
   };
 
+  const handleRowNavigate = useCallback((leadId: string) => {
+    navigate(`/admin/leads/${leadId}`);
+  }, [navigate]);
+
+  const handleRowKeyDown = useCallback((event: KeyboardEvent<HTMLTableRowElement>, leadId: string) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleRowNavigate(leadId);
+    }
+  }, [handleRowNavigate]);
+
   if (checking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -425,7 +437,6 @@ export default function AdminLeads() {
                       <TableHead className="whitespace-nowrap px-4 py-3">Vehicle</TableHead>
                       <TableHead className="whitespace-nowrap px-4 py-3">Referrer</TableHead>
                       <TableHead className="whitespace-nowrap px-4 py-3">Created</TableHead>
-                      <TableHead className="whitespace-nowrap px-4 py-3 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -437,42 +448,49 @@ export default function AdminLeads() {
                         <TableRow
                           key={lead.id}
                           className={cn(
-                            'border-slate-200/80 transition-colors hover:bg-slate-50',
+                            'border-slate-200/80 transition-colors hover:bg-slate-50 focus-visible:bg-slate-100 focus-visible:outline-none cursor-pointer',
                             isDuplicate && 'bg-amber-50/70 hover:bg-amber-50'
                           )}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Open lead ${lead.id}`}
+                          onClick={() => handleRowNavigate(lead.id)}
+                          onKeyDown={(event) => handleRowKeyDown(event, lead.id)}
                         >
                           <TableCell className="px-4 py-3">
-                            <Select value={lead.status} onValueChange={(value) => handleStatusChange(lead.id, value)}>
-                              <SelectTrigger className="h-10 w-[150px] justify-between rounded-lg border-slate-200 text-sm">
-                                <SelectValue>
-                                  <span className="flex items-center gap-2">
-                                    <span className={cn('h-2.5 w-2.5 rounded-full', {
-                                      'bg-sky-500': lead.status === 'new',
-                                      'bg-indigo-500': lead.status === 'quoted',
-                                      'bg-emerald-500': lead.status === 'sold',
-                                      'bg-amber-500': lead.status === 'duplicate-lead',
-                                      'bg-rose-500': lead.status === 'fake-lead',
-                                      'bg-slate-400':
-                                        !['new', 'quoted', 'sold', 'duplicate-lead', 'fake-lead'].includes(lead.status),
-                                    })} />
-                                    <span className="capitalize">{lead.status.replace('-', ' ')}</span>
-                                  </span>
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="new">New</SelectItem>
-                                <SelectItem value="quoted">Quoted</SelectItem>
-                                <SelectItem value="callback">Callback</SelectItem>
-                                <SelectItem value="left-message">Left message</SelectItem>
-                                <SelectItem value="no-contact">No contact</SelectItem>
-                                <SelectItem value="wrong-number">Wrong number</SelectItem>
-                                <SelectItem value="fake-lead">Fake lead</SelectItem>
-                                <SelectItem value="not-interested">Not interested</SelectItem>
-                                <SelectItem value="duplicate-lead">Duplicate lead</SelectItem>
-                                <SelectItem value="dnc">DNC</SelectItem>
-                                <SelectItem value="sold">Sold</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+                              <Select value={lead.status} onValueChange={(value) => handleStatusChange(lead.id, value)}>
+                                <SelectTrigger className="h-10 w-[150px] justify-between rounded-lg border-slate-200 text-sm">
+                                  <SelectValue>
+                                    <span className="flex items-center gap-2">
+                                      <span className={cn('h-2.5 w-2.5 rounded-full', {
+                                        'bg-sky-500': lead.status === 'new',
+                                        'bg-indigo-500': lead.status === 'quoted',
+                                        'bg-emerald-500': lead.status === 'sold',
+                                        'bg-amber-500': lead.status === 'duplicate-lead',
+                                        'bg-rose-500': lead.status === 'fake-lead',
+                                        'bg-slate-400':
+                                          !['new', 'quoted', 'sold', 'duplicate-lead', 'fake-lead'].includes(lead.status),
+                                      })} />
+                                      <span className="capitalize">{lead.status.replace('-', ' ')}</span>
+                                    </span>
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="new">New</SelectItem>
+                                  <SelectItem value="quoted">Quoted</SelectItem>
+                                  <SelectItem value="callback">Callback</SelectItem>
+                                  <SelectItem value="left-message">Left message</SelectItem>
+                                  <SelectItem value="no-contact">No contact</SelectItem>
+                                  <SelectItem value="wrong-number">Wrong number</SelectItem>
+                                  <SelectItem value="fake-lead">Fake lead</SelectItem>
+                                  <SelectItem value="not-interested">Not interested</SelectItem>
+                                  <SelectItem value="duplicate-lead">Duplicate lead</SelectItem>
+                                  <SelectItem value="dnc">DNC</SelectItem>
+                                  <SelectItem value="sold">Sold</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
                           </TableCell>
                           <TableCell className="px-4 py-3 font-mono text-xs text-slate-500">
                             <div className="flex items-center gap-2">
@@ -541,20 +559,12 @@ export default function AdminLeads() {
                                 })
                               : '—'}
                           </TableCell>
-                          <TableCell className="px-4 py-3 text-right">
-                            <Button size="sm" variant="outline" asChild className="rounded-lg border-slate-200">
-                              <Link href={`/admin/leads/${lead.id}`}>
-                                <Eye className="h-4 w-4" />
-                                View
-                              </Link>
-                            </Button>
-                          </TableCell>
                         </TableRow>
                       );
                     })}
                     {sortedLeads.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={9} className="px-6 py-12 text-center text-slate-500">
+                        <TableCell colSpan={8} className="px-6 py-12 text-center text-slate-500">
                           No leads match your filters yet. Try expanding your search or resetting filters.
                         </TableCell>
                       </TableRow>
