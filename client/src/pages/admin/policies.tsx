@@ -6,7 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import AdminNav from "@/components/admin-nav";
-import { fetchWithAuth, getAuthHeaders } from "@/lib/auth";
+import AdminLogin from "@/components/admin-login";
+import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Link, useLocation } from "wouter";
 
 const formatCurrency = (value: number | null | undefined) =>
@@ -21,15 +23,35 @@ const formatDate = (value: string | null | undefined) =>
   }) : "—";
 
 export default function AdminPolicies() {
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [, navigate] = useLocation();
+  const queriesEnabled = authenticated && !checking;
   const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/policies'],
-    queryFn: () =>
-      fetchWithAuth('/api/admin/policies', { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error('Failed to fetch policies');
-        return res.json();
-      })
+    queryFn: async () => {
+      const res = await fetchWithAuth('/api/admin/policies', { headers: getAuthHeaders() });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Your session has expired. Please sign in again.');
+      }
+      if (!res.ok) throw new Error('Failed to fetch policies');
+      return res.json();
+    },
+    enabled: queriesEnabled,
   });
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
 
   if (isLoading) {
     return (
