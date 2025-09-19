@@ -688,6 +688,7 @@ const buildQuoteEmail = ({
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  await storage.ensureNumericIdSequences();
   await storage.ensureDefaultAdminUser();
   await storage.ensureDefaultEmailTemplates();
 
@@ -784,7 +785,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const MemoryStore = createMemoryStore(session);
   const secureCookie = process.env.NODE_ENV === "production";
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-  const sessionStore = new MemoryStore({ checkPeriod: THIRTY_DAYS_MS, ttl: THIRTY_DAYS_MS });
+  const SESSION_LIFETIME_MS = Math.min(THIRTY_DAYS_MS, 2_147_483_647);
+  const sessionStore = new MemoryStore({ checkPeriod: SESSION_LIFETIME_MS, ttl: SESSION_LIFETIME_MS });
 
   app.set("trust proxy", 1);
   app.use(
@@ -799,7 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         httpOnly: true,
         sameSite: "lax",
         secure: secureCookie,
-        maxAge: THIRTY_DAYS_MS,
+        maxAge: SESSION_LIFETIME_MS,
       },
     })
   );
