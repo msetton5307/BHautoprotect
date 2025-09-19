@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -33,11 +34,63 @@ type EmailTemplateRecord = {
 
 type TemplateOption = EmailTemplateRecord & { source: "default" | "saved" };
 
+type PolicyPaymentProfileRecord = {
+  id: string;
+  paymentMethod: string | null;
+  accountName: string | null;
+  accountIdentifier: string | null;
+  cardBrand: string | null;
+  cardLastFour: string | null;
+  cardExpiryMonth: number | null;
+  cardExpiryYear: number | null;
+  billingZip: string | null;
+  autopayEnabled: boolean;
+  notes: string | null;
+  updatedAt?: string | null;
+  customer?: { id: string; email: string; displayName?: string | null } | null;
+};
+
+type PolicyChargeRecord = {
+  id: string;
+  policyId: string;
+  description: string;
+  amountCents: number;
+  status: "pending" | "processing" | "paid" | "failed" | "refunded";
+  chargedAt: string;
+  notes: string | null;
+};
+
 const formatCurrency = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return "N/A";
   const numeric = typeof value === "number" ? value : Number(value);
   if (Number.isNaN(numeric)) return "N/A";
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(numeric);
+};
+
+const formatChargeAmount = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) return "—";
+  return formatCurrency(value / 100);
+};
+
+const formatChargeDate = (value: string | null | undefined): string => {
+  if (!value) return "—";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return "—";
+  return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+};
+
+const formatCardExpiry = (month: number | null | undefined, year: number | null | undefined): string => {
+  if (month == null || year == null) return "—";
+  const safeMonth = String(month).padStart(2, "0");
+  return `${safeMonth}/${year}`;
+};
+
+const chargeStatusStyles: Record<PolicyChargeRecord["status"], { label: string; className: string }> = {
+  pending: { label: "Pending", className: "border-amber-200 bg-amber-50 text-amber-700" },
+  processing: { label: "Processing", className: "border-blue-200 bg-blue-50 text-blue-700" },
+  paid: { label: "Paid", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
+  failed: { label: "Failed", className: "border-rose-200 bg-rose-50 text-rose-700" },
+  refunded: { label: "Refunded", className: "border-slate-200 bg-slate-100 text-slate-700" },
 };
 
 const formatDate = (value: string | Date | null | undefined): string => {
@@ -353,6 +406,30 @@ export default function AdminPolicyDetail() {
     enabled: !!id,
   });
 
+  const { data: paymentProfilesResponse, isLoading: isLoadingPaymentProfiles } = useQuery<{
+    data?: { paymentProfiles?: PolicyPaymentProfileRecord[] };
+  }>({
+    queryKey: ["/api/admin/policies", id, "payment-profiles"],
+    queryFn: () =>
+      fetchWithAuth(`/api/admin/policies/${id}/payment-profiles`, { headers: getAuthHeaders() }).then(res => {
+        if (!res.ok) throw new Error("Failed to fetch payment profiles");
+        return res.json();
+      }),
+    enabled: !!id,
+  });
+
+  const { data: chargesResponse, isLoading: isLoadingCharges } = useQuery<{
+    data?: { charges?: PolicyChargeRecord[] };
+  }>({
+    queryKey: ["/api/admin/policies", id, "charges"],
+    queryFn: () =>
+      fetchWithAuth(`/api/admin/policies/${id}/charges`, { headers: getAuthHeaders() }).then(res => {
+        if (!res.ok) throw new Error("Failed to fetch policy charges");
+        return res.json();
+      }),
+    enabled: !!id,
+  });
+
   const {
     data: templatesResponse,
     isFetching: isFetchingTemplates,
@@ -372,6 +449,18 @@ export default function AdminPolicyDetail() {
   const vehicle = policy?.vehicle ?? {};
   const notes = policy?.notes ?? [];
   const files = policy?.files ?? [];
+  const paymentProfiles = useMemo(() => {
+    const records = paymentProfilesResponse?.data?.paymentProfiles ?? [];
+    return [...records].sort((a, b) => {
+      const left = a.updatedAt ? new Date(a.updatedAt).valueOf() : 0;
+      const right = b.updatedAt ? new Date(b.updatedAt).valueOf() : 0;
+      return right - left;
+    });
+  }, [paymentProfilesResponse]);
+  const charges = useMemo(() => {
+    const records = chargesResponse?.data?.charges ?? [];
+    return [...records].sort((a, b) => new Date(b.chargedAt).valueOf() - new Date(a.chargedAt).valueOf());
+  }, [chargesResponse]);
 
   const policyHolderName = getPolicyHolderName(policy);
   const defaultTemplates = useMemo(() => buildDefaultEmailTemplates(policy), [policy]);
@@ -753,6 +842,133 @@ export default function AdminPolicyDetail() {
             <div><span className="font-medium">Email:</span> {leadEmail || "N/A"}</div>
             <div><span className="font-medium">Phone:</span> {lead.phone || "N/A"}</div>
             <div><span className="font-medium">State:</span> {lead.state || "N/A"}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Billing &amp; Payments</CardTitle>
+            <CardDescription>Latest details synced from the customer portal.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6 text-sm">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Saved payment methods</h3>
+              {isLoadingPaymentProfiles ? (
+                <p className="mt-2 text-xs text-muted-foreground">Loading payment methods…</p>
+              ) : paymentProfiles.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">No payment details have been submitted yet.</p>
+              ) : (
+                <div className="mt-3 grid gap-4 md:grid-cols-2">
+                  {paymentProfiles.map(profile => (
+                    <div key={profile.id} className="rounded-lg border border-slate-200 p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {profile.cardBrand || profile.paymentMethod || "Payment method"}
+                            {profile.cardLastFour ? ` · ••••${profile.cardLastFour}` : ""}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {profile.accountName || "No cardholder name on file"}
+                          </p>
+                          {profile.customer ? (
+                            <p className="mt-1 text-xs text-slate-500">
+                              Portal account: {profile.customer.displayName || profile.customer.email}
+                            </p>
+                          ) : null}
+                        </div>
+                        <Badge
+                          variant="outline"
+                          className={
+                            profile.autopayEnabled
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-slate-200 bg-slate-100 text-slate-700"
+                          }
+                        >
+                          {profile.autopayEnabled ? "Autopay on" : "Autopay off"}
+                        </Badge>
+                      </div>
+                      <dl className="mt-4 grid grid-cols-2 gap-3 text-xs uppercase text-slate-500">
+                        <div>
+                          <dt>Last four</dt>
+                          <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                            {profile.cardLastFour || "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Expiry</dt>
+                          <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                            {formatCardExpiry(profile.cardExpiryMonth, profile.cardExpiryYear)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Billing zip</dt>
+                          <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                            {profile.billingZip || "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt>Internal ref</dt>
+                          <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                            {profile.accountIdentifier || "—"}
+                          </dd>
+                        </div>
+                      </dl>
+                      {profile.notes ? (
+                        <p className="mt-3 text-xs text-slate-500">Notes: {profile.notes}</p>
+                      ) : null}
+                      {profile.updatedAt ? (
+                        <p className="mt-3 text-xs text-slate-400">
+                          Updated {new Date(profile.updatedAt).toLocaleString()}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">Charge history</h3>
+              {isLoadingCharges ? (
+                <p className="mt-2 text-xs text-muted-foreground">Loading charges…</p>
+              ) : charges.length === 0 ? (
+                <p className="mt-2 text-xs text-muted-foreground">No charges logged for this policy.</p>
+              ) : (
+                <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
+                  <table className="min-w-full divide-y divide-slate-200 text-sm">
+                    <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Description</th>
+                        <th className="px-4 py-3 text-left">Date</th>
+                        <th className="px-4 py-3 text-left">Status</th>
+                        <th className="px-4 py-3 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                      {charges.map(charge => {
+                        const status = chargeStatusStyles[charge.status];
+                        return (
+                          <tr key={charge.id}>
+                            <td className="px-4 py-3">
+                              <div className="font-medium text-slate-900">{charge.description}</div>
+                              {charge.notes ? <div className="text-xs text-slate-500">{charge.notes}</div> : null}
+                            </td>
+                            <td className="px-4 py-3 text-slate-600">{formatChargeDate(charge.chargedAt)}</td>
+                            <td className="px-4 py-3">
+                              <Badge variant="outline" className={status.className}>
+                                {status.label}
+                              </Badge>
+                            </td>
+                            <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                              {formatChargeAmount(charge.amountCents)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
 

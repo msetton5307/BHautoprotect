@@ -63,7 +63,25 @@ export type CustomerPaymentProfile = {
   paymentMethod: string | null;
   accountName: string | null;
   accountIdentifier: string | null;
+  cardBrand: string | null;
+  cardLastFour: string | null;
+  cardExpiryMonth: number | null;
+  cardExpiryYear: number | null;
+  billingZip: string | null;
   autopayEnabled: boolean;
+  notes: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type PolicyCharge = {
+  id: string;
+  policyId: string;
+  customerId: string | null;
+  description: string;
+  amountCents: number;
+  status: 'pending' | 'processing' | 'paid' | 'failed' | 'refunded';
+  chargedAt: string;
   notes: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
