@@ -1,55 +1,184 @@
 import Navigation from "@/components/navigation";
 import { Card, CardContent } from "@/components/ui/card";
-import { Shield, Users, Clock } from "lucide-react";
+import {
+  Shield,
+  Users,
+  Clock,
+  Award,
+  HeartHandshake,
+  MapPin,
+  Phone,
+  Mail,
+  Sparkles,
+} from "lucide-react";
 
 export default function About() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-950">
       <Navigation onGetQuote={() => {}} />
-      <div className="max-w-5xl mx-auto px-4 py-12 space-y-12">
-        <section className="text-center">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">About BH Auto Protect</h1>
-          <p className="text-lg text-gray-600">
-            BH Auto Protect provides reliable vehicle service contracts that keep drivers on the road with confidence.
-          </p>
+      <div className="max-w-6xl mx-auto px-4 py-16 space-y-16">
+        <section className="relative overflow-hidden rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-950 to-black p-12 text-center shadow-2xl">
+          <Sparkles className="absolute -top-6 -left-6 h-24 w-24 text-primary/10" />
+          <Sparkles className="absolute -bottom-10 -right-4 h-32 w-32 text-primary/5" />
+          <div className="mx-auto max-w-3xl space-y-6">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-1 text-sm font-semibold uppercase tracking-wide text-primary">
+              Driven by trust • Powered by protection
+            </span>
+            <h1 className="text-4xl font-bold text-white md:text-5xl">
+              Peace of mind for every mile you drive.
+            </h1>
+            <div className="grid gap-3 text-left text-slate-300 md:grid-cols-2">
+              <p className="rounded-2xl border border-slate-800 bg-black/30 p-4 text-sm font-medium uppercase tracking-wide text-slate-200">
+                Specialists in extended vehicle protection plans tailored for real drivers.
+              </p>
+              <p className="rounded-2xl border border-slate-800 bg-black/30 p-4 text-sm font-medium uppercase tracking-wide text-slate-200">
+                Transparent pricing, quick responses, and nationwide repair partnerships you can rely on.
+              </p>
+            </div>
+          </div>
         </section>
 
-        <section className="grid md:grid-cols-3 gap-6">
-          <Card className="bg-white">
-            <CardContent className="p-6 text-center">
-              <Shield className="w-10 h-10 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Comprehensive Coverage</h3>
-              <p className="text-gray-600">
-                Plans designed to protect against costly repairs for engines, transmissions, and more.
-              </p>
+        <section className="grid gap-6 md:grid-cols-3">
+          <Card className="border-slate-800 bg-slate-900/80">
+            <CardContent className="p-8 text-center space-y-4">
+              <Shield className="mx-auto h-12 w-12 text-primary" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-white">Coverage without confusion</h3>
+                <ul className="space-y-1 text-sm text-slate-300">
+                  <li>• Engine, transmission, electronics, and luxury tech components</li>
+                  <li>• Plans tuned for new daily drivers and seasoned classics alike</li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-white">
-            <CardContent className="p-6 text-center">
-              <Users className="w-10 h-10 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Customer First</h3>
-              <p className="text-gray-600">
-                Our support team is here to guide you from quote to claim with personal attention.
-              </p>
+          <Card className="border-slate-800 bg-slate-900/80">
+            <CardContent className="p-8 text-center space-y-4">
+              <Users className="mx-auto h-12 w-12 text-primary" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-white">People-first guidance</h3>
+                <ul className="space-y-1 text-sm text-slate-300">
+                  <li>• Real humans answering questions in minutes, not hours</li>
+                  <li>• Dedicated concierge team for claims and repair scheduling</li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
-          <Card className="bg-white">
-            <CardContent className="p-6 text-center">
-              <Clock className="w-10 h-10 text-primary mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">Fast Claims</h3>
-              <p className="text-gray-600">
-                We work quickly with certified repair facilities to get you back on the road.
-              </p>
+          <Card className="border-slate-800 bg-slate-900/80">
+            <CardContent className="p-8 text-center space-y-4">
+              <Clock className="mx-auto h-12 w-12 text-primary" />
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold text-white">Rapid resolution</h3>
+                <ul className="space-y-1 text-sm text-slate-300">
+                  <li>• Instant roadside assistance &amp; rental support options</li>
+                  <li>• Partner network of ASE-certified shops nationwide</li>
+                </ul>
+              </div>
             </CardContent>
           </Card>
         </section>
 
-        <section className="bg-white p-8 rounded-lg shadow-sm">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Promise</h2>
-          <p className="text-gray-600 leading-relaxed">
-            With years of experience in the auto protection industry, BH Auto Protect is committed to transparency,
-            affordability, and peace of mind for every driver we serve.
-          </p>
+        <section className="grid gap-8 rounded-3xl border border-slate-800 bg-slate-900/80 p-10 md:grid-cols-[1.2fr_1fr]">
+          <div className="space-y-6">
+            <h2 className="text-3xl font-bold text-white">What keeps us in the fast lane</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-2xl border border-slate-800 bg-black/40 p-5">
+                <Award className="mb-3 h-8 w-8 text-primary" />
+                <h3 className="text-lg font-semibold text-white">15+ years of proven protection</h3>
+                <ul className="mt-3 space-y-1 text-sm text-slate-300">
+                  <li>• 32,000+ active contracts serviced nationwide</li>
+                  <li>• Partnerships with top-rated finance &amp; dealer groups</li>
+                </ul>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-black/40 p-5">
+                <HeartHandshake className="mb-3 h-8 w-8 text-primary" />
+                <h3 className="text-lg font-semibold text-white">Promises we keep every day</h3>
+                <ul className="mt-3 space-y-1 text-sm text-slate-300">
+                  <li>• Transparent terms with zero surprise fees</li>
+                  <li>• 24/7 claim intake with live status updates</li>
+                </ul>
+              </div>
+            </div>
+            <div className="grid gap-4 rounded-2xl border border-slate-800 bg-black/30 p-6 text-sm text-slate-200 md:grid-cols-2">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-primary/80">Our north star</p>
+                <ul className="mt-2 space-y-1">
+                  <li>• Keep repairs affordable</li>
+                  <li>• Keep drivers confident</li>
+                  <li>• Keep promises visible</li>
+                </ul>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-primary/80">How we deliver</p>
+                <ul className="mt-2 space-y-1">
+                  <li>• Real-time plan customization</li>
+                  <li>• Concierge claim coordination</li>
+                  <li>• Nationwide repair partnerships</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col justify-between gap-6 rounded-2xl border border-slate-800 bg-black/40 p-8 text-left">
+            <h3 className="text-xl font-semibold text-white">Quick company snapshot</h3>
+            <ul className="space-y-4 text-sm text-slate-300">
+              <li>
+                <span className="block text-xs uppercase tracking-wide text-primary/80">Headquarters</span>
+                Austin, Texas
+              </li>
+              <li>
+                <span className="block text-xs uppercase tracking-wide text-primary/80">Founded</span>
+                2009 — family-owned and operated
+              </li>
+              <li>
+                <span className="block text-xs uppercase tracking-wide text-primary/80">Focus</span>
+                Extended auto warranties, roadside support, rental coverage
+              </li>
+            </ul>
+            <div className="rounded-2xl border border-primary/40 bg-primary/10 p-5 text-left">
+              <p className="text-xs uppercase tracking-wide text-primary">Ready when you are</p>
+              <p className="mt-2 text-sm text-white">
+                Need a tailored plan? Let us build one that fits your driving style and budget.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-10 md:grid-cols-2">
+          <div className="space-y-4">
+            <h2 className="text-3xl font-bold text-white">Visit or connect with us</h2>
+            <p className="text-sm uppercase tracking-wide text-primary/80">Our flagship service center</p>
+            <div className="space-y-3 text-sm text-slate-300">
+              <p className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-black/40 p-4">
+                <MapPin className="h-5 w-5 text-primary" />
+                <span>5501 Horizon Park Blvd, Suite 420, Austin, TX 78727</span>
+              </p>
+              <p className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-black/40 p-4">
+                <Phone className="h-5 w-5 text-primary" />
+                <span>Service hotline: (855) 555-2746</span>
+              </p>
+              <p className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-black/40 p-4">
+                <Mail className="h-5 w-5 text-primary" />
+                <span>Support: support@bhautoprotect.com</span>
+              </p>
+            </div>
+          </div>
+          <div className="grid content-between gap-6 rounded-2xl border border-slate-800 bg-black/30 p-8 text-sm text-slate-300">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-primary/80">Hours</p>
+              <ul className="mt-2 space-y-1">
+                <li>• Monday – Friday: 8:00 AM – 7:00 PM CST</li>
+                <li>• Saturday: 9:00 AM – 2:00 PM CST</li>
+                <li>• Emergency claims team: 24/7</li>
+              </ul>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-primary/80">Need help fast?</p>
+              <ul className="mt-2 space-y-1">
+                <li>• Text “PROTECT” to 41745 for plan updates</li>
+                <li>• Email docs to claims@bhautoprotect.com</li>
+                <li>• Dealer inquiries: partners@bhautoprotect.com</li>
+              </ul>
+            </div>
+          </div>
         </section>
       </div>
     </div>
