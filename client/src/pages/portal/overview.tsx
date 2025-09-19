@@ -66,9 +66,12 @@ export default function CustomerPortalOverview({ session }: Props) {
   const claimsQuery = useQuery<{ data?: { claims?: CustomerClaim[] } }>([
     "/api/customer/claims",
   ]);
-  const documentsQuery = useQuery<{ data?: { requests?: CustomerDocumentRequestRecord[] } }>([
-    "/api/customer/document-requests",
-  ]);
+  const documentsQuery = useQuery<{ data?: { requests?: CustomerDocumentRequestRecord[] } }>({
+    queryKey: ["/api/customer/document-requests"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
 
   const policies = useMemo(() => {
     const apiPolicies = policiesQuery.data?.data?.policies;
