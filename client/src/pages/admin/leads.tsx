@@ -1,17 +1,20 @@
-import { useState, useMemo } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Search, Filter, Eye } from "lucide-react";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Users, Search, Filter, Eye, Sparkles, ArrowUpDown, LayoutList, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
 import { getAuthHeaders, clearCredentials, fetchWithAuth } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
+import { cn } from "@/lib/utils";
 
 const authJsonHeaders = () => ({
   ...getAuthHeaders(),
@@ -23,7 +26,7 @@ export default function AdminLeads() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortField, setSortField] = useState<string>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [hideDuplicates, setHideDuplicates] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -195,14 +198,74 @@ export default function AdminLeads() {
       : String(bVal).localeCompare(String(aVal));
   });
 
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
+  const resetFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+    setSortField('createdAt');
+    setSortOrder('desc');
+    setHideDuplicates(false);
+  };
+
+  const formatNumber = (value: number) =>
+    new Intl.NumberFormat('en-US', { notation: 'compact' }).format(value);
+
+  const leadStats = useMemo(() => {
+    const stateSet = new Set<string>();
+    let newCount = 0;
+    let quotedCount = 0;
+    let soldCount = 0;
+
+    leads.forEach((item: any) => {
+      const lead = item.lead || {};
+      const status = lead.status;
+      if (status === 'new') newCount += 1;
+      if (status === 'quoted') quotedCount += 1;
+      if (status === 'sold') soldCount += 1;
+      if (lead.state) stateSet.add(lead.state);
+    });
+
+    return {
+      total: leads.length,
+      new: newCount,
+      quoted: quotedCount,
+      sold: soldCount,
+      duplicates: duplicateIds.size,
+      statesCount: stateSet.size,
+    };
+  }, [duplicateIds, leads]);
+
+  const sortOptions: { value: string; label: string }[] = [
+    { value: 'createdAt', label: 'Date created' },
+    { value: 'status', label: 'Status' },
+    { value: 'firstName', label: 'First name' },
+    { value: 'lastName', label: 'Last name' },
+    { value: 'email', label: 'Email' },
+    { value: 'phone', label: 'Phone' },
+    { value: 'state', label: 'State' },
+    { value: 'year', label: 'Vehicle year' },
+    { value: 'make', label: 'Vehicle make' },
+  ];
+
+  const statusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'new':
+        return 'border-sky-200 bg-sky-50 text-sky-700';
+      case 'quoted':
+        return 'border-indigo-200 bg-indigo-50 text-indigo-700';
+      case 'sold':
+        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      case 'duplicate-lead':
+        return 'border-amber-200 bg-amber-50 text-amber-700';
+      case 'fake-lead':
+        return 'border-rose-200 bg-rose-50 text-rose-700';
+      case 'dnc':
+        return 'border-slate-200 bg-slate-50 text-slate-700';
+      default:
+        return 'border-slate-200 bg-slate-50 text-slate-600';
     }
   };
+
+  const sortFieldLabel = sortOptions.find((option) => option.value === sortField)?.label || 'Date created';
 
   const handleStatusChange = (leadId: string, newStatus: string) => {
     updateLeadMutation.mutate({
@@ -232,180 +295,370 @@ export default function AdminLeads() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-950/5 pb-16">
       <AdminNav />
-      {/* Header */}
-      <div className="bg-white border-b">
-        <div className="px-2">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                <Users className="h-6 w-6 mr-2" />
-                Lead Management
-              </h1>
-              <p className="text-gray-600">Track and manage all customer leads</p>
+      <section className="relative overflow-hidden border-b bg-slate-950 text-white">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.35),transparent_55%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(99,102,241,0.25),transparent_60%)]" />
+        <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-12 md:px-8">
+          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div className="space-y-4">
+              <Badge variant="outline" className="w-fit border-white/40 bg-white/10 text-xs uppercase tracking-wide text-white">
+                Lead operations hub
+              </Badge>
+              <div>
+                <h1 className="flex items-center gap-3 text-3xl font-semibold text-white md:text-4xl">
+                  <Users className="h-8 w-8" />
+                  Lead Management
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm text-slate-200 md:text-base">
+                  Monitor pipeline health, declutter duplicates, and take action on the leads that need you most.
+                </p>
+              </div>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex flex-wrap gap-3">
               <Button
-                variant={hideDuplicates ? "default" : "outline"}
+                variant={hideDuplicates ? 'secondary' : 'ghost'}
                 onClick={() => setHideDuplicates(!hideDuplicates)}
+                className="backdrop-blur"
               >
-                {hideDuplicates ? "Show Duplicates" : "Hide Duplicates"}
+                <LayoutList className="h-4 w-4" />
+                {hideDuplicates ? 'Show duplicates' : 'Hide duplicates'}
               </Button>
-              <Button variant="outline" asChild>
-                <Link href="/admin">Dashboard</Link>
+              <Button variant="ghost" asChild className="backdrop-blur">
+                <Link href="/admin">
+                  <RefreshCw className="h-4 w-4" />
+                  Dashboard
+                </Link>
               </Button>
-              <Button asChild>
-                <Link href="/">Public Site</Link>
+              <Button variant="secondary" asChild className="backdrop-blur">
+                <Link href="/">
+                  Public site
+                </Link>
               </Button>
-              <Button asChild>
-                <Link href="/admin/leads/new">Add Lead</Link>
+              <Button asChild className="shadow-lg shadow-sky-500/20">
+                <Link href="/admin/leads/new">Add lead</Link>
               </Button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="px-2 py-8">
-        {/* Filters */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <Filter className="h-5 w-5 mr-2" />
-              Filters & Search
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                label: 'Total leads',
+                value: formatNumber(leadStats.total),
+                description: `${leadStats.statesCount} active ${leadStats.statesCount === 1 ? 'state' : 'states'}`,
+                accent: 'from-sky-500/30 via-slate-900/0 to-transparent',
+                icon: Users,
+              },
+              {
+                label: 'New leads',
+                value: formatNumber(leadStats.new),
+                description: 'Waiting for first touchpoint',
+                accent: 'from-emerald-500/30 via-slate-900/0 to-transparent',
+                icon: Sparkles,
+              },
+              {
+                label: 'Quoted',
+                value: formatNumber(leadStats.quoted),
+                description: 'Active proposals in review',
+                accent: 'from-indigo-500/30 via-slate-900/0 to-transparent',
+                icon: Filter,
+              },
+              {
+                label: 'Duplicates flagged',
+                value: formatNumber(leadStats.duplicates),
+                description: hideDuplicates ? 'Hidden from view' : 'Visible in table',
+                accent: 'from-amber-500/30 via-slate-900/0 to-transparent',
+                icon: LayoutList,
+              },
+            ].map(({ label, value, description, accent, icon: Icon }) => (
+              <div
+                key={label}
+                className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/10 backdrop-blur"
+              >
+                <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80', accent)} />
+                <div className="relative flex h-full flex-col gap-3 text-white">
+                  <div className="flex items-center justify-between text-xs uppercase tracking-wide text-white/70">
+                    {label}
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                  </div>
+                  <p className="text-3xl font-semibold md:text-4xl">{value}</p>
+                  <p className="text-xs text-white/70">{description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <main className="mx-auto -mt-10 w-full max-w-6xl space-y-8 px-4 md:px-8">
+        <Card className="border border-slate-200/80 bg-white/80 shadow-lg backdrop-blur">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-2 text-slate-900">
+              <Filter className="h-5 w-5" />
+              Focus your view
             </CardTitle>
+            <CardDescription className="text-sm text-slate-500">
+              Combine quick filters, sorting, and search to surface the leads that matter now.
+            </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <Input
-                  placeholder="Search leads..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="md:col-span-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
+                <div className="relative mt-2">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input
+                    placeholder="Name, email, phone, vehicle..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="h-11 rounded-xl border-slate-200 bg-white pl-10 text-sm shadow-sm"
+                  />
+                </div>
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="new">New</SelectItem>
-                  <SelectItem value="quoted">Quoted</SelectItem>
-                  <SelectItem value="callback">Callback</SelectItem>
-                  <SelectItem value="left-message">Left Message</SelectItem>
-                  <SelectItem value="no-contact">No Contact</SelectItem>
-                  <SelectItem value="wrong-number">Wrong Number</SelectItem>
-                  <SelectItem value="fake-lead">Fake Lead</SelectItem>
-                  <SelectItem value="not-interested">Not Interested</SelectItem>
-                  <SelectItem value="duplicate-lead">Duplicate Lead</SelectItem>
-                  <SelectItem value="dnc">DNC</SelectItem>
-                  <SelectItem value="sold">Sold</SelectItem>
-                </SelectContent>
-              </Select>
-              <div className="text-sm text-gray-600 flex items-center">
-                Showing {filteredLeads.length} of {leads.length} leads
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="mt-2 h-11 rounded-xl border-slate-200 bg-white text-sm shadow-sm">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    <SelectItem value="new">New</SelectItem>
+                    <SelectItem value="quoted">Quoted</SelectItem>
+                    <SelectItem value="callback">Callback</SelectItem>
+                    <SelectItem value="left-message">Left message</SelectItem>
+                    <SelectItem value="no-contact">No contact</SelectItem>
+                    <SelectItem value="wrong-number">Wrong number</SelectItem>
+                    <SelectItem value="fake-lead">Fake lead</SelectItem>
+                    <SelectItem value="not-interested">Not interested</SelectItem>
+                    <SelectItem value="duplicate-lead">Duplicate lead</SelectItem>
+                    <SelectItem value="dnc">DNC</SelectItem>
+                    <SelectItem value="sold">Sold</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sort</label>
+                <div className="flex items-center gap-2">
+                  <Select value={sortField} onValueChange={(value) => setSortField(value)}>
+                    <SelectTrigger className="h-11 flex-1 rounded-xl border-slate-200 bg-white text-sm shadow-sm">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="h-11 w-24 rounded-xl border-slate-200 bg-white text-sm shadow-sm"
+                  >
+                    <ArrowUpDown className="h-4 w-4" />
+                    {sortOrder === 'asc' ? 'Asc' : 'Desc'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge variant="outline" className="rounded-full border-slate-200 bg-white px-3 py-1 text-xs text-slate-500">
+                  {filteredLeads.length} showing · {leads.length} total
+                </Badge>
+                <Badge variant="outline" className="rounded-full border-slate-200 bg-white px-3 py-1 text-xs text-slate-500">
+                  Sorted by {sortFieldLabel} · {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
+                </Badge>
+                {hideDuplicates && (
+                  <Badge className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                    Duplicates hidden
+                  </Badge>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={resetFilters}>
+                Reset
+              </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Leads Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Leads</CardTitle>
-            <CardDescription>Complete list of customer leads and their status</CardDescription>
+        <Card className="border border-slate-200/80 bg-white shadow-xl">
+          <CardHeader className="pb-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle className="text-xl text-slate-900">Lead roster</CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Manage statuses, spot duplicates instantly, and jump into detailed records.
+                </CardDescription>
+              </div>
+              <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
+                Live updates every 5 seconds
+              </Badge>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table className="text-xs">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('status')}>Status</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('id')}>ID</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('firstName')}>First Name</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('lastName')}>Last Name</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('email')}>Email</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('phone')}>Phone</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('state')}>Registered State</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('year')}>Year</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('make')}>Make</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('model')}>Model</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('referrer')}>Referrer</TableHead>
-                    <TableHead className="cursor-pointer whitespace-nowrap p-2" onClick={() => handleSort('createdAt')}>Date Created</TableHead>
-                    <TableHead className="whitespace-nowrap p-2">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sortedLeads.map((item: any) => {
-                    const lead = item.lead;
-                    const vehicle = item.vehicle || {};
-                    return (
-                      <TableRow key={lead.id}>
-                        <TableCell className="p-2 whitespace-nowrap">
-                          <Select
-                            value={lead.status}
-                            onValueChange={(value) => handleStatusChange(lead.id, value)}
-                          >
-                            <SelectTrigger className="w-28">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="new">New</SelectItem>
-                              <SelectItem value="quoted">Quoted</SelectItem>
-                              <SelectItem value="callback">Callback</SelectItem>
-                              <SelectItem value="left-message">Left Message</SelectItem>
-                              <SelectItem value="no-contact">No Contact</SelectItem>
-                              <SelectItem value="wrong-number">Wrong Number</SelectItem>
-                              <SelectItem value="fake-lead">Fake Lead</SelectItem>
-                              <SelectItem value="not-interested">Not Interested</SelectItem>
-                              <SelectItem value="duplicate-lead">Duplicate Lead</SelectItem>
-                              <SelectItem value="dnc">DNC</SelectItem>
-                              <SelectItem value="sold">Sold</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{lead.id}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{lead.firstName}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{lead.lastName}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{lead.email}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{lead.phone}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{lead.state}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{vehicle.year || '-'}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{vehicle.make || '-'}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{vehicle.model || '-'}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">{lead.referrer || lead.source || '-'}</TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">
-                          {lead.createdAt
-                            ? new Date(lead.createdAt).toLocaleString('en-US', { timeZone: 'America/New_York' })
-                            : ''}
-                        </TableCell>
-                        <TableCell className="p-2 whitespace-nowrap">
-                          <Button size="sm" variant="outline" asChild>
-                            <Link href={`/admin/leads/${lead.id}`}>
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Link>
-                          </Button>
+            <ScrollArea className="w-full">
+              <div className="min-w-[960px] overflow-hidden rounded-xl border border-slate-200">
+                <Table className="text-sm">
+                  <TableHeader className="bg-slate-50/80">
+                    <TableRow className="border-slate-200">
+                      <TableHead className="whitespace-nowrap px-4 py-3">Status</TableHead>
+                      <TableHead className="whitespace-nowrap px-4 py-3">ID</TableHead>
+                      <TableHead className="whitespace-nowrap px-4 py-3">Lead</TableHead>
+                      <TableHead className="whitespace-nowrap px-4 py-3">Contact</TableHead>
+                      <TableHead className="whitespace-nowrap px-4 py-3">Location</TableHead>
+                      <TableHead className="whitespace-nowrap px-4 py-3">Vehicle</TableHead>
+                      <TableHead className="whitespace-nowrap px-4 py-3">Referrer</TableHead>
+                      <TableHead className="whitespace-nowrap px-4 py-3">Created</TableHead>
+                      <TableHead className="whitespace-nowrap px-4 py-3 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sortedLeads.map((item: any) => {
+                      const lead = item.lead;
+                      const vehicle = item.vehicle || {};
+                      const isDuplicate = duplicateIds.has(lead.id);
+                      return (
+                        <TableRow
+                          key={lead.id}
+                          className={cn(
+                            'border-slate-200/80 transition-colors hover:bg-slate-50',
+                            isDuplicate && 'bg-amber-50/70 hover:bg-amber-50'
+                          )}
+                        >
+                          <TableCell className="px-4 py-3">
+                            <Select value={lead.status} onValueChange={(value) => handleStatusChange(lead.id, value)}>
+                              <SelectTrigger className="h-10 w-[150px] justify-between rounded-lg border-slate-200 text-sm">
+                                <SelectValue>
+                                  <span className="flex items-center gap-2">
+                                    <span className={cn('h-2.5 w-2.5 rounded-full', {
+                                      'bg-sky-500': lead.status === 'new',
+                                      'bg-indigo-500': lead.status === 'quoted',
+                                      'bg-emerald-500': lead.status === 'sold',
+                                      'bg-amber-500': lead.status === 'duplicate-lead',
+                                      'bg-rose-500': lead.status === 'fake-lead',
+                                      'bg-slate-400':
+                                        !['new', 'quoted', 'sold', 'duplicate-lead', 'fake-lead'].includes(lead.status),
+                                    })} />
+                                    <span className="capitalize">{lead.status.replace('-', ' ')}</span>
+                                  </span>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="new">New</SelectItem>
+                                <SelectItem value="quoted">Quoted</SelectItem>
+                                <SelectItem value="callback">Callback</SelectItem>
+                                <SelectItem value="left-message">Left message</SelectItem>
+                                <SelectItem value="no-contact">No contact</SelectItem>
+                                <SelectItem value="wrong-number">Wrong number</SelectItem>
+                                <SelectItem value="fake-lead">Fake lead</SelectItem>
+                                <SelectItem value="not-interested">Not interested</SelectItem>
+                                <SelectItem value="duplicate-lead">Duplicate lead</SelectItem>
+                                <SelectItem value="dnc">DNC</SelectItem>
+                                <SelectItem value="sold">Sold</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 font-mono text-xs text-slate-500">
+                            <div className="flex items-center gap-2">
+                              {lead.id}
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize',
+                                  statusBadgeClass(lead.status)
+                                )}
+                              >
+                                {lead.status.replace('-', ' ')}
+                              </Badge>
+                              {isDuplicate && (
+                                <Badge className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">
+                                  Duplicate
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-slate-700">
+                            <div className="flex flex-col">
+                              <span className="font-medium">
+                                {[lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'}
+                              </span>
+                              <span className="text-xs text-slate-500">{lead.source || lead.referrer || 'Source unknown'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-slate-700">
+                            <div className="flex flex-col gap-1">
+                              <span>{lead.email || '—'}</span>
+                              <span className="text-xs text-slate-500">{lead.phone || 'No phone'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-slate-700">
+                            <div className="flex flex-col gap-1">
+                              <span>{lead.state || '—'}</span>
+                              <span className="text-xs text-slate-500">{lead.city || lead.shippingCity || 'Unknown city'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-slate-700">
+                            <div className="flex flex-col gap-1">
+                              <span>
+                                {[vehicle.year, vehicle.make].filter(Boolean).join(' ') || '—'}
+                              </span>
+                              <span className="text-xs text-slate-500">{vehicle.model || 'Model pending'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-slate-700">
+                            {lead.referrer || lead.source ? (
+                              <Badge className="rounded-full bg-slate-900/5 px-3 py-1 text-xs font-medium text-slate-600">
+                                {lead.referrer || lead.source}
+                              </Badge>
+                            ) : (
+                              <span className="text-sm text-slate-400">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-slate-600">
+                            {lead.createdAt
+                              ? new Date(lead.createdAt).toLocaleString('en-US', {
+                                  timeZone: 'America/New_York',
+                                  month: 'short',
+                                  day: 'numeric',
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                })
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-right">
+                            <Button size="sm" variant="outline" asChild className="rounded-lg border-slate-200">
+                              <Link href={`/admin/leads/${lead.id}`}>
+                                <Eye className="h-4 w-4" />
+                                View
+                              </Link>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    {sortedLeads.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={9} className="px-6 py-12 text-center text-slate-500">
+                          No leads match your filters yet. Try expanding your search or resetting filters.
                         </TableCell>
                       </TableRow>
-                    );
-                  })}
-                  {sortedLeads.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={13} className="text-center py-8 text-gray-500">
-                        No leads found matching your criteria
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <ScrollBar orientation="horizontal" className="mt-2" />
+            </ScrollArea>
           </CardContent>
         </Card>
-      </div>
+      </main>
     </div>
   );
 }
