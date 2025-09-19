@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -72,6 +73,7 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
   const [title, setTitle] = useState("VIN photo for verification");
   const [instructions, setInstructions] = useState("");
   const [dueDate, setDueDate] = useState<string>("");
+  const [sendEmail, setSendEmail] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const hasCustomers = customers.length > 0;
 
@@ -98,6 +100,7 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
         title,
         instructions: instructions.trim() || undefined,
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+        sendEmail,
       };
       const res = await fetchWithAuth(`/api/admin/policies/${policyId}/document-requests`, {
         method: "POST",
@@ -109,13 +112,18 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
         const message = typeof (json as { message?: unknown }).message === "string" ? (json as { message: string }).message : "Unable to create request";
         throw new Error(message);
       }
-      return res.json();
+      return res.json() as Promise<{
+        data: CustomerDocumentRequestRecord;
+        meta?: { emailSent?: boolean };
+      }>;
     },
-    onSuccess: () => {
+    onSuccess: (response) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", policyId, "document-requests"] });
       toast({
         title: "Request sent",
-        description: "The customer will now see this document request in their portal.",
+        description: response?.meta?.emailSent
+          ? "The customer received an email with upload instructions."
+          : "The request is now visible in the customer portal.",
       });
       setInstructions("");
       setDueDate("");
@@ -254,10 +262,25 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
               />
             </div>
           </div>
-          <div className="flex justify-end">
-            <Button onClick={() => createMutation.mutate()} disabled={!customerId || !title.trim() || createMutation.isPending}>
-              {createMutation.isPending ? "Sending…" : "Create request"}
-            </Button>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <label className="flex items-start gap-3 text-sm text-slate-600">
+              <Checkbox
+                checked={sendEmail}
+                onCheckedChange={(value) => setSendEmail(value === true)}
+                aria-label="Send email notification"
+              />
+              <span className="space-y-1">
+                <span className="font-medium text-slate-800">Email the customer about this request</span>
+                <span className="block text-xs text-slate-500">
+                  Includes the message above and a button that takes them to the portal to upload.
+                </span>
+              </span>
+            </label>
+            <div className="flex justify-end md:justify-start">
+              <Button onClick={() => createMutation.mutate()} disabled={!customerId || !title.trim() || createMutation.isPending}>
+                {createMutation.isPending ? "Sending…" : "Create request"}
+              </Button>
+            </div>
           </div>
             </>
           )}
