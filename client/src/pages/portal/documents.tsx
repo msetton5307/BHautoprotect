@@ -294,9 +294,12 @@ function DocumentRequestCard({ request }: DocumentRequestCardProps) {
 }
 
 export default function CustomerPortalDocuments({ session }: Props) {
-  const { data, isLoading } = useQuery<{ data?: { requests?: CustomerDocumentRequestRecord[] } }>([
-    "/api/customer/document-requests",
-  ]);
+  const { data, isLoading } = useQuery<{ data?: { requests?: CustomerDocumentRequestRecord[] } }>({
+    queryKey: ["/api/customer/document-requests"],
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+  });
   const requests = useMemo(() => data?.data?.requests ?? [], [data]);
   const openRequests = useMemo(
     () => requests.filter((request) => request.status !== "completed" && request.status !== "cancelled"),
