@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Users, Search, Filter, Eye, Sparkles, ArrowUpDown, LayoutList, RefreshCw } from "lucide-react";
+import { Search, Filter, Eye, ArrowUpDown, LayoutList, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
@@ -206,34 +206,6 @@ export default function AdminLeads() {
     setHideDuplicates(false);
   };
 
-  const formatNumber = (value: number) =>
-    new Intl.NumberFormat('en-US', { notation: 'compact' }).format(value);
-
-  const leadStats = useMemo(() => {
-    const stateSet = new Set<string>();
-    let newCount = 0;
-    let quotedCount = 0;
-    let soldCount = 0;
-
-    leads.forEach((item: any) => {
-      const lead = item.lead || {};
-      const status = lead.status;
-      if (status === 'new') newCount += 1;
-      if (status === 'quoted') quotedCount += 1;
-      if (status === 'sold') soldCount += 1;
-      if (lead.state) stateSet.add(lead.state);
-    });
-
-    return {
-      total: leads.length,
-      new: newCount,
-      quoted: quotedCount,
-      sold: soldCount,
-      duplicates: duplicateIds.size,
-      statesCount: stateSet.size,
-    };
-  }, [duplicateIds, leads]);
-
   const sortOptions: { value: string; label: string }[] = [
     { value: 'createdAt', label: 'Date created' },
     { value: 'status', label: 'Status' },
@@ -295,107 +267,43 @@ export default function AdminLeads() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950/5 pb-16">
+    <div className="min-h-screen bg-slate-100 pb-16">
       <AdminNav />
-      <section className="relative overflow-hidden border-b bg-slate-950 text-white">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.35),transparent_55%)]" />
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(99,102,241,0.25),transparent_60%)]" />
-        <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-12 md:px-8">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div className="space-y-4">
-              <Badge variant="outline" className="w-fit border-white/40 bg-white/10 text-xs uppercase tracking-wide text-white">
-                Lead operations hub
-              </Badge>
-              <div>
-                <h1 className="flex items-center gap-3 text-3xl font-semibold text-white md:text-4xl">
-                  <Users className="h-8 w-8" />
-                  Lead Management
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm text-slate-200 md:text-base">
-                  Monitor pipeline health, declutter duplicates, and take action on the leads that need you most.
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button
-                variant={hideDuplicates ? 'secondary' : 'ghost'}
-                onClick={() => setHideDuplicates(!hideDuplicates)}
-                className="backdrop-blur"
-              >
-                <LayoutList className="h-4 w-4" />
-                {hideDuplicates ? 'Show duplicates' : 'Hide duplicates'}
-              </Button>
-              <Button variant="ghost" asChild className="backdrop-blur">
-                <Link href="/admin">
-                  <RefreshCw className="h-4 w-4" />
-                  Dashboard
-                </Link>
-              </Button>
-              <Button variant="secondary" asChild className="backdrop-blur">
-                <Link href="/">
-                  Public site
-                </Link>
-              </Button>
-              <Button asChild className="shadow-lg shadow-sky-500/20">
-                <Link href="/admin/leads/new">Add lead</Link>
-              </Button>
-            </div>
+      <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-10 md:px-8">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-semibold text-slate-900">Lead management</h1>
+            <p className="text-sm text-slate-600">
+              Review lead activity, resolve duplicates, and keep statuses current.
+            </p>
           </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                label: 'Total leads',
-                value: formatNumber(leadStats.total),
-                description: `${leadStats.statesCount} active ${leadStats.statesCount === 1 ? 'state' : 'states'}`,
-                accent: 'from-sky-500/30 via-slate-900/0 to-transparent',
-                icon: Users,
-              },
-              {
-                label: 'New leads',
-                value: formatNumber(leadStats.new),
-                description: 'Waiting for first touchpoint',
-                accent: 'from-emerald-500/30 via-slate-900/0 to-transparent',
-                icon: Sparkles,
-              },
-              {
-                label: 'Quoted',
-                value: formatNumber(leadStats.quoted),
-                description: 'Active proposals in review',
-                accent: 'from-indigo-500/30 via-slate-900/0 to-transparent',
-                icon: Filter,
-              },
-              {
-                label: 'Duplicates flagged',
-                value: formatNumber(leadStats.duplicates),
-                description: hideDuplicates ? 'Hidden from view' : 'Visible in table',
-                accent: 'from-amber-500/30 via-slate-900/0 to-transparent',
-                icon: LayoutList,
-              },
-            ].map(({ label, value, description, accent, icon: Icon }) => (
-              <div
-                key={label}
-                className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-5 shadow-xl shadow-black/10 backdrop-blur"
-              >
-                <div className={cn('pointer-events-none absolute inset-0 bg-gradient-to-br opacity-80', accent)} />
-                <div className="relative flex h-full flex-col gap-3 text-white">
-                  <div className="flex items-center justify-between text-xs uppercase tracking-wide text-white/70">
-                    {label}
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                  </div>
-                  <p className="text-3xl font-semibold md:text-4xl">{value}</p>
-                  <p className="text-xs text-white/70">{description}</p>
-                </div>
-              </div>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={hideDuplicates ? 'default' : 'outline'}
+              onClick={() => setHideDuplicates(!hideDuplicates)}
+              className="flex items-center gap-2"
+            >
+              <LayoutList className="h-4 w-4" />
+              {hideDuplicates ? 'Show duplicates' : 'Hide duplicates'}
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/admin" className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/" className="flex items-center gap-2">
+                Public site
+              </Link>
+            </Button>
+            <Button asChild>
+              <Link href="/admin/leads/new">Add lead</Link>
+            </Button>
           </div>
         </div>
-      </section>
 
-      <main className="mx-auto -mt-10 w-full max-w-6xl space-y-8 px-4 md:px-8">
-        <Card className="border border-slate-200/80 bg-white/80 shadow-lg backdrop-blur">
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-2 text-slate-900">
               <Filter className="h-5 w-5" />
@@ -489,7 +397,7 @@ export default function AdminLeads() {
           </CardContent>
         </Card>
 
-        <Card className="border border-slate-200/80 bg-white shadow-xl">
+        <Card className="border border-slate-200 bg-white shadow-sm">
           <CardHeader className="pb-4">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
