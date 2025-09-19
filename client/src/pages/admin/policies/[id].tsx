@@ -18,8 +18,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminNav from "@/components/admin-nav";
-import { fetchWithAuth, getAuthHeaders } from "@/lib/auth";
+import AdminLogin from "@/components/admin-login";
+import { fetchWithAuth, getAuthHeaders, clearCredentials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import PolicyDocumentRequests from "@/components/admin-policy-document-requests";
 import { ArrowLeft } from "lucide-react";
 
@@ -395,39 +397,53 @@ export default function AdminPolicyDetail() {
   const { id } = useParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
+  const baseQueriesEnabled = authenticated && !checking;
+  const policyQueriesEnabled = baseQueriesEnabled && !!id;
+
+  const ensureAuthorized = (res: Response) => {
+    if (res.status === 401) {
+      clearCredentials();
+      markLoggedOut();
+      throw new Error("Your session has expired. Please sign in again.");
+    }
+  };
 
   const { data, isLoading } = useQuery<{ data: any }>({
     queryKey: ["/api/admin/policies", id],
-    queryFn: () =>
-      fetchWithAuth(`/api/admin/policies/${id}`, { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error("Failed to fetch policy");
-        return res.json();
-      }),
-    enabled: !!id,
+    queryFn: async () => {
+      const res = await fetchWithAuth(`/api/admin/policies/${id}`, { headers: getAuthHeaders() });
+      ensureAuthorized(res);
+      if (!res.ok) throw new Error("Failed to fetch policy");
+      return res.json();
+    },
+    enabled: policyQueriesEnabled,
   });
 
   const { data: paymentProfilesResponse, isLoading: isLoadingPaymentProfiles } = useQuery<{
     data?: { paymentProfiles?: PolicyPaymentProfileRecord[] };
   }>({
     queryKey: ["/api/admin/policies", id, "payment-profiles"],
-    queryFn: () =>
-      fetchWithAuth(`/api/admin/policies/${id}/payment-profiles`, { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error("Failed to fetch payment profiles");
-        return res.json();
-      }),
-    enabled: !!id,
+    queryFn: async () => {
+      const res = await fetchWithAuth(`/api/admin/policies/${id}/payment-profiles`, { headers: getAuthHeaders() });
+      ensureAuthorized(res);
+      if (!res.ok) throw new Error("Failed to fetch payment profiles");
+      return res.json();
+    },
+    enabled: policyQueriesEnabled,
   });
 
   const { data: chargesResponse, isLoading: isLoadingCharges } = useQuery<{
     data?: { charges?: PolicyChargeRecord[] };
   }>({
     queryKey: ["/api/admin/policies", id, "charges"],
-    queryFn: () =>
-      fetchWithAuth(`/api/admin/policies/${id}/charges`, { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error("Failed to fetch policy charges");
-        return res.json();
-      }),
-    enabled: !!id,
+    queryFn: async () => {
+      const res = await fetchWithAuth(`/api/admin/policies/${id}/charges`, { headers: getAuthHeaders() });
+      ensureAuthorized(res);
+      if (!res.ok) throw new Error("Failed to fetch policy charges");
+      return res.json();
+    },
+    enabled: policyQueriesEnabled,
   });
 
   const {
@@ -436,11 +452,13 @@ export default function AdminPolicyDetail() {
     refetch: refetchTemplates,
   } = useQuery<{ data: EmailTemplateRecord[] }>({
     queryKey: ["/api/admin/email-templates"],
-    queryFn: () =>
-      fetchWithAuth("/api/admin/email-templates", { headers: getAuthHeaders() }).then(res => {
-        if (!res.ok) throw new Error("Failed to fetch email templates");
-        return res.json();
-      }),
+    queryFn: async () => {
+      const res = await fetchWithAuth("/api/admin/email-templates", { headers: getAuthHeaders() });
+      ensureAuthorized(res);
+      if (!res.ok) throw new Error("Failed to fetch email templates");
+      return res.json();
+    },
+    enabled: baseQueriesEnabled,
   });
 
   const policy = data?.data ?? null;
@@ -528,6 +546,18 @@ export default function AdminPolicyDetail() {
     setNewTemplateName("");
     setPreviewTab("preview");
   }, [policy?.id, leadEmail, templateOptions, fallbackSubject]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
 
   if (isLoading) {
     return (
@@ -660,6 +690,7 @@ export default function AdminPolicyDetail() {
         body: JSON.stringify({ name: trimmedName, subject: trimmedSubject, bodyHtml: emailHtml }),
       });
 
+      ensureAuthorized(response);
       if (!response.ok) {
         let message = "Failed to save template";
         try {
@@ -748,6 +779,7 @@ export default function AdminPolicyDetail() {
         }),
       });
 
+      ensureAuthorized(response);
       if (!response.ok) {
         let message = "Failed to send email";
         try {
@@ -1004,13 +1036,25 @@ export default function AdminPolicyDetail() {
                   });
                   return;
                 }
-                await fetchWithAuth(`/api/admin/policies/${policy.id}/notes`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-                  body: JSON.stringify({ content: textarea.value }),
-                });
-                textarea.value = "";
-                queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                try {
+                  const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/notes`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                    body: JSON.stringify({ content: textarea.value }),
+                  });
+                  ensureAuthorized(response);
+                  if (!response.ok) {
+                    throw new Error("Failed to save note");
+                  }
+                  textarea.value = "";
+                  queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                } catch (error) {
+                  toast({
+                    title: "Could not save note",
+                    description: error instanceof Error ? error.message : "Failed to save note",
+                    variant: "destructive",
+                  });
+                }
               }}
               className="space-y-2"
             >
@@ -1036,17 +1080,36 @@ export default function AdminPolicyDetail() {
             <form
               onSubmit={async event => {
                 event.preventDefault();
-                const formData = new FormData(event.currentTarget as HTMLFormElement);
+                const formElement = event.currentTarget as HTMLFormElement;
+                const formData = new FormData(formElement);
                 const file = formData.get("file") as File | null;
-                if (file) {
-                  await fetchWithAuth(`/api/admin/policies/${policy.id}/files`, {
+                if (!file) {
+                  toast({
+                    title: "File required",
+                    description: "Choose a file before uploading.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                try {
+                  const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/files`, {
                     method: "POST",
                     headers: { "x-filename": file.name, ...getAuthHeaders() },
                     body: file,
                   });
+                  ensureAuthorized(response);
+                  if (!response.ok) {
+                    throw new Error("Failed to upload file");
+                  }
                   queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                  formElement.reset();
+                } catch (error) {
+                  toast({
+                    title: "Upload failed",
+                    description: error instanceof Error ? error.message : "Failed to upload file",
+                    variant: "destructive",
+                  });
                 }
-                (event.currentTarget as HTMLFormElement).reset();
               }}
               className="space-y-2"
             >
