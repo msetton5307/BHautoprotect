@@ -52,7 +52,7 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
       </div>
       <nav className="bg-white/90 backdrop-blur border-b border-blue-100/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
+          <div className="flex justify-between items-center h-20 gap-4">
             <a
               href="/"
               className="group flex items-center"
@@ -63,19 +63,21 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
                 subtitleClassName="group-hover:text-primary/70 transition-colors"
               />
             </a>
-            <div className="hidden md:flex items-center gap-8">
-              {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-600 hover:text-primary transition-colors"
-                >
-                  {link.label}
-                </a>
-              ))}
-              <div className="h-10 w-px bg-gradient-to-b from-transparent via-blue-200 to-transparent" aria-hidden />
+            <div className="hidden md:flex flex-1 items-center justify-end gap-4 lg:gap-6 xl:gap-10">
+              <div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 lg:gap-x-6 xl:gap-x-8">
+                {navLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="text-xs font-semibold uppercase tracking-[0.28em] text-gray-600 transition-colors hover:text-primary sm:text-sm sm:tracking-[0.22em]"
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+              <div className="hidden lg:block h-10 w-px bg-gradient-to-b from-transparent via-blue-200 to-transparent" aria-hidden />
               <Button
-                className="bg-gradient-to-r from-primary via-secondary to-primary text-white shadow-lg shadow-blue-200 hover:opacity-90 transition"
+                className="whitespace-nowrap bg-gradient-to-r from-primary via-secondary to-primary text-white shadow-lg shadow-blue-200 transition hover:opacity-90"
                 size="lg"
                 onClick={onGetQuote}
               >
