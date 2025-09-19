@@ -42,6 +42,14 @@ export const documentRequestStatusEnum = pgEnum('document_request_status', [
   'cancelled',
 ]);
 
+export const policyChargeStatusEnum = pgEnum('policy_charge_status', [
+  'pending',
+  'processing',
+  'paid',
+  'failed',
+  'refunded',
+]);
+
 const shortId = sql`substring(replace(gen_random_uuid()::text, '-', ''), 1, 8)`;
 const leadIdDefault = sql<string>`lpad(nextval('lead_id_seq')::text, 8, '0')`;
 
@@ -195,6 +203,11 @@ export const customerPaymentProfiles = pgTable('customer_payment_profiles', {
   paymentMethod: varchar('payment_method', { length: 120 }),
   accountName: varchar('account_name', { length: 120 }),
   accountIdentifier: varchar('account_identifier', { length: 120 }),
+  cardBrand: varchar('card_brand', { length: 40 }),
+  cardLastFour: varchar('card_last_four', { length: 4 }),
+  cardExpiryMonth: integer('card_expiry_month'),
+  cardExpiryYear: integer('card_expiry_year'),
+  billingZip: varchar('billing_zip', { length: 16 }),
   autopayEnabled: boolean('autopay_enabled').default(false),
   notes: text('notes'),
   createdAt: timestamp('created_at').defaultNow(),
@@ -202,6 +215,19 @@ export const customerPaymentProfiles = pgTable('customer_payment_profiles', {
 }, (table) => ({
   customerPaymentProfileUniqueIdx: uniqueIndex('customer_payment_profiles_unique_idx').on(table.customerId, table.policyId),
 }));
+
+export const policyCharges = pgTable('policy_charges', {
+  id: varchar('id').primaryKey().default(shortId),
+  policyId: varchar('policy_id').references(() => policies.id, { onDelete: 'cascade' }).notNull(),
+  customerId: varchar('customer_id').references(() => customerAccounts.id, { onDelete: 'set null' }),
+  description: text('description').notNull(),
+  amountCents: integer('amount_cents').notNull(),
+  status: policyChargeStatusEnum('status').notNull().default('pending'),
+  chargedAt: timestamp('charged_at').defaultNow(),
+  notes: text('notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
 
 export const customerDocumentRequests = pgTable('customer_document_requests', {
   id: varchar('id').primaryKey().default(shortId),
@@ -359,6 +385,12 @@ export const insertCustomerPaymentProfileSchema = createInsertSchema(customerPay
   updatedAt: true,
 });
 
+export const insertPolicyChargeSchema = createInsertSchema(policyCharges).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertCustomerDocumentRequestSchema = createInsertSchema(customerDocumentRequests).omit({
   id: true,
   createdAt: true,
@@ -414,6 +446,8 @@ export type CustomerPolicy = typeof customerPolicies.$inferSelect;
 export type InsertCustomerPolicy = z.infer<typeof insertCustomerPolicySchema>;
 export type CustomerPaymentProfile = typeof customerPaymentProfiles.$inferSelect;
 export type InsertCustomerPaymentProfile = z.infer<typeof insertCustomerPaymentProfileSchema>;
+export type PolicyCharge = typeof policyCharges.$inferSelect;
+export type InsertPolicyCharge = z.infer<typeof insertPolicyChargeSchema>;
 export type CustomerDocumentRequest = typeof customerDocumentRequests.$inferSelect;
 export type InsertCustomerDocumentRequest = z.infer<typeof insertCustomerDocumentRequestSchema>;
 export type CustomerDocumentUpload = typeof customerDocumentUploads.$inferSelect;

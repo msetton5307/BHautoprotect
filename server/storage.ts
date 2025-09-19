@@ -15,6 +15,7 @@ import {
   customerPaymentProfiles,
   customerDocumentRequests,
   customerDocumentUploads,
+  policyCharges,
   type Lead,
   type InsertLead,
   type Vehicle,
@@ -43,6 +44,8 @@ import {
   type InsertCustomerPolicy,
   type CustomerPaymentProfile,
   type InsertCustomerPaymentProfile,
+  type PolicyCharge,
+  type InsertPolicyCharge,
   type CustomerDocumentRequest,
   type InsertCustomerDocumentRequest,
   type CustomerDocumentUpload,
@@ -129,6 +132,10 @@ type CustomerDocumentRequestWithPolicy = CustomerDocumentRequest & {
 
 type CustomerDocumentUploadWithRequest = CustomerDocumentUpload & {
   request: CustomerDocumentRequest;
+};
+
+type CustomerPaymentProfileWithCustomer = CustomerPaymentProfile & {
+  customer: CustomerAccount | null;
 };
 
 // Interface for storage operations
@@ -222,9 +229,12 @@ export interface IStorage {
     customerId: string,
     policyId: string,
   ): Promise<CustomerPaymentProfile | undefined>;
+  getPaymentProfilesForPolicy(policyId: string): Promise<CustomerPaymentProfileWithCustomer[]>;
   upsertCustomerPaymentProfile(
     profile: InsertCustomerPaymentProfile & { customerId: string },
   ): Promise<CustomerPaymentProfile>;
+  listPolicyCharges(policyId: string): Promise<PolicyCharge[]>;
+  listCustomerCharges(customerId: string): Promise<PolicyCharge[]>;
   createCustomerDocumentRequest(
     request: InsertCustomerDocumentRequest,
   ): Promise<CustomerDocumentRequest>;
@@ -783,6 +793,23 @@ export class DatabaseStorage implements IStorage {
     return profile;
   }
 
+  async getPaymentProfilesForPolicy(policyId: string): Promise<CustomerPaymentProfileWithCustomer[]> {
+    const rows = await db
+      .select({
+        profile: customerPaymentProfiles,
+        customer: customerAccounts,
+      })
+      .from(customerPaymentProfiles)
+      .leftJoin(customerAccounts, eq(customerPaymentProfiles.customerId, customerAccounts.id))
+      .where(eq(customerPaymentProfiles.policyId, policyId))
+      .orderBy(desc(customerPaymentProfiles.updatedAt));
+
+    return rows.map((row: { profile: CustomerPaymentProfile; customer: CustomerAccount | null }) => ({
+      ...row.profile,
+      customer: row.customer,
+    }));
+  }
+
   async upsertCustomerPaymentProfile(
     profile: InsertCustomerPaymentProfile & { customerId: string },
   ): Promise<CustomerPaymentProfile> {
@@ -793,6 +820,11 @@ export class DatabaseStorage implements IStorage {
       paymentMethod: profile.paymentMethod ?? null,
       accountName: profile.accountName ?? null,
       accountIdentifier: profile.accountIdentifier ?? null,
+      cardBrand: profile.cardBrand ?? null,
+      cardLastFour: profile.cardLastFour ?? null,
+      cardExpiryMonth: profile.cardExpiryMonth ?? null,
+      cardExpiryYear: profile.cardExpiryYear ?? null,
+      billingZip: profile.billingZip ?? null,
       autopayEnabled: profile.autopayEnabled ?? false,
       notes: profile.notes ?? null,
       updatedAt: timestamp,
@@ -808,6 +840,27 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     return record;
+  }
+
+  async listPolicyCharges(policyId: string): Promise<PolicyCharge[]> {
+    const rows = await db
+      .select()
+      .from(policyCharges)
+      .where(eq(policyCharges.policyId, policyId))
+      .orderBy(desc(policyCharges.chargedAt));
+
+    return rows;
+  }
+
+  async listCustomerCharges(customerId: string): Promise<PolicyCharge[]> {
+    const rows = await db
+      .select({ charge: policyCharges })
+      .from(policyCharges)
+      .innerJoin(customerPolicies, eq(policyCharges.policyId, customerPolicies.policyId))
+      .where(eq(customerPolicies.customerId, customerId))
+      .orderBy(desc(policyCharges.chargedAt));
+
+    return rows.map((row: { charge: PolicyCharge }) => row.charge);
   }
 
   async createCustomerDocumentRequest(

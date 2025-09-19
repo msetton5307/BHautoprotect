@@ -986,15 +986,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     preferredPhone: z.string().trim().min(7).max(40).optional(),
   });
 
+  const currentYear = new Date().getFullYear();
+  const maxCardExpiryYear = currentYear + 20;
+
   const customerPaymentProfileSchema = z.object({
     paymentMethod: z.string().trim().max(120).optional(),
     accountName: z.string().trim().max(120).optional(),
     accountIdentifier: z.string().trim().max(120).optional(),
+    cardBrand: z.string().trim().max(40).optional(),
+    cardLastFour: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{2,4}$/, 'Enter the last 2-4 digits on the card')
+      .optional(),
+    cardExpiryMonth: z.coerce.number().int().min(1).max(12).optional(),
+    cardExpiryYear: z.coerce
+      .number()
+      .int()
+      .min(currentYear)
+      .max(maxCardExpiryYear)
+      .optional(),
+    billingZip: z.string().trim().min(3).max(16).optional(),
     autopayEnabled: z.boolean().optional(),
     notes: z.string().trim().max(2000).optional(),
   });
-
-  const currentYear = new Date().getFullYear();
   const customerPolicyRequestSchema = z.object({
     message: z.string().trim().min(1, 'Please include a short note so our team knows how to help').max(2000),
     phone: z.string().trim().min(7).max(40).optional(),
@@ -1360,6 +1375,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentMethod: update.paymentMethod?.trim() || undefined,
         accountName: update.accountName?.trim() || undefined,
         accountIdentifier: update.accountIdentifier?.trim() || undefined,
+        cardBrand: update.cardBrand?.trim() || undefined,
+        cardLastFour: update.cardLastFour?.trim() || undefined,
+        cardExpiryMonth: update.cardExpiryMonth ?? undefined,
+        cardExpiryYear: update.cardExpiryYear ?? undefined,
+        billingZip: update.billingZip?.trim() || undefined,
         autopayEnabled: update.autopayEnabled ?? false,
         notes: update.notes?.trim() || undefined,
       });
@@ -1372,6 +1392,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('Error updating payment profile:', error);
       res.status(500).json({ message: 'Failed to save payment information' });
+    }
+  });
+
+  app.get('/api/customer/payment-charges', customerAuth, async (_req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const charges = await storage.listCustomerCharges(account.id);
+      res.json({ data: { charges }, message: 'Charges retrieved successfully' });
+    } catch (error) {
+      console.error('Error loading customer charges:', error);
+      res.status(500).json({ message: 'Failed to load charges' });
+    }
+  });
+
+  app.get('/api/customer/policies/:id/charges', customerAuth, async (req, res) => {
+    try {
+      const account = res.locals.customerAccount as CustomerAccount;
+      const policyId = req.params.id;
+      const policies = await storage.getCustomerPolicies(account.id);
+      const hasPolicy = policies.some((policy) => policy.id === policyId);
+      if (!hasPolicy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const charges = await storage.listPolicyCharges(policyId);
+      res.json({ data: { charges }, message: 'Charges retrieved successfully' });
+    } catch (error) {
+      console.error('Error loading policy charges for customer:', error);
+      res.status(500).json({ message: 'Failed to load charges' });
     }
   });
 
@@ -2359,6 +2409,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: get policy by id
   app.get('/api/admin/policies/:id', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
     try {
       const policy = await storage.getPolicy(req.params.id);
       if (!policy) {
@@ -2368,6 +2422,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching policy:', error);
       res.status(500).json({ message: 'Failed to fetch policy' });
+    }
+  });
+
+  app.get('/api/admin/policies/:id/payment-profiles', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const paymentProfiles = await storage.getPaymentProfilesForPolicy(req.params.id);
+      res.json({
+        data: { paymentProfiles },
+        message: 'Payment profiles retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error fetching payment profiles for policy:', error);
+      res.status(500).json({ message: 'Failed to load payment profiles' });
+    }
+  });
+
+  app.get('/api/admin/policies/:id/charges', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const charges = await storage.listPolicyCharges(req.params.id);
+      res.json({ data: { charges }, message: 'Charges retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching policy charges:', error);
+      res.status(500).json({ message: 'Failed to load charges' });
     }
   });
 
