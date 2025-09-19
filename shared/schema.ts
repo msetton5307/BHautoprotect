@@ -44,7 +44,6 @@ export const documentRequestStatusEnum = pgEnum('document_request_status', [
 
 const shortId = sql`substring(replace(gen_random_uuid()::text, '-', ''), 1, 8)`;
 const leadIdDefault = sql<string>`lpad(nextval('lead_id_seq')::text, 8, '0')`;
-const policyIdDefault = sql<string>`lpad(nextval('policy_id_seq')::text, 8, '0')`;
 
 export const users = pgTable('users', {
   id: varchar('id').primaryKey().default(shortId),
@@ -113,7 +112,7 @@ export const notes = pgTable("notes", {
 });
 
 export const policies = pgTable("policies", {
-  id: varchar("id", { length: 8 }).primaryKey().default(policyIdDefault),
+  id: varchar("id", { length: 8 }).primaryKey(),
   leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'set null' }).notNull(),
   package: varchar("package"),
   expirationMiles: integer("expiration_miles"),

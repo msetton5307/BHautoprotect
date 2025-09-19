@@ -341,7 +341,10 @@ export class DatabaseStorage implements IStorage {
 
   // Policy operations
   async createPolicy(policyData: InsertPolicy): Promise<Policy> {
-    const [policy] = await db.insert(policies).values(policyData).returning();
+    const [policy] = await db
+      .insert(policies)
+      .values({ ...policyData, id: policyData.leadId })
+      .returning();
     return policy;
   }
 
