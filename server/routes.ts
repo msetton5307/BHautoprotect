@@ -783,7 +783,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const MemoryStore = createMemoryStore(session);
   const secureCookie = process.env.NODE_ENV === "production";
-  const sessionStore = new MemoryStore({ checkPeriod: 24 * 60 * 60 * 1000 });
+  const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+  const sessionStore = new MemoryStore({ checkPeriod: THIRTY_DAYS_MS, ttl: THIRTY_DAYS_MS });
 
   app.set("trust proxy", 1);
   app.use(
@@ -793,11 +794,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       resave: false,
       saveUninitialized: false,
       store: sessionStore,
+      rolling: true,
       cookie: {
         httpOnly: true,
         sameSite: "lax",
         secure: secureCookie,
-        maxAge: 12 * 60 * 60 * 1000,
+        maxAge: THIRTY_DAYS_MS,
       },
     })
   );
