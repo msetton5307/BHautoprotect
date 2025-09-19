@@ -17,11 +17,11 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
   };
 
   const navLinks = [
-    { href: "/plans", label: "Coverage Plans" },
+    { href: "/plans", label: "Plans" },
     { href: "/about", label: "About" },
     { href: "/faq", label: "FAQ" },
     { href: "/claims", label: "Claims" },
-    { href: "/portal", label: "Customer Portal" },
+    { href: "/portal", label: "Login" },
   ];
 
   return (
