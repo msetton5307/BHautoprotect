@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ChevronRight } from "lucide-react";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
 import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
@@ -121,12 +122,10 @@ export default function AdminPolicies() {
             <Table className="text-sm">
               <TableHeader className="bg-slate-50/80">
                 <TableRow className="border-slate-200">
-                  <TableHead className="whitespace-nowrap px-4 py-3">Policy</TableHead>
-                  <TableHead className="whitespace-nowrap px-4 py-3">Customer</TableHead>
-                  <TableHead className="whitespace-nowrap px-4 py-3">Vehicle</TableHead>
-                  <TableHead className="whitespace-nowrap px-4 py-3">Coverage</TableHead>
-                  <TableHead className="whitespace-nowrap px-4 py-3">Payments</TableHead>
-                  <TableHead className="whitespace-nowrap px-4 py-3">Dates</TableHead>
+                  <TableHead className="w-[30%] px-5 py-3 text-slate-600">Policy overview</TableHead>
+                  <TableHead className="w-[25%] px-5 py-3 text-slate-600">Customer</TableHead>
+                  <TableHead className="w-[25%] px-5 py-3 text-slate-600">Vehicle & timeline</TableHead>
+                  <TableHead className="w-[20%] px-5 py-3 text-right text-slate-600">Financials</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -141,52 +140,48 @@ export default function AdminPolicies() {
                       key={policy.id}
                       tabIndex={0}
                       role="button"
+                      aria-label={`Open policy ${policy.id}`}
                       onClick={() => handleNavigate(policy.id)}
                       onKeyDown={(event) => handleRowKeyDown(event, policy.id)}
-                      className="cursor-pointer border-slate-200/80 transition-colors hover:bg-slate-50 focus:bg-slate-100 focus:outline-none"
+                      className="group cursor-pointer border-slate-200/80 transition-colors hover:bg-slate-50 focus-visible:bg-slate-100 focus-visible:outline-none"
                     >
-                      <TableCell className="px-4 py-3 align-top text-slate-700">
-                        <div className="flex flex-col gap-1">
-                          <span className="font-mono text-xs text-slate-500">{policy.id}</span>
-                          <span className="text-sm font-medium text-slate-900">{policy.package || 'Package TBD'}</span>
-                          <span className="text-xs text-slate-500">Deductible: {formatCurrency(policy.deductible)}</span>
+                      <TableCell className="px-5 py-4 align-top">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="space-y-1 text-slate-700">
+                            <span className="font-mono text-xs uppercase tracking-wide text-slate-400">{policy.id}</span>
+                            <span className="text-sm font-semibold text-slate-900">{policy.package || 'Package TBD'}</span>
+                            <div className="grid gap-1 text-xs text-slate-500">
+                              <span>Deductible · {formatCurrency(policy.deductible)}</span>
+                              <span>Policy start · {formatDate(policy.policyStartDate)}</span>
+                              <span>Expires · {formatDate(policy.expirationDate)}</span>
+                            </div>
+                          </div>
+                          <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-colors group-hover:text-slate-400 group-focus-visible:text-slate-400" />
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 align-top text-slate-700">
-                        <div className="flex flex-col gap-1">
-                          <span className="font-medium text-slate-900">{holderName}</span>
+                      <TableCell className="px-5 py-4 align-top text-slate-700">
+                        <div className="space-y-1">
+                          <span className="text-sm font-semibold text-slate-900">{holderName}</span>
                           <span className="text-xs text-slate-500">{policy.lead?.email || 'No email on file'}</span>
                           <span className="text-xs text-slate-500">{policy.lead?.phone || 'No phone on file'}</span>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 align-top text-slate-700">
-                        <div className="flex flex-col gap-1">
+                      <TableCell className="px-5 py-4 align-top text-slate-700">
+                        <div className="space-y-1">
                           <span>{vehicle || 'Vehicle pending'}</span>
-                          <span className="text-xs text-slate-500">Exp. miles: {policy.expirationMiles ?? '—'}</span>
+                          <span className="text-xs text-slate-500">Expiration miles · {policy.expirationMiles ?? '—'}</span>
+                          <div className="grid gap-1 text-xs text-slate-500">
+                            <span>Created · {formatDate(policy.createdAt)}</span>
+                            <span>Updated · {formatDate(policy.updatedAt)}</span>
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell className="px-4 py-3 align-top text-slate-700">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs text-slate-500">Policy start</span>
-                          <span>{formatDate(policy.policyStartDate)}</span>
-                          <span className="text-xs text-slate-500">Expires</span>
-                          <span>{formatDate(policy.expirationDate)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 align-top text-slate-700">
-                        <div className="flex flex-col gap-1">
-                          <span>Total premium: {formatCurrency(policy.totalPremium)}</span>
-                          <span>Down: {formatCurrency(policy.downPayment)}</span>
-                          <span>Monthly: {formatCurrency(policy.monthlyPayment)}</span>
-                          <span>Total paid: {formatCurrency(policy.totalPayments)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="px-4 py-3 align-top text-slate-600">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs text-slate-500">Created</span>
-                          <span>{formatDate(policy.createdAt)}</span>
-                          <span className="text-xs text-slate-500">Last updated</span>
-                          <span>{formatDate(policy.updatedAt)}</span>
+                      <TableCell className="px-5 py-4 align-top text-right text-slate-700">
+                        <div className="grid justify-items-end gap-1">
+                          <span>Total premium · {formatCurrency(policy.totalPremium)}</span>
+                          <span>Down · {formatCurrency(policy.downPayment)}</span>
+                          <span>Monthly · {formatCurrency(policy.monthlyPayment)}</span>
+                          <span>Total paid · {formatCurrency(policy.totalPayments)}</span>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -194,7 +189,7 @@ export default function AdminPolicies() {
                 })}
                 {policies.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    <TableCell colSpan={4} className="px-6 py-12 text-center text-slate-500">
                       No policies found. Policies that sync from carriers will appear here automatically.
                     </TableCell>
                   </TableRow>
