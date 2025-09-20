@@ -70,9 +70,18 @@ const formatCurrency = (value: number | null | undefined): string => {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(numeric);
 };
 
+const formatCurrencyFromCents = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) return "N/A";
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (Number.isNaN(numeric)) return "N/A";
+  return formatCurrency(numeric / 100);
+};
+
 const formatChargeAmount = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return "—";
-  return formatCurrency(value / 100);
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (Number.isNaN(numeric)) return "—";
+  return formatCurrency(numeric / 100);
 };
 
 const formatChargeDate = (value: string | null | undefined): string => {
@@ -172,6 +181,29 @@ const formatDateInputValue = (value: string | Date | null | undefined): string =
   return parsed.toISOString().slice(0, 10);
 };
 
+const formatCurrencyInput = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (Number.isNaN(numeric)) {
+    return "";
+  }
+  return (numeric / 100).toFixed(2);
+};
+
+const parseCurrencyInput = (value: string): number | null => {
+  const normalized = value.replace(/[$,]/g, "").trim();
+  if (!normalized) {
+    return null;
+  }
+  const numeric = Number.parseFloat(normalized);
+  if (Number.isNaN(numeric)) {
+    return null;
+  }
+  return Math.round(numeric * 100);
+};
+
 const createPolicyFormState = (policy: any) => ({
   package: policy?.package ?? "",
   policyStartDate: formatDateInputValue(policy?.policyStartDate),
@@ -180,26 +212,11 @@ const createPolicyFormState = (policy: any) => ({
     policy?.expirationMiles != null && !Number.isNaN(Number(policy.expirationMiles))
       ? String(policy.expirationMiles)
       : "",
-  deductible:
-    policy?.deductible != null && !Number.isNaN(Number(policy.deductible))
-      ? String(policy.deductible)
-      : "",
-  totalPremium:
-    policy?.totalPremium != null && !Number.isNaN(Number(policy.totalPremium))
-      ? String(policy.totalPremium)
-      : "",
-  downPayment:
-    policy?.downPayment != null && !Number.isNaN(Number(policy.downPayment))
-      ? String(policy.downPayment)
-      : "",
-  monthlyPayment:
-    policy?.monthlyPayment != null && !Number.isNaN(Number(policy.monthlyPayment))
-      ? String(policy.monthlyPayment)
-      : "",
-  totalPayments:
-    policy?.totalPayments != null && !Number.isNaN(Number(policy.totalPayments))
-      ? String(policy.totalPayments)
-      : "",
+  deductible: formatCurrencyInput(policy?.deductible),
+  totalPremium: formatCurrencyInput(policy?.totalPremium),
+  downPayment: formatCurrencyInput(policy?.downPayment),
+  monthlyPayment: formatCurrencyInput(policy?.monthlyPayment),
+  totalPayments: formatCurrencyInput(policy?.totalPayments),
 });
 
 const sanitizeHtmlForPreview = (value: string): string =>
@@ -346,8 +363,8 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
     { label: "Effective Date", value: formatDate(policy?.policyStartDate) },
     { label: "Expiration Date", value: formatDate(policy?.expirationDate) },
     { label: "Expiration Miles", value: policy?.expirationMiles != null ? String(policy.expirationMiles) : "N/A" },
-    { label: "Deductible", value: formatCurrency(policy?.deductible) },
-    { label: "Total Premium", value: formatCurrency(policy?.totalPremium) },
+    { label: "Deductible", value: formatCurrencyFromCents(policy?.deductible) },
+    { label: "Total Premium", value: formatCurrencyFromCents(policy?.totalPremium) },
   ];
 
   const vehicleRows: DetailRow[] = [
@@ -363,9 +380,9 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
   ];
 
   const paymentRows: DetailRow[] = [
-    { label: "Down Payment", value: formatCurrency(policy?.downPayment) },
-    { label: "Monthly Payment", value: formatCurrency(policy?.monthlyPayment) },
-    { label: "Total Payments", value: formatCurrency(policy?.totalPayments) },
+    { label: "Down Payment", value: formatCurrencyFromCents(policy?.downPayment) },
+    { label: "Monthly Payment", value: formatCurrencyFromCents(policy?.monthlyPayment) },
+    { label: "Total Payments", value: formatCurrencyFromCents(policy?.totalPayments) },
   ];
 
   const coverageTables = `
@@ -418,7 +435,7 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
     }),
   });
 
-  const monthlyPayment = policy?.monthlyPayment != null ? formatCurrency(policy.monthlyPayment) : null;
+  const monthlyPayment = policy?.monthlyPayment != null ? formatCurrencyFromCents(policy.monthlyPayment) : null;
   const pastDueSubject = "Action Required: Account Past Due";
   const pastDueBody = `
     <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
@@ -620,10 +637,10 @@ export default function AdminPolicyDetail() {
   const autopayHeroBadgeClass = autopayEnabled
     ? "border-emerald-200/70 bg-emerald-400/30 text-emerald-50"
     : "border-white/30 bg-white/20 text-white";
-  const monthlyPaymentDisplay = formatCurrency(policy?.monthlyPayment);
-  const totalPremiumDisplay = formatCurrency(policy?.totalPremium);
-  const downPaymentDisplay = formatCurrency(policy?.downPayment);
-  const deductibleDisplay = formatCurrency(policy?.deductible);
+  const monthlyPaymentDisplay = formatCurrencyFromCents(policy?.monthlyPayment);
+  const totalPremiumDisplay = formatCurrencyFromCents(policy?.totalPremium);
+  const downPaymentDisplay = formatCurrencyFromCents(policy?.downPayment);
+  const deductibleDisplay = formatCurrencyFromCents(policy?.deductible);
   const coverageStartDisplay = formatDate(policy?.policyStartDate);
   const coverageEndDisplay = formatDate(policy?.expirationDate);
   const expirationMilesDisplay =
@@ -838,26 +855,11 @@ export default function AdminPolicyDetail() {
         policyForm.expirationMiles.trim() && !Number.isNaN(Number(policyForm.expirationMiles))
           ? Number(policyForm.expirationMiles)
           : null,
-      deductible:
-        policyForm.deductible.trim() && !Number.isNaN(Number(policyForm.deductible))
-          ? Number(policyForm.deductible)
-          : null,
-      totalPremium:
-        policyForm.totalPremium.trim() && !Number.isNaN(Number(policyForm.totalPremium))
-          ? Number(policyForm.totalPremium)
-          : null,
-      downPayment:
-        policyForm.downPayment.trim() && !Number.isNaN(Number(policyForm.downPayment))
-          ? Number(policyForm.downPayment)
-          : null,
-      monthlyPayment:
-        policyForm.monthlyPayment.trim() && !Number.isNaN(Number(policyForm.monthlyPayment))
-          ? Number(policyForm.monthlyPayment)
-          : null,
-      totalPayments:
-        policyForm.totalPayments.trim() && !Number.isNaN(Number(policyForm.totalPayments))
-          ? Number(policyForm.totalPayments)
-          : null,
+      deductible: parseCurrencyInput(policyForm.deductible),
+      totalPremium: parseCurrencyInput(policyForm.totalPremium),
+      downPayment: parseCurrencyInput(policyForm.downPayment),
+      monthlyPayment: parseCurrencyInput(policyForm.monthlyPayment),
+      totalPayments: parseCurrencyInput(policyForm.totalPayments),
     };
 
     setIsUpdatingPolicy(true);
@@ -1269,7 +1271,7 @@ export default function AdminPolicyDetail() {
                   <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Total payments</dt>
                     <dd className="mt-2 text-sm font-semibold text-slate-900">
-                      {policy.totalPayments != null ? formatCurrency(policy.totalPayments) : "N/A"}
+                      {policy.totalPayments != null ? formatCurrencyFromCents(policy.totalPayments) : "N/A"}
                     </dd>
                   </div>
                   <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">

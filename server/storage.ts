@@ -61,6 +61,27 @@ import { hashPassword } from "./password";
 const generateLeadId = () => Math.floor(10000000 + Math.random() * 90000000).toString();
 const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
+const resolveLeadIdCandidates = (value: string | null | undefined): string[] => {
+  if (typeof value !== 'string') {
+    return [];
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return [];
+  }
+
+  const candidates = new Set<string>();
+  candidates.add(trimmed);
+
+  const digitsOnly = trimmed.replace(/\D/g, '');
+  if (digitsOnly.length === 8) {
+    candidates.add(digitsOnly);
+  }
+
+  return Array.from(candidates);
+};
+
 const DEFAULT_EMAIL_TEMPLATES: { name: string; subject: string; bodyHtml: string }[] = [
   {
     name: 'Gas Voucher Added',
@@ -295,8 +316,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getLead(id: string): Promise<Lead | undefined> {
-    const [lead] = await db.select().from(leads).where(eq(leads.id, id));
-    return lead;
+    const candidates = resolveLeadIdCandidates(id);
+    for (const candidate of candidates) {
+      const [lead] = await db.select().from(leads).where(eq(leads.id, candidate));
+      if (lead) {
+        return lead;
+      }
+    }
+    return undefined;
   }
 
   async createLead(leadData: InsertLead & { id?: string; createdAt?: Date }): Promise<Lead> {

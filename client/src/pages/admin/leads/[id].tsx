@@ -32,6 +32,41 @@ type LeadContractSummary = {
   fileSize?: number | null;
 };
 
+type PolicyFormState = {
+  package: string;
+  expirationMiles: string;
+  expirationDate: string;
+  deductible: string;
+  totalPremium: string;
+  downPayment: string;
+  policyStartDate: string;
+  monthlyPayment: string;
+  totalPayments: string;
+};
+
+const formatCurrencyInput = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (Number.isNaN(numeric)) {
+    return '';
+  }
+  return (numeric / 100).toFixed(2);
+};
+
+const parseCurrencyInput = (value: string): number | null => {
+  const normalized = value.replace(/[$,]/g, '').trim();
+  if (!normalized) {
+    return null;
+  }
+  const numeric = Number.parseFloat(normalized);
+  if (Number.isNaN(numeric)) {
+    return null;
+  }
+  return Math.round(numeric * 100);
+};
+
 export default function AdminLeadDetail() {
   const { id } = useParams();
   const { toast } = useToast();
@@ -48,7 +83,7 @@ export default function AdminLeadDetail() {
   });
   const [contractUploads, setContractUploads] = useState<Record<string, { fileName: string; fileType: string; fileData: string }>>({});
   const [contractSendingQuote, setContractSendingQuote] = useState<string | null>(null);
-  const [policyForm, setPolicyForm] = useState({
+  const [policyForm, setPolicyForm] = useState<PolicyFormState>({
     package: '',
     expirationMiles: '',
     expirationDate: '',
@@ -214,12 +249,53 @@ export default function AdminLeadDetail() {
     },
   });
 
+  const buildPolicyPayloadFromForm = (form: PolicyFormState): Record<string, unknown> => {
+    const payload: Record<string, unknown> = {};
+
+    if (form.package.trim().length > 0) {
+      payload.package = form.package.trim();
+    }
+
+    if (form.policyStartDate) {
+      payload.policyStartDate = new Date(form.policyStartDate).toISOString();
+    }
+
+    if (form.expirationDate) {
+      payload.expirationDate = new Date(form.expirationDate).toISOString();
+    }
+
+    if (form.expirationMiles.trim().length > 0) {
+      const miles = Number(form.expirationMiles);
+      if (!Number.isNaN(miles)) {
+        payload.expirationMiles = miles;
+      }
+    }
+
+    const currencyFields: (keyof PolicyFormState)[] = [
+      'deductible',
+      'totalPremium',
+      'downPayment',
+      'monthlyPayment',
+      'totalPayments',
+    ];
+
+    for (const field of currencyFields) {
+      const cents = parseCurrencyInput(form[field]);
+      if (cents !== null) {
+        payload[field] = cents;
+      }
+    }
+
+    return payload;
+  };
+
   const convertLeadMutation = useMutation({
-    mutationFn: async (policyData: any) => {
+    mutationFn: async (policyData: PolicyFormState) => {
+      const payload = buildPolicyPayloadFromForm(policyData);
       const response = await fetchWithAuth(`/api/admin/leads/${id}/convert`, {
         method: 'POST',
         headers: authJsonHeaders(),
-        body: JSON.stringify(policyData),
+        body: JSON.stringify(payload),
       });
       if (response.status === 401) {
         clearCredentials();
@@ -315,12 +391,12 @@ export default function AdminLeadDetail() {
         package: p.package || '',
         expirationMiles: p.expirationMiles?.toString() || '',
         expirationDate: p.expirationDate ? p.expirationDate.slice(0, 10) : '',
-        deductible: p.deductible?.toString() || '',
-        totalPremium: p.totalPremium?.toString() || '',
-        downPayment: p.downPayment?.toString() || '',
+        deductible: formatCurrencyInput(p.deductible),
+        totalPremium: formatCurrencyInput(p.totalPremium),
+        downPayment: formatCurrencyInput(p.downPayment),
         policyStartDate: p.policyStartDate ? p.policyStartDate.slice(0, 10) : '',
-        monthlyPayment: p.monthlyPayment?.toString() || '',
-        totalPayments: p.totalPayments?.toString() || '',
+        monthlyPayment: formatCurrencyInput(p.monthlyPayment),
+        totalPayments: formatCurrencyInput(p.totalPayments),
       });
     }
   }, [leadPayload]);
@@ -453,16 +529,7 @@ export default function AdminLeadDetail() {
       }
     });
 
-    const policyPayload = { ...policyForm } as any;
-    ['expirationMiles','deductible','totalPremium','downPayment','monthlyPayment','totalPayments'].forEach((key) => {
-      if (policyPayload[key] === '' || policyPayload[key] === undefined) {
-        delete policyPayload[key];
-      } else {
-        policyPayload[key] = Number(policyPayload[key]);
-      }
-    });
-    if (!policyPayload.expirationDate) delete policyPayload.expirationDate;
-    if (!policyPayload.policyStartDate) delete policyPayload.policyStartDate;
+    const policyPayload = buildPolicyPayloadFromForm(policyForm);
 
     const payload: any = { ...leadUpdates };
     if (Object.keys(vehiclePayload).length > 0) payload.vehicle = vehiclePayload;

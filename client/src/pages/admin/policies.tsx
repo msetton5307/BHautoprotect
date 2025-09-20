@@ -14,8 +14,16 @@ import { clearCredentials, fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { Link, useLocation } from "wouter";
 
-const formatCurrency = (value: number | null | undefined) =>
-  value != null ? `$${Number(value).toLocaleString()}` : "—";
+const formatCurrency = (value: number | null | undefined) => {
+  if (value === null || value === undefined) {
+    return '—';
+  }
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return '—';
+  }
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(numeric / 100);
+};
 
 const formatDate = (value: string | null | undefined) =>
   value
