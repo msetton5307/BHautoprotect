@@ -77,6 +77,29 @@ const formatCurrencyFromCents = (value: number | null | undefined): string => {
   return formatCurrency(numeric / 100);
 };
 
+const formatDollarInput = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (Number.isNaN(numeric)) {
+    return "";
+  }
+  return numeric.toFixed(2);
+};
+
+const parseDollarInput = (value: string): number | null => {
+  const normalized = value.replace(/[$,]/g, "").trim();
+  if (!normalized) {
+    return null;
+  }
+  const numeric = Number.parseFloat(normalized);
+  if (Number.isNaN(numeric)) {
+    return null;
+  }
+  return Math.round(numeric);
+};
+
 const formatChargeAmount = (value: number | null | undefined): string => {
   if (value === null || value === undefined) return "—";
   const numeric = typeof value === "number" ? value : Number(value);
@@ -212,7 +235,7 @@ const createPolicyFormState = (policy: any) => ({
     policy?.expirationMiles != null && !Number.isNaN(Number(policy.expirationMiles))
       ? String(policy.expirationMiles)
       : "",
-  deductible: formatCurrencyInput(policy?.deductible),
+  deductible: formatDollarInput(policy?.deductible),
   totalPremium: formatCurrencyInput(policy?.totalPremium),
   downPayment: formatCurrencyInput(policy?.downPayment),
   monthlyPayment: formatCurrencyInput(policy?.monthlyPayment),
@@ -363,7 +386,7 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
     { label: "Effective Date", value: formatDate(policy?.policyStartDate) },
     { label: "Expiration Date", value: formatDate(policy?.expirationDate) },
     { label: "Expiration Miles", value: policy?.expirationMiles != null ? String(policy.expirationMiles) : "N/A" },
-    { label: "Deductible", value: formatCurrencyFromCents(policy?.deductible) },
+    { label: "Deductible", value: formatCurrency(policy?.deductible) },
     { label: "Total Premium", value: formatCurrencyFromCents(policy?.totalPremium) },
   ];
 
@@ -640,7 +663,7 @@ export default function AdminPolicyDetail() {
   const monthlyPaymentDisplay = formatCurrencyFromCents(policy?.monthlyPayment);
   const totalPremiumDisplay = formatCurrencyFromCents(policy?.totalPremium);
   const downPaymentDisplay = formatCurrencyFromCents(policy?.downPayment);
-  const deductibleDisplay = formatCurrencyFromCents(policy?.deductible);
+  const deductibleDisplay = formatCurrency(policy?.deductible);
   const coverageStartDisplay = formatDate(policy?.policyStartDate);
   const coverageEndDisplay = formatDate(policy?.expirationDate);
   const expirationMilesDisplay =
@@ -855,7 +878,7 @@ export default function AdminPolicyDetail() {
         policyForm.expirationMiles.trim() && !Number.isNaN(Number(policyForm.expirationMiles))
           ? Number(policyForm.expirationMiles)
           : null,
-      deductible: parseCurrencyInput(policyForm.deductible),
+      deductible: parseDollarInput(policyForm.deductible),
       totalPremium: parseCurrencyInput(policyForm.totalPremium),
       downPayment: parseCurrencyInput(policyForm.downPayment),
       monthlyPayment: parseCurrencyInput(policyForm.monthlyPayment),

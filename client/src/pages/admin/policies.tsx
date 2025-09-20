@@ -25,6 +25,17 @@ const formatCurrency = (value: number | null | undefined) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(numeric / 100);
 };
 
+const formatDeductible = (value: number | null | undefined) => {
+  if (value === null || value === undefined) {
+    return '—';
+  }
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) {
+    return '—';
+  }
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(numeric);
+};
+
 const formatDate = (value: string | null | undefined) =>
   value
     ? new Date(value).toLocaleString('en-US', {
@@ -528,7 +539,7 @@ export default function AdminPolicies() {
                             <div className="flex flex-col gap-1">
                               <span className="font-mono text-xs uppercase tracking-wide text-slate-400">{policy.id}</span>
                               <span className="font-medium text-slate-900">{policy.package || 'Package TBD'}</span>
-                              <span className="text-xs text-slate-500">Deductible · {formatCurrency(policy.deductible)}</span>
+                              <span className="text-xs text-slate-500">Deductible · {formatDeductible(policy.deductible)}</span>
                             </div>
                           </TableCell>
                           <TableCell className="px-4 py-3 align-top text-slate-700 whitespace-normal break-words">
