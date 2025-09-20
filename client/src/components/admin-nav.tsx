@@ -16,7 +16,7 @@ function handleLogout() {
 }
 
 const navItems = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/leads", label: "Leads", icon: Users },
   { href: "/admin/policies", label: "Policies", icon: ShieldCheck },
   { href: "/admin/claims", label: "Claims", icon: ClipboardCheck },
@@ -33,7 +33,7 @@ export default function AdminNav() {
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-8">
           <Link
-            href="/admin/dashboard"
+            href="/admin"
             className="hidden text-lg font-semibold tracking-tight text-slate-900 transition hover:text-primary sm:block"
           >
             BHAutoProtect Admin

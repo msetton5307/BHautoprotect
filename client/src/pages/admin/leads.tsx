@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Search, Filter, ArrowUpDown, LayoutList, RefreshCw } from "lucide-react";
+import { Search, Filter, ArrowUpDown, LayoutList } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
@@ -297,17 +297,6 @@ export default function AdminLeads() {
             >
               <LayoutList className="h-4 w-4" />
               {hideDuplicates ? 'Show duplicates' : 'Hide duplicates'}
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/admin" className="flex items-center gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Dashboard
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/" className="flex items-center gap-2">
-                Public site
-              </Link>
             </Button>
             <Button asChild>
               <Link href="/admin/leads/new">Add lead</Link>

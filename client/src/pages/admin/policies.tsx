@@ -350,18 +350,7 @@ export default function AdminPolicies() {
               Review customer policies, confirm coverage details, and jump into the full record with a single click.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <Link href="/admin" className="flex items-center gap-2">
-                Dashboard
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/" className="flex items-center gap-2">
-                Public site
-              </Link>
-            </Button>
-          </div>
+          <div className="flex flex-wrap gap-2" />
         </div>
 
         <Card className="border border-slate-200 bg-white shadow-sm">
