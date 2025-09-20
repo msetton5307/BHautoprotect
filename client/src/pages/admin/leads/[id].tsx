@@ -323,6 +323,25 @@ export default function AdminLeadDetail() {
     }
   }, [leadPayload]);
 
+  const quotes = leadPayload?.quotes ?? [];
+  const notes = leadPayload?.notes ?? [];
+  const existingPolicy = leadPayload?.policy;
+  const contracts = leadPayload?.contracts ?? [];
+
+  const contractGroups = useMemo(() => {
+    const grouped: Record<string, LeadContractSummary[]> = {};
+    contracts.forEach((contract) => {
+      if (!contract.quoteId) {
+        return;
+      }
+      if (!grouped[contract.quoteId]) {
+        grouped[contract.quoteId] = [];
+      }
+      grouped[contract.quoteId].push(contract);
+    });
+    return grouped;
+  }, [contracts]);
+
   if (checking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -342,25 +361,6 @@ export default function AdminLeadDetail() {
       </div>
     );
   }
-
-  const quotes = leadPayload?.quotes ?? [];
-  const notes = leadPayload?.notes ?? [];
-  const existingPolicy = leadPayload?.policy;
-  const contracts = leadPayload?.contracts ?? [];
-
-  const contractGroups = useMemo(() => {
-    const grouped: Record<string, LeadContractSummary[]> = {};
-    contracts.forEach((contract) => {
-      if (!contract.quoteId) {
-        return;
-      }
-      if (!grouped[contract.quoteId]) {
-        grouped[contract.quoteId] = [];
-      }
-      grouped[contract.quoteId].push(contract);
-    });
-    return grouped;
-  }, [contracts]);
 
   if (!leadPayload) {
     return (
