@@ -105,7 +105,7 @@ export default function CustomerPortalClaims({ session }: Props) {
 
   const claims = useMemo(() => claimsQuery.data?.data?.claims ?? [], [claimsQuery.data]);
 
-  const mutation = useMutation({
+  const mutation = useMutation<{ data: CustomerClaim }, Error>({
     mutationFn: async () => {
       const payload: Record<string, unknown> = {
         policyId: form.policyId,
@@ -127,12 +127,26 @@ export default function CustomerPortalClaims({ session }: Props) {
         body: JSON.stringify(payload),
       });
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       toast({
         title: "Claim submitted",
         description: "Our claims team will reach out shortly with next steps.",
       });
       setForm(initialForm);
+      queryClient.setQueryData<{ data?: { claims?: CustomerClaim[] } }>(
+        ["/api/customer/claims"],
+        (current) => {
+          const existingClaims = current?.data?.claims ?? [];
+          const filteredClaims = existingClaims.filter((claim) => claim.id !== result.data.id);
+          return {
+            ...current,
+            data: {
+              ...(current?.data ?? {}),
+              claims: [result.data, ...filteredClaims],
+            },
+          };
+        },
+      );
       void queryClient.invalidateQueries(["/api/customer/claims"]);
     },
     onError: (error: unknown) => {
