@@ -17,13 +17,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
 import { fetchWithAuth, getAuthHeaders, clearCredentials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import PolicyDocumentRequests from "@/components/admin-policy-document-requests";
-import { ArrowLeft, Eye, EyeOff, Mail, Paperclip, PencilLine, Sparkles, ExternalLink } from "lucide-react";
+import { ArrowLeft, ChevronDown, Eye, Mail, Paperclip, PencilLine, Sparkles, ExternalLink } from "lucide-react";
 
 const CUSTOM_TEMPLATE_ID = "custom";
 
@@ -87,6 +88,13 @@ const formatCardExpiry = (month: number | null | undefined, year: number | null 
   return `${safeMonth}/${year}`;
 };
 
+const formatMaskedCardNumber = (lastFour: string | null | undefined): string => {
+  if (!lastFour || lastFour.trim().length === 0) {
+    return "—";
+  }
+  return `•••• •••• •••• ${lastFour.trim()}`;
+};
+
 const chargeStatusStyles: Record<PolicyChargeRecord["status"], { label: string; className: string }> = {
   pending: { label: "Pending", className: "border-amber-200 bg-amber-50 text-amber-700" },
   processing: { label: "Processing", className: "border-blue-200 bg-blue-50 text-blue-700" },
@@ -114,6 +122,85 @@ const escapeHtml = (value: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+const EMAIL_BRAND_LOGO =
+  "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMTIwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNjAlIiBzdG9wLWNvbG9yPSIjMWQ0ZWQ4IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZykiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0yMCA3MGMyOC0yOCA4OC00OCAxNDAtNDhzMTEyIDIwIDE0MCA0OCIvPgogICAgPHBhdGggZD0iTTI4IDU4YzE4LTIyIDc4LTQwIDEzMi00MHMxMTQgMTggMTMyIDQwIiBvcGFjaXR5PSIwLjU1Ii8+CiAgPC9nPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIxMCA0OCkiPgogICAgPHBhdGggZD0iTTM2IDQgMTgtNCAwIDR2MzJjMCAxOCA4IDM0IDE4IDQyIDEwLTggMTgtMjQgMTgtNDJWNFoiIGZpbGw9IiMwZjE3MmEiIG9wYWNpdHk9IjAuMTIiLz4KICAgIDxwYXRoIGQ9Ik0zNiAwIDE4LTggMCAwdjMyYzAgMTggOCAzNCAxOCA0MiAxMC04IDE4LTI0IDE4LTQyVjBaIiBmaWxsPSIjMGIxZjRlIi8+CiAgICA8cGF0aCBkPSJNOSAxOCAxOCAyOGwxNS0xOCIgc3Ryb2tlPSIjZTBmMmZlIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwvZz4KPC9zdmc+";
+
+const convertPlainTextToHtml = (value: string): string => {
+  const paragraphs = value
+    .split(/\n{2,}/)
+    .map(paragraph => paragraph.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length === 0) {
+    return "";
+  }
+
+  return paragraphs
+    .map(paragraph => {
+      const lines = paragraph
+        .split(/\n+/)
+        .map(line => escapeHtml(line.trim()))
+        .filter(Boolean)
+        .join("<br />");
+      return `<p style="margin:0 0 18px;font-size:15px;line-height:1.7;color:#334155;">${lines}</p>`;
+    })
+    .join("\n");
+};
+
+const stripHtmlToPlainText = (value: string): string => {
+  if (!value) return "";
+  return value
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]*>/g, "\n")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
+
+const formatDateInputValue = (value: string | Date | null | undefined): string => {
+  if (!value) return "";
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return "";
+  return parsed.toISOString().slice(0, 10);
+};
+
+const createPolicyFormState = (policy: any) => ({
+  package: policy?.package ?? "",
+  policyStartDate: formatDateInputValue(policy?.policyStartDate),
+  expirationDate: formatDateInputValue(policy?.expirationDate),
+  expirationMiles:
+    policy?.expirationMiles != null && !Number.isNaN(Number(policy.expirationMiles))
+      ? String(policy.expirationMiles)
+      : "",
+  deductible:
+    policy?.deductible != null && !Number.isNaN(Number(policy.deductible))
+      ? String(policy.deductible)
+      : "",
+  totalPremium:
+    policy?.totalPremium != null && !Number.isNaN(Number(policy.totalPremium))
+      ? String(policy.totalPremium)
+      : "",
+  downPayment:
+    policy?.downPayment != null && !Number.isNaN(Number(policy.downPayment))
+      ? String(policy.downPayment)
+      : "",
+  monthlyPayment:
+    policy?.monthlyPayment != null && !Number.isNaN(Number(policy.monthlyPayment))
+      ? String(policy.monthlyPayment)
+      : "",
+  totalPayments:
+    policy?.totalPayments != null && !Number.isNaN(Number(policy.totalPayments))
+      ? String(policy.totalPayments)
+      : "",
+});
 
 const sanitizeHtmlForPreview = (value: string): string =>
   value
@@ -182,9 +269,18 @@ const buildEmailLayout = ({
         <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);">
           <tr>
             <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
-              <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
-              <div style="font-size:24px;font-weight:700;margin-top:10px;">${escapeHtml(heroTitle)}</div>
-              <div style="margin-top:12px;font-size:14px;opacity:0.85;">${escapeHtml(heroSubtitle)}</div>
+              <div style="display:flex;align-items:center;gap:18px;">
+                <img
+                  src="${EMAIL_BRAND_LOGO}"
+                  alt="BHAutoProtect logo"
+                  style="width:96px;height:auto;display:block;filter:drop-shadow(0 8px 18px rgba(15,23,42,0.35));"
+                />
+                <div>
+                  <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
+                  <div style="font-size:24px;font-weight:700;margin-top:6px;">${escapeHtml(heroTitle)}</div>
+                </div>
+              </div>
+              <div style="margin-top:16px;font-size:14px;opacity:0.88;">${escapeHtml(heroSubtitle)}</div>
             </td>
           </tr>
           <tr>
@@ -203,6 +299,32 @@ const buildEmailLayout = ({
   </table>
 </body>
 </html>`;
+
+const buildBrandedEmailFromPlainText = ({
+  subject,
+  message,
+  policy,
+}: {
+  subject: string;
+  message: string;
+  policy: any;
+}): string => {
+  const policyPackage = policy?.package
+    ? `${policy.package.charAt(0).toUpperCase()}${policy.package.slice(1)}`
+    : "Vehicle Protection";
+  const heroTitle = `${policyPackage} Update`;
+  const heroSubtitle = `Policy ${policy?.id ?? "Details"}`;
+  const bodyContent = convertPlainTextToHtml(message || "");
+  const finalBody = bodyContent
+    ? bodyContent
+    : `<p style="margin:0;font-size:15px;line-height:1.7;color:#334155;">Your message will appear here once added.</p>`;
+  return buildEmailLayout({
+    subject,
+    heroTitle,
+    heroSubtitle,
+    bodyContent: finalBody,
+  });
+};
 
 const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
   const name = getPolicyHolderName(policy);
@@ -531,12 +653,29 @@ export default function AdminPolicyDetail() {
   const [emailRecipient, setEmailRecipient] = useState<string>(leadEmail);
   const [emailSubject, setEmailSubject] = useState<string>(initialTemplate.subject);
   const [emailHtml, setEmailHtml] = useState<string>(initialTemplate.bodyHtml);
+  const [plainMessage, setPlainMessage] = useState<string>(stripHtmlToPlainText(initialTemplate.bodyHtml));
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>(initialTemplate.id);
   const [isTemplateCustomized, setIsTemplateCustomized] = useState(initialTemplate.id === CUSTOM_TEMPLATE_ID);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
-  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [showSourceEditor, setShowSourceEditor] = useState(false);
+  const [isEditPolicyOpen, setIsEditPolicyOpen] = useState(false);
+  const [isUpdatingPolicy, setIsUpdatingPolicy] = useState(false);
+  const [policyForm, setPolicyForm] = useState(() => createPolicyFormState(policy));
+
+  useEffect(() => {
+    setPolicyForm(createPolicyFormState(policy));
+  }, [policy]);
+
+  const buildCustomEmail = (message: string, subjectOverride?: string) =>
+    buildBrandedEmailFromPlainText({ subject: subjectOverride ?? emailSubject, message, policy });
+
+  const syncPlainMessageFromHtml = (html: string) => {
+    const stripped = stripHtmlToPlainText(html);
+    setPlainMessage(stripped);
+  };
 
   const previewSource = useMemo(() => {
     const sanitized = sanitizeHtmlForPreview(emailHtml);
@@ -545,7 +684,7 @@ export default function AdminPolicyDetail() {
     }
     return `<html><body style="font-family:'Helvetica Neue',Arial,sans-serif;padding:24px;color:#1f2937;background:#f8fafc;">
       <h2 style="margin-top:0;font-size:18px;">Your email preview will appear here</h2>
-      <p style="font-size:14px;line-height:1.6;">Select a template or start composing in the HTML tab to see a live preview.</p>
+      <p style="font-size:14px;line-height:1.6;">Select a template or start writing a message to generate the preview.</p>
     </body></html>`;
   }, [emailHtml]);
 
@@ -611,12 +750,14 @@ export default function AdminPolicyDetail() {
   const handleOpenEmailDialog = (templateId?: string) => {
     setEmailRecipient(leadEmail);
     setNewTemplateName("");
-    setIsPreviewVisible(false);
+    setIsPreviewDialogOpen(false);
+    setShowSourceEditor(false);
 
     if (templateId === CUSTOM_TEMPLATE_ID) {
       setSelectedTemplateId(CUSTOM_TEMPLATE_ID);
       setEmailSubject(fallbackSubject);
       setEmailHtml("");
+      setPlainMessage("");
       setIsTemplateCustomized(true);
     } else {
       let template = templateId
@@ -626,11 +767,13 @@ export default function AdminPolicyDetail() {
         setSelectedTemplateId(template.id);
         setEmailSubject(template.subject);
         setEmailHtml(template.bodyHtml);
+        syncPlainMessageFromHtml(template.bodyHtml);
         setIsTemplateCustomized(false);
       } else {
         setSelectedTemplateId(CUSTOM_TEMPLATE_ID);
         setEmailSubject(fallbackSubject);
         setEmailHtml("");
+        setPlainMessage("");
         setIsTemplateCustomized(true);
       }
     }
@@ -656,6 +799,7 @@ export default function AdminPolicyDetail() {
       setSelectedTemplateId(template.id);
       setEmailSubject(template.subject);
       setEmailHtml(template.bodyHtml);
+      syncPlainMessageFromHtml(template.bodyHtml);
       setIsTemplateCustomized(false);
     }
   };
@@ -663,11 +807,91 @@ export default function AdminPolicyDetail() {
   const handleSubjectChange = (value: string) => {
     setEmailSubject(value);
     markAsCustom();
+    if (selectedTemplateId === CUSTOM_TEMPLATE_ID || isTemplateCustomized) {
+      setEmailHtml(buildCustomEmail(plainMessage, value));
+    }
+  };
+
+  const handlePlainMessageChange = (value: string) => {
+    setPlainMessage(value);
+    markAsCustom();
+    setEmailHtml(buildCustomEmail(value));
   };
 
   const handleHtmlChange = (value: string) => {
     setEmailHtml(value);
+    syncPlainMessageFromHtml(value);
     markAsCustom();
+  };
+
+  const handlePolicyFieldChange = (field: keyof ReturnType<typeof createPolicyFormState>, value: string) => {
+    setPolicyForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handlePolicyUpdate = async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const payload: Record<string, unknown> = {
+      package: policyForm.package.trim() || null,
+      policyStartDate: policyForm.policyStartDate ? new Date(policyForm.policyStartDate).toISOString() : null,
+      expirationDate: policyForm.expirationDate ? new Date(policyForm.expirationDate).toISOString() : null,
+      expirationMiles:
+        policyForm.expirationMiles.trim() && !Number.isNaN(Number(policyForm.expirationMiles))
+          ? Number(policyForm.expirationMiles)
+          : null,
+      deductible:
+        policyForm.deductible.trim() && !Number.isNaN(Number(policyForm.deductible))
+          ? Number(policyForm.deductible)
+          : null,
+      totalPremium:
+        policyForm.totalPremium.trim() && !Number.isNaN(Number(policyForm.totalPremium))
+          ? Number(policyForm.totalPremium)
+          : null,
+      downPayment:
+        policyForm.downPayment.trim() && !Number.isNaN(Number(policyForm.downPayment))
+          ? Number(policyForm.downPayment)
+          : null,
+      monthlyPayment:
+        policyForm.monthlyPayment.trim() && !Number.isNaN(Number(policyForm.monthlyPayment))
+          ? Number(policyForm.monthlyPayment)
+          : null,
+      totalPayments:
+        policyForm.totalPayments.trim() && !Number.isNaN(Number(policyForm.totalPayments))
+          ? Number(policyForm.totalPayments)
+          : null,
+    };
+
+    setIsUpdatingPolicy(true);
+    try {
+      const response = await fetchWithAuth(`/api/admin/policies/${policy.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(payload),
+      });
+
+      ensureAuthorized(response);
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        const message = typeof (data as { message?: unknown }).message === "string"
+          ? (data as { message: string }).message
+          : "Failed to update policy";
+        throw new Error(message);
+      }
+
+      toast({
+        title: "Policy updated",
+        description: "The latest changes are now saved for this policy.",
+      });
+      setIsEditPolicyOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+    } catch (error) {
+      toast({
+        title: "Could not update policy",
+        description: error instanceof Error ? error.message : "Failed to update policy",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingPolicy(false);
+    }
   };
 
   const handleSaveTemplate = async () => {
@@ -733,6 +957,7 @@ export default function AdminPolicyDetail() {
       setSelectedTemplateId(result.data.id);
       setEmailSubject(result.data.subject);
       setEmailHtml(result.data.bodyHtml);
+      syncPlainMessageFromHtml(result.data.bodyHtml);
       setIsTemplateCustomized(false);
       setNewTemplateName("");
 
@@ -758,7 +983,12 @@ export default function AdminPolicyDetail() {
       .map(entry => entry.trim())
       .filter(Boolean);
     const trimmedSubject = emailSubject.trim();
-    const trimmedHtml = emailHtml.trim();
+    const trimmedMessage = plainMessage.trim();
+    const htmlToSend =
+      selectedTemplateId === CUSTOM_TEMPLATE_ID || isTemplateCustomized
+        ? buildCustomEmail(plainMessage, trimmedSubject)
+        : emailHtml;
+    const trimmedHtml = htmlToSend.trim();
 
     if (recipients.length === 0) {
       toast({
@@ -781,10 +1011,23 @@ export default function AdminPolicyDetail() {
     if (!trimmedHtml) {
       toast({
         title: "Email body required",
-        description: "Add some HTML content before sending.",
+        description: "Add a message before sending your email.",
         variant: "destructive",
       });
       return;
+    }
+
+    if (!trimmedMessage && (selectedTemplateId === CUSTOM_TEMPLATE_ID || isTemplateCustomized)) {
+      toast({
+        title: "Message required",
+        description: "Write a quick note in the composer before sending.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedTemplateId === CUSTOM_TEMPLATE_ID || isTemplateCustomized) {
+      setEmailHtml(htmlToSend);
     }
 
     setIsSendingEmail(true);
@@ -798,7 +1041,7 @@ export default function AdminPolicyDetail() {
         body: JSON.stringify({
           to: recipients.join(", "),
           subject: trimmedSubject,
-          bodyHtml: emailHtml,
+          bodyHtml: htmlToSend,
         }),
       });
 
@@ -875,17 +1118,25 @@ export default function AdminPolicyDetail() {
                       ) : null}
                     </p>
                   </div>
-                  <div className="flex flex-col items-start gap-3 text-xs text-slate-200/80 sm:flex-row sm:items-center">
-                    <Badge
-                      variant="outline"
-                      className={`rounded-full border bg-transparent px-3 py-1 text-xs font-medium backdrop-blur ${autopayHeroBadgeClass}`}
-                    >
-                      {autopayLabel}
-                    </Badge>
-                    <span>Created {policyCreatedDisplay}</span>
-                  </div>
+                <div className="flex flex-col items-start gap-3 text-xs text-slate-200/80 sm:flex-row sm:items-center">
+                  <Badge
+                    variant="outline"
+                    className={`rounded-full border bg-transparent px-3 py-1 text-xs font-medium backdrop-blur ${autopayHeroBadgeClass}`}
+                  >
+                    {autopayLabel}
+                  </Badge>
+                  <span>Created {policyCreatedDisplay}</span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
+                    onClick={() => setIsEditPolicyOpen(true)}
+                  >
+                    Edit policy
+                  </Button>
                 </div>
               </div>
+            </div>
               <div className="grid gap-4 border-t border-slate-200 bg-white px-6 py-5 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-5">
                 <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Coverage window</p>
@@ -1310,7 +1561,9 @@ export default function AdminPolicyDetail() {
                             <div>
                               <p className="text-sm font-semibold text-slate-900">
                                 {profile.cardBrand || profile.paymentMethod || "Payment method"}
-                                {profile.cardLastFour ? ` · ••••${profile.cardLastFour}` : ""}
+                              </p>
+                              <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.4em] text-slate-500">
+                                {formatMaskedCardNumber(profile.cardLastFour)}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {profile.accountName || "No cardholder name on file"}
@@ -1334,9 +1587,9 @@ export default function AdminPolicyDetail() {
                           </div>
                           <dl className="mt-4 grid grid-cols-2 gap-3 text-xs uppercase tracking-wide text-slate-500">
                             <div>
-                              <dt>Last four</dt>
+                              <dt>Card number</dt>
                               <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                                {profile.cardLastFour || "—"}
+                                {formatMaskedCardNumber(profile.cardLastFour)}
                               </dd>
                             </div>
                             <div>
@@ -1427,7 +1680,8 @@ export default function AdminPolicyDetail() {
           if (!open) {
             setIsTemplateCustomized(false);
             setNewTemplateName("");
-            setIsPreviewVisible(false);
+            setIsPreviewDialogOpen(false);
+            setShowSourceEditor(false);
           }
         }}
       >
@@ -1456,14 +1710,16 @@ export default function AdminPolicyDetail() {
                 <SelectTrigger id="policy-email-template">
                   <SelectValue placeholder="Choose a template" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white text-slate-900">
                   {templateOptions.map(option => (
-                    <SelectItem key={option.id} value={option.id}>
+                    <SelectItem key={option.id} value={option.id} className="text-slate-800">
                       {option.name}
                       {option.source === "default" ? " (auto)" : ""}
                     </SelectItem>
                   ))}
-                  <SelectItem value={CUSTOM_TEMPLATE_ID}>Custom draft</SelectItem>
+                  <SelectItem value={CUSTOM_TEMPLATE_ID} className="text-slate-800">
+                    Custom draft
+                  </SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
@@ -1482,43 +1738,62 @@ export default function AdminPolicyDetail() {
               />
             </section>
             <Separator />
-            <section className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="policy-email-body" className="text-sm font-medium text-slate-700">
-                  Message
-                </Label>
+            <section className="space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <Label htmlFor="policy-email-body" className="text-sm font-medium text-slate-700">
+                    Message
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    We’ll wrap this note in a polished template with the BH Auto Protect logo at the top.
+                  </p>
+                </div>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="gap-2 text-slate-600 hover:text-slate-900"
-                  onClick={() => setIsPreviewVisible(prev => !prev)}
+                  className="gap-2"
+                  onClick={() => setIsPreviewDialogOpen(true)}
                 >
-                  {isPreviewVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  {isPreviewVisible ? "Hide preview" : "Show preview"}
+                  <Eye className="h-4 w-4" /> Preview email
                 </Button>
               </div>
               <Textarea
                 id="policy-email-body"
-                value={emailHtml}
-                onChange={event => handleHtmlChange(event.target.value)}
-                rows={14}
-                className="font-mono text-sm"
-                spellCheck={false}
+                value={plainMessage}
+                onChange={event => handlePlainMessageChange(event.target.value)}
+                rows={8}
+                className="rounded-xl border border-slate-200 bg-slate-50/80 text-base leading-relaxed text-slate-800 shadow-sm focus-visible:ring-primary"
+                placeholder="Write a friendly update for the customer. Press Enter to start a new paragraph."
               />
-              <p className="text-xs text-muted-foreground">
-                Paste or edit HTML for the email body. Use the preview to double-check formatting when needed.
-              </p>
-              {isPreviewVisible ? (
-                <div className="overflow-hidden rounded-md border bg-muted/40">
-                  <iframe
-                    title="Email preview"
-                    sandbox=""
-                    srcDoc={previewSource}
-                    className="h-[60vh] max-h-[420px] w-full border-0 bg-white"
+              <div className="rounded-lg border border-dashed border-slate-200 bg-white/70 p-3 text-xs text-slate-500">
+                Your note is converted to on-brand HTML automatically—no coding needed.
+              </div>
+              <Collapsible open={showSourceEditor} onOpenChange={setShowSourceEditor}>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2 text-slate-600 hover:text-slate-900"
+                  >
+                    Advanced HTML editor
+                    <ChevronDown className={`h-4 w-4 transition-transform ${showSourceEditor ? "rotate-180" : ""}`} />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 pt-3">
+                  <Textarea
+                    value={emailHtml}
+                    onChange={event => handleHtmlChange(event.target.value)}
+                    rows={12}
+                    className="rounded-lg border border-slate-200 bg-slate-950/5 font-mono text-sm text-slate-800"
+                    spellCheck={false}
                   />
-                </div>
-              ) : null}
+                  <p className="text-xs text-muted-foreground">
+                    Need pixel-perfect control? Edit the generated HTML here and preview before sending.
+                  </p>
+                </CollapsibleContent>
+              </Collapsible>
             </section>
             <Separator />
             <section className="grid gap-2">
@@ -1565,6 +1840,147 @@ export default function AdminPolicyDetail() {
               {isSendingEmail ? "Sending..." : "Send email"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Email preview</DialogTitle>
+            <DialogDescription>
+              This is exactly how the message will appear in your customer’s inbox.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="overflow-hidden rounded-xl border border-slate-200 shadow-inner">
+            <iframe
+              title="Email preview"
+              sandbox=""
+              srcDoc={previewSource}
+              className="h-[70vh] w-full border-0 bg-white"
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog
+        open={isEditPolicyOpen}
+        onOpenChange={open => {
+          setIsEditPolicyOpen(open);
+          if (!open) {
+            setPolicyForm(createPolicyFormState(policy));
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Edit policy details</DialogTitle>
+            <DialogDescription>
+              Update coverage dates, payments, and package information. Changes sync instantly for your team.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePolicyUpdate} className="space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-policy-package">Package</Label>
+                <Input
+                  id="edit-policy-package"
+                  value={policyForm.package}
+                  onChange={event => handlePolicyFieldChange("package", event.target.value)}
+                  placeholder="Premium"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-policy-expiration-miles">Expiration mileage</Label>
+                <Input
+                  id="edit-policy-expiration-miles"
+                  type="number"
+                  value={policyForm.expirationMiles}
+                  onChange={event => handlePolicyFieldChange("expirationMiles", event.target.value)}
+                  placeholder="75000"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-policy-start">Policy start date</Label>
+                <Input
+                  id="edit-policy-start"
+                  type="date"
+                  value={policyForm.policyStartDate}
+                  onChange={event => handlePolicyFieldChange("policyStartDate", event.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-policy-expiration-date">Expiration date</Label>
+                <Input
+                  id="edit-policy-expiration-date"
+                  type="date"
+                  value={policyForm.expirationDate}
+                  onChange={event => handlePolicyFieldChange("expirationDate", event.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-policy-deductible">Deductible (cents)</Label>
+                <Input
+                  id="edit-policy-deductible"
+                  type="number"
+                  value={policyForm.deductible}
+                  onChange={event => handlePolicyFieldChange("deductible", event.target.value)}
+                  placeholder="10000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-policy-total-premium">Total premium (cents)</Label>
+                <Input
+                  id="edit-policy-total-premium"
+                  type="number"
+                  value={policyForm.totalPremium}
+                  onChange={event => handlePolicyFieldChange("totalPremium", event.target.value)}
+                  placeholder="299900"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-policy-down-payment">Down payment (cents)</Label>
+                <Input
+                  id="edit-policy-down-payment"
+                  type="number"
+                  value={policyForm.downPayment}
+                  onChange={event => handlePolicyFieldChange("downPayment", event.target.value)}
+                  placeholder="49900"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-policy-monthly-payment">Monthly payment (cents)</Label>
+                <Input
+                  id="edit-policy-monthly-payment"
+                  type="number"
+                  value={policyForm.monthlyPayment}
+                  onChange={event => handlePolicyFieldChange("monthlyPayment", event.target.value)}
+                  placeholder="15900"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-policy-total-payments">Total payments (cents)</Label>
+              <Input
+                id="edit-policy-total-payments"
+                type="number"
+                value={policyForm.totalPayments}
+                onChange={event => handlePolicyFieldChange("totalPayments", event.target.value)}
+                placeholder="899900"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsEditPolicyOpen(false)} disabled={isUpdatingPolicy}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isUpdatingPolicy}>
+                {isUpdatingPolicy ? "Saving…" : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
