@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +38,7 @@ export default function AdminLeadDetail() {
   const queryClient = useQueryClient();
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [isCreatingQuote, setIsCreatingQuote] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'activity'>('overview');
   const [quoteForm, setQuoteForm] = useState({
     plan: 'gold',
     deductible: 500,
@@ -61,6 +62,7 @@ export default function AdminLeadDetail() {
   const [vehicleForm, setVehicleForm] = useState<any>({});
   const [newNote, setNewNote] = useState('');
   const [leadForm, setLeadForm] = useState<any>({});
+  const createQuoteSectionRef = useRef<HTMLDivElement | null>(null);
 
   const { data: leadData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads', id],
@@ -491,17 +493,20 @@ export default function AdminLeadDetail() {
             </div>
             <div className="flex items-center space-x-2">
               <Button
-                asChild
                 variant="outline"
                 size="sm"
+                onClick={() => {
+                  setActiveTab('quotes');
+                  setIsCreatingQuote(true);
+                  setTimeout(() => {
+                    createQuoteSectionRef.current?.scrollIntoView({
+                      behavior: 'smooth',
+                      block: 'start',
+                    });
+                  }, 0);
+                }}
               >
-                <a
-                  href={`https://americancarprotect.com/vsp/send_quote_email_api.php?api_key=Kzy!MaaBCha4&leadid=${id}&uid=45`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Send Quote
-                </a>
+                Send Quote
               </Button>
               <Button
                 size="sm"
@@ -521,7 +526,11 @@ export default function AdminLeadDetail() {
             {updateLeadMutation.isPending ? 'Saving...' : 'Save'}
           </Button>
         </div>
-        <Tabs defaultValue="overview" className="space-y-6">
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as 'overview' | 'quotes' | 'activity')}
+          className="space-y-6"
+        >
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="quotes">Quotes ({quotes?.length || 0})</TabsTrigger>
@@ -1013,7 +1022,8 @@ export default function AdminLeadDetail() {
 
           <TabsContent value="quotes" className="space-y-6">
             {/* Create Quote */}
-            <Card>
+            <div ref={createQuoteSectionRef}>
+              <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   <span className="flex items-center">
@@ -1110,7 +1120,8 @@ export default function AdminLeadDetail() {
                   </Button>
                 </CardContent>
               )}
-            </Card>
+              </Card>
+            </div>
 
             {/* Existing Quotes */}
             <Card>
