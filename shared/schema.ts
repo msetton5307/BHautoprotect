@@ -17,7 +17,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
 // Enums
-export const planTypeEnum = pgEnum('plan_type', ['basic', 'bronze', 'silver', 'gold']);
+export const planTypeEnum = pgEnum('plan_type', ['basic', 'silver', 'gold']);
 export const quoteStatusEnum = pgEnum('quote_status', ['draft', 'sent', 'accepted', 'rejected']);
 export const claimStatusEnum = pgEnum('claim_status', [
   'new',

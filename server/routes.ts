@@ -20,6 +20,7 @@ import {
   type Quote,
   type User,
   type Vehicle,
+  type InsertVehicle,
   type CustomerAccount,
   documentRequestTypeEnum,
   documentRequestStatusEnum,
@@ -98,6 +99,10 @@ const DOCUMENT_REQUEST_TYPE_COPY: Record<(typeof DOCUMENT_REQUEST_TYPE_VALUES)[n
   },
 };
 
+const optionalTrimmedString = z.string().trim().min(1).optional().nullable();
+const optionalRequiredString = z.string().trim().min(1).optional();
+const optionalEmailString = z.string().trim().email().optional().nullable();
+
 const policyUpdateSchema = z.object({
   package: z
     .string()
@@ -113,6 +118,28 @@ const policyUpdateSchema = z.object({
   downPayment: z.number().int().optional().nullable(),
   monthlyPayment: z.number().int().optional().nullable(),
   totalPayments: z.number().int().optional().nullable(),
+  lead: z
+    .object({
+      firstName: optionalTrimmedString,
+      lastName: optionalTrimmedString,
+      email: optionalEmailString,
+      phone: optionalTrimmedString,
+      state: optionalTrimmedString,
+      zip: optionalTrimmedString,
+    })
+    .optional(),
+  vehicle: z
+    .object({
+      year: z.number().int().optional().nullable(),
+      make: optionalRequiredString,
+      model: optionalRequiredString,
+      trim: optionalTrimmedString,
+      vin: optionalTrimmedString,
+      odometer: z.number().int().nonnegative().optional().nullable(),
+      usage: optionalTrimmedString,
+      ev: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 const portalBaseUrlEnv =
@@ -2514,7 +2541,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           odometer: z.number(),
         }),
         coverage: z.object({
-          plan: z.enum(['basic', 'bronze', 'silver', 'gold']),
+          plan: z.enum(['basic', 'silver', 'gold']),
           deductible: z.number(),
         }),
         location: z.object({
@@ -2742,7 +2769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Assign coverage plan to a lead
   app.post('/api/leads/:id/coverage', async (req, res) => {
     const schema = z.object({
-      plan: z.enum(['basic', 'bronze', 'silver', 'gold']),
+      plan: z.enum(['basic', 'silver', 'gold']),
       deductible: z.coerce.number(),
       termMonths: z.coerce.number().default(36),
       priceMonthly: z.coerce.number(),
@@ -3315,6 +3342,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      const existingPolicy = await storage.getPolicy(req.params.id);
+      if (!existingPolicy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
       const parsed = policyUpdateSchema.parse(req.body ?? {});
       const updates: Partial<InsertPolicy> = {};
 
@@ -3346,10 +3379,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updates.totalPayments = parsed.totalPayments ?? null;
       }
 
-      const updated = await storage.updatePolicyById(req.params.id, updates);
-      if (!updated) {
-        res.status(404).json({ message: 'Policy not found' });
-        return;
+      if (Object.keys(updates).length > 0) {
+        await storage.updatePolicyById(req.params.id, updates);
+      }
+
+      if (parsed.lead) {
+        const leadUpdates: Partial<InsertLead> = {};
+
+        if (Object.prototype.hasOwnProperty.call(parsed.lead, 'firstName')) {
+          leadUpdates.firstName = parsed.lead.firstName ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.lead, 'lastName')) {
+          leadUpdates.lastName = parsed.lead.lastName ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.lead, 'email')) {
+          leadUpdates.email = parsed.lead.email ? parsed.lead.email.toLowerCase() : null;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.lead, 'phone')) {
+          leadUpdates.phone = parsed.lead.phone ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.lead, 'state')) {
+          const stateValue = parsed.lead.state;
+          leadUpdates.state = stateValue ? stateValue.toUpperCase() : null;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.lead, 'zip')) {
+          leadUpdates.zip = parsed.lead.zip ?? null;
+        }
+
+        if (Object.keys(leadUpdates).length > 0) {
+          await storage.updateLead(existingPolicy.leadId, leadUpdates);
+        }
+      }
+
+      if (parsed.vehicle) {
+        const vehicleUpdates: Partial<InsertVehicle> = {};
+
+        if (Object.prototype.hasOwnProperty.call(parsed.vehicle, 'year')) {
+          if (parsed.vehicle.year != null) {
+            vehicleUpdates.year = parsed.vehicle.year;
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.vehicle, 'make') && parsed.vehicle.make !== undefined) {
+          vehicleUpdates.make = parsed.vehicle.make;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.vehicle, 'model') && parsed.vehicle.model !== undefined) {
+          vehicleUpdates.model = parsed.vehicle.model;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.vehicle, 'odometer')) {
+          if (parsed.vehicle.odometer != null) {
+            vehicleUpdates.odometer = parsed.vehicle.odometer;
+          }
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.vehicle, 'trim')) {
+          vehicleUpdates.trim = parsed.vehicle.trim ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.vehicle, 'vin')) {
+          vehicleUpdates.vin = parsed.vehicle.vin ? parsed.vehicle.vin.toUpperCase() : null;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.vehicle, 'usage')) {
+          vehicleUpdates.usage = parsed.vehicle.usage ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(parsed.vehicle, 'ev')) {
+          vehicleUpdates.ev = parsed.vehicle.ev ?? false;
+        }
+
+        if (Object.keys(vehicleUpdates).length > 0) {
+          if (existingPolicy.vehicle) {
+            await storage.updateVehicle(existingPolicy.leadId, vehicleUpdates);
+          } else if (
+            parsed.vehicle.year != null &&
+            parsed.vehicle.make &&
+            parsed.vehicle.model &&
+            parsed.vehicle.odometer != null
+          ) {
+            const newVehicle: InsertVehicle = {
+              leadId: existingPolicy.leadId,
+              year: parsed.vehicle.year,
+              make: parsed.vehicle.make,
+              model: parsed.vehicle.model,
+              odometer: parsed.vehicle.odometer,
+              trim: parsed.vehicle.trim ?? null,
+              vin: parsed.vehicle.vin ? parsed.vehicle.vin.toUpperCase() : null,
+              usage: parsed.vehicle.usage ?? null,
+              ev: parsed.vehicle.ev ?? false,
+            };
+            await storage.createVehicle(newVehicle);
+          }
+        }
       }
 
       const policy = await storage.getPolicy(req.params.id);

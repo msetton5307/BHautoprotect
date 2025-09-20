@@ -101,10 +101,6 @@ export const COVERAGE_PLANS = {
     name: 'Basic',
     features: CORE_PLAN_FEATURES,
   },
-  bronze: {
-    name: 'Bronze',
-    features: CORE_PLAN_FEATURES,
-  },
   gold: {
     name: 'Gold',
     description: 'Most Comprehensive!',
@@ -152,7 +148,7 @@ export const COVERAGE_PLANS = {
     ],
   },
 } satisfies Record<
-  'basic' | 'bronze' | 'gold' | 'silver',
+  'basic' | 'gold' | 'silver',
   {
     name: string;
     features: readonly string[];

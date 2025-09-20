@@ -943,7 +943,6 @@ export default function AdminLeadDetail() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="basic">Basic</SelectItem>
-                              <SelectItem value="bronze">Bronze</SelectItem>
                               <SelectItem value="silver">Silver</SelectItem>
                               <SelectItem value="gold">Gold</SelectItem>
                             </SelectContent>
@@ -1146,7 +1145,6 @@ export default function AdminLeadDetail() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="basic">Basic</SelectItem>
-                          <SelectItem value="bronze">Bronze</SelectItem>
                           <SelectItem value="silver">Silver</SelectItem>
                           <SelectItem value="gold">Gold</SelectItem>
                         </SelectContent>

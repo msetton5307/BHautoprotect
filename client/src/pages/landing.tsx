@@ -469,7 +469,7 @@ export default function Landing() {
               </AccordionTrigger>
               <AccordionContent className="text-gray-600 leading-relaxed">
                 Our extended warranties cover major mechanical breakdowns including engine, transmission, electrical systems, air
-                conditioning, and more. Coverage varies by plan—Bronze covers essential systems, Silver adds steering, suspension,
+                conditioning, and more. Coverage varies by plan—Basic covers essential systems, Silver adds steering, suspension,
                 and high-tech components, and Gold extends coverage to seals, gaskets, and hybrid/EV components.
               </AccordionContent>
             </AccordionItem>

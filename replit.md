@@ -26,7 +26,7 @@ Preferred communication style: Simple, everyday language.
 - **Normalized Schema**: Comprehensive database schema with proper relationships and foreign keys
 - **Lead Management**: Complete lead lifecycle from initial contact through policy binding
 - **Vehicle Data**: Detailed vehicle information including VIN, odometer, make/model
-- **Quote System**: Multiple plan tiers (Bronze, Silver, Gold)
+- **Quote System**: Multiple plan tiers (Basic, Silver, Gold)
 - **Policy Management**: Full policy lifecycle including payments and documents
 - **Audit Trail**: Comprehensive logging of user actions and data changes
 

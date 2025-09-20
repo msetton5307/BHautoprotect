@@ -6,7 +6,7 @@ export interface VehicleInfo {
 }
 
 export interface CoverageInfo {
-  plan: "basic" | "bronze" | "silver" | "gold";
+  plan: "basic" | "silver" | "gold";
   deductible: number;
 }
 
@@ -40,7 +40,6 @@ export function calculateQuote(
   let basePrice = 0;
   switch (coverage.plan) {
     case "basic":
-    case "bronze":
       basePrice = 60;
       break;
     case "silver":

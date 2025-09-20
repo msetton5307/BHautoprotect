@@ -46,7 +46,7 @@ export default function Footer() {
           <div>
             <h4 className="text-lg font-semibold mb-4">Coverage</h4>
             <ul className="space-y-2 text-gray-400">
-              <li><a href="/plans" className="hover:text-white">Bronze Plan</a></li>
+              <li><a href="/plans" className="hover:text-white">Basic Coverage</a></li>
               <li><a href="/plans" className="hover:text-white">Silver Coverage</a></li>
               <li><a href="/plans" className="hover:text-white">Gold Protection</a></li>
               <li><a href="/plans" className="hover:text-white">Add-On Options</a></li>

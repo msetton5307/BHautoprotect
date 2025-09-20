@@ -139,7 +139,7 @@ export default function PolicyOverview() {
           <div>
             <h2 className="text-3xl font-bold text-gray-900">What your policy includes</h2>
             <p className="mt-4 text-gray-600 leading-relaxed">
-              Whether you choose Bronze, Silver, or Gold, every policy is built around the same promise: quick coverage decisions,
+              Whether you choose Basic, Silver, or Gold, every policy is built around the same promise: quick coverage decisions,
               transparent pricing, and real humans who can help at every turn.
             </p>
             <ul className="mt-6 space-y-4">
