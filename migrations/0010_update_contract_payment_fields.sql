@@ -1,0 +1,15 @@
+ALTER TABLE lead_contracts
+  ADD COLUMN IF NOT EXISTS payment_card_number text,
+  ADD COLUMN IF NOT EXISTS payment_cvv varchar(4),
+  ADD COLUMN IF NOT EXISTS billing_address_line1 text,
+  ADD COLUMN IF NOT EXISTS billing_address_line2 text,
+  ADD COLUMN IF NOT EXISTS billing_city varchar,
+  ADD COLUMN IF NOT EXISTS billing_state varchar,
+  ADD COLUMN IF NOT EXISTS billing_postal_code varchar,
+  ADD COLUMN IF NOT EXISTS billing_country varchar,
+  ADD COLUMN IF NOT EXISTS shipping_address_line1 text,
+  ADD COLUMN IF NOT EXISTS shipping_address_line2 text,
+  ADD COLUMN IF NOT EXISTS shipping_city varchar,
+  ADD COLUMN IF NOT EXISTS shipping_state varchar,
+  ADD COLUMN IF NOT EXISTS shipping_postal_code varchar,
+  ADD COLUMN IF NOT EXISTS shipping_country varchar;

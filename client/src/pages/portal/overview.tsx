@@ -56,7 +56,16 @@ function summarizeVehicle(policy: CustomerPolicy): string {
 
 function friendlyPlanName(plan: string | null): string {
   if (!plan) return "Vehicle Protection";
-  return plan.charAt(0).toUpperCase() + plan.slice(1);
+  return plan
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatFromCents(value: number | null | undefined): string {
+  if (value == null) return "On file";
+  return currencyFormatter.format(value / 100);
 }
 
 function computeMonthlyTotal(policies: CustomerPolicy[]): number {
@@ -258,7 +267,7 @@ export default function CustomerPortalOverview({ session }: Props) {
                   <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="text-base font-semibold text-slate-900">{summarizeVehicle(policy)}</p>
-                      <p className="text-xs text-slate-500">Policy #{policy.id}</p>
+                      <p className="text-sm font-semibold text-slate-700">Policy #{policy.id}</p>
                     </div>
                     <Badge variant="secondary" className="w-fit">
                       {friendlyPlanName(policy.package)} plan
@@ -275,11 +284,11 @@ export default function CustomerPortalOverview({ session }: Props) {
                     </div>
                     <div>
                       <p className="font-medium text-slate-700">Deductible</p>
-                      <p>{policy.deductible != null ? currencyFormatter.format(policy.deductible) : "On file"}</p>
+                      <p>{formatFromCents(policy.deductible)}</p>
                     </div>
                     <div>
                       <p className="font-medium text-slate-700">Monthly payment</p>
-                      <p>{policy.monthlyPayment != null ? currencyFormatter.format(policy.monthlyPayment) : "On file"}</p>
+                      <p>{formatFromCents(policy.monthlyPayment)}</p>
                     </div>
                   </div>
                 </CardContent>

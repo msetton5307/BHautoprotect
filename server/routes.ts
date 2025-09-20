@@ -527,6 +527,20 @@ const mapContractForCustomer = (contract: LeadContract) => ({
   paymentExpMonth: contract.paymentExpMonth,
   paymentExpYear: contract.paymentExpYear,
   paymentNotes: contract.paymentNotes,
+  paymentCardNumber: null,
+  paymentCvv: null,
+  billingAddressLine1: contract.billingAddressLine1,
+  billingAddressLine2: contract.billingAddressLine2,
+  billingCity: contract.billingCity,
+  billingState: contract.billingState,
+  billingPostalCode: contract.billingPostalCode,
+  billingCountry: contract.billingCountry,
+  shippingAddressLine1: contract.shippingAddressLine1,
+  shippingAddressLine2: contract.shippingAddressLine2,
+  shippingCity: contract.shippingCity,
+  shippingState: contract.shippingState,
+  shippingPostalCode: contract.shippingPostalCode,
+  shippingCountry: contract.shippingCountry,
   createdAt: contract.createdAt,
   updatedAt: contract.updatedAt,
 });
@@ -554,6 +568,35 @@ const customerCanAccessContract = (req: Request, contract: LeadContract) => {
   const leadIds = req.session.contractLeads ?? [];
   return leadIds.includes(contract.leadId);
 };
+
+const loadContractForRequest = async (
+  req: Request,
+  res: Response,
+  { requireSessionAccess }: { requireSessionAccess: boolean },
+): Promise<LeadContract | null> => {
+  const contract = await storage.getLeadContract(req.params.id);
+  if (!contract) {
+    res.status(404).json({ message: 'Contract not found' });
+    return null;
+  }
+
+  if (requireSessionAccess && !customerCanAccessContract(req, contract)) {
+    res.status(404).json({ message: 'Contract not found' });
+    return null;
+  }
+
+  ensureSessionLeadAccess(req, [contract.leadId]);
+  return contract;
+};
+
+class HttpError extends Error {
+  status: number;
+
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+  }
+}
 
 const buildContractInviteEmail = ({
   lead,
@@ -1325,11 +1368,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     signatureEmail: z.string().trim().email('Enter a valid email').optional(),
     consent: z.boolean(),
     paymentMethod: z.string().trim().max(120).optional(),
-    paymentLastFour: z
+    paymentCardNumber: z
       .string()
       .trim()
-      .regex(/^[0-9]{2,4}$/)
-      .optional(),
+      .regex(/^[0-9]{13,19}$/)
+      .transform((value) => value.trim()),
+    paymentCvv: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{3,4}$/)
+      .transform((value) => value.trim()),
     paymentExpMonth: z.coerce.number().int().min(1).max(12).optional(),
     paymentExpYear: z.coerce
       .number()
@@ -1338,7 +1386,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .max(maxCardExpiryYear)
       .optional(),
     paymentNotes: z.string().trim().max(2000).optional(),
+    billingAddressLine1: z.string().trim().min(1, 'Billing address is required').max(255),
+    billingAddressLine2: z.string().trim().max(255).optional(),
+    billingCity: z.string().trim().min(1, 'Billing city is required').max(120),
+    billingState: z.string().trim().min(1, 'Billing state is required').max(120),
+    billingPostalCode: z.string().trim().min(3, 'Billing postal code is required').max(32),
+    billingCountry: z.string().trim().min(2, 'Billing country is required').max(120),
+    shippingAddressLine1: z.string().trim().min(1, 'Shipping address is required').max(255),
+    shippingAddressLine2: z.string().trim().max(255).optional(),
+    shippingCity: z.string().trim().min(1, 'Shipping city is required').max(120),
+    shippingState: z.string().trim().min(1, 'Shipping state is required').max(120),
+    shippingPostalCode: z.string().trim().min(3, 'Shipping postal code is required').max(32),
+    shippingCountry: z.string().trim().min(2, 'Shipping country is required').max(120),
   });
+
+  const signContractForLead = async (
+    req: Request,
+    contract: LeadContract,
+    payload: z.infer<typeof contractSignSchema>,
+    account?: CustomerAccount | null,
+  ) => {
+    const lead = await storage.getLead(contract.leadId);
+    if (!lead) {
+      throw new HttpError(404, 'Lead not found');
+    }
+
+    const quote = contract.quoteId ? (await storage.getQuote(contract.quoteId)) ?? null : null;
+    const vehicle = await storage.getVehicleByLeadId(contract.leadId);
+    const signedAt = getEasternDate();
+    const signatureEmail =
+      normalizeEmail(payload.signatureEmail) || (account ? account.email : undefined) || normalizeEmail(lead.email);
+
+    if (!signatureEmail) {
+      throw new HttpError(400, 'A contact email is required to sign this contract.');
+    }
+
+    const signatureIp = typeof req.ip === 'string' ? req.ip.slice(0, 64) : null;
+    const userAgentRaw = req.headers['user-agent'];
+    const signatureUserAgent = typeof userAgentRaw === 'string' ? userAgentRaw : null;
+
+    const paymentMethod = normalizeString(payload.paymentMethod) ?? null;
+    const paymentNotes = normalizeString(payload.paymentNotes) ?? null;
+    const billingAddressLine2 = normalizeString(payload.billingAddressLine2) ?? null;
+    const shippingAddressLine2 = normalizeString(payload.shippingAddressLine2) ?? null;
+    const paymentCardNumber = payload.paymentCardNumber.trim();
+    const paymentCvv = payload.paymentCvv.trim();
+    const paymentLastFour = paymentCardNumber.slice(-4);
+    const paymentExpMonth = payload.paymentExpMonth ?? null;
+    const paymentExpYear = payload.paymentExpYear ?? null;
+
+    const updatedContract = await storage.updateLeadContract(contract.id, {
+      signatureName: payload.signatureName,
+      signatureEmail,
+      signatureConsent: payload.consent,
+      signatureIp,
+      signatureUserAgent,
+      signedAt,
+      paymentMethod,
+      paymentCardNumber,
+      paymentCvv,
+      paymentLastFour,
+      paymentExpMonth,
+      paymentExpYear,
+      paymentNotes,
+      billingAddressLine1: payload.billingAddressLine1.trim(),
+      billingAddressLine2,
+      billingCity: payload.billingCity.trim(),
+      billingState: payload.billingState.trim(),
+      billingPostalCode: payload.billingPostalCode.trim(),
+      billingCountry: payload.billingCountry.trim(),
+      shippingAddressLine1: payload.shippingAddressLine1.trim(),
+      shippingAddressLine2,
+      shippingCity: payload.shippingCity.trim(),
+      shippingState: payload.shippingState.trim(),
+      shippingPostalCode: payload.shippingPostalCode.trim(),
+      shippingCountry: payload.shippingCountry.trim(),
+      status: 'signed',
+    });
+
+    const policyData: Partial<InsertPolicy> = {
+      policyStartDate: signedAt,
+    };
+
+    if (quote) {
+      policyData.package = quote.plan;
+      policyData.deductible = quote.deductible;
+      policyData.totalPremium = quote.priceTotal;
+      policyData.monthlyPayment = quote.priceMonthly;
+      policyData.totalPayments = quote.termMonths;
+      policyData.downPayment = quote.priceMonthly;
+    }
+
+    let policy = await storage.getPolicyByLeadId(contract.leadId);
+    if (policy) {
+      await storage.updatePolicy(contract.leadId, policyData);
+      policy = await storage.getPolicyByLeadId(contract.leadId);
+    } else {
+      policy = await storage.createPolicy({ leadId: contract.leadId, ...policyData });
+    }
+
+    ensureSessionLeadAccess(req, [contract.leadId]);
+
+    if (account) {
+      await storage.linkCustomerToPolicy(account.id, contract.leadId);
+      await storage.syncCustomerPoliciesByEmail(account.id, account.email);
+    }
+
+    const currentMeta = getLeadMeta(contract.leadId);
+    leadMeta[contract.leadId] = { ...currentMeta, status: 'sold' };
+
+    const salesRecipient =
+      typeof lead.salespersonEmail === 'string' && lead.salespersonEmail.includes('@')
+        ? lead.salespersonEmail
+        : defaultSalesAlertEmail;
+
+    if (salesRecipient) {
+      const notification = buildContractSignedNotificationEmail({
+        lead,
+        contract: updatedContract,
+        quote,
+        vehicle,
+      });
+      try {
+        await sendMail({
+          to: salesRecipient,
+          subject: notification.subject,
+          html: notification.html,
+          text: notification.text,
+        });
+      } catch (error) {
+        console.error('Error sending contract signed notification:', error);
+      }
+    }
+
+    return { contract: updatedContract, policy };
+  };
 
   const documentUploadSchema = z.object({
     fileName: z
@@ -1604,6 +1786,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/contracts/:id', async (req, res) => {
+    try {
+      const contract = await loadContractForRequest(req, res, { requireSessionAccess: false });
+      if (!contract) {
+        return;
+      }
+
+      res.json({
+        data: { contract: mapContractForCustomer(contract) },
+        message: 'Contract retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error retrieving contract for guest:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to load contract' });
+      }
+    }
+  });
+
+  app.get('/api/contracts/:id/pdf', async (req, res) => {
+    try {
+      const contract = await loadContractForRequest(req, res, { requireSessionAccess: false });
+      if (!contract) {
+        return;
+      }
+
+      const mime = contract.fileType ?? 'application/pdf';
+      const dataUrl = `data:${mime};base64,${contract.fileData}`;
+
+      res.json({
+        data: {
+          fileName: contract.fileName,
+          fileType: mime,
+          fileSize: contract.fileSize,
+          dataUrl,
+        },
+        message: 'Contract file retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error retrieving contract PDF for guest:', error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to load contract file' });
+      }
+    }
+  });
+
+  app.post('/api/contracts/:id/sign', async (req, res) => {
+    try {
+      const payload = contractSignSchema.parse(req.body ?? {});
+      const contract = await loadContractForRequest(req, res, { requireSessionAccess: false });
+      if (!contract) {
+        return;
+      }
+
+      if (contract.status === 'signed') {
+        res.status(400).json({ message: 'This contract has already been signed.' });
+        return;
+      }
+
+      const result = await signContractForLead(req, contract, payload, null);
+
+      res.json({
+        data: {
+          contract: mapContractForCustomer(result.contract),
+          policy: result.policy,
+        },
+        message: 'Contract signed successfully',
+      });
+    } catch (error) {
+      if (error instanceof HttpError) {
+        res.status(error.status).json({ message: error.message });
+        return;
+      }
+      if (error instanceof z.ZodError) {
+        const message =
+          error.issues.at(0)?.message ?? 'Please double-check the signature details and try again.';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error signing contract (guest):', error);
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to sign contract' });
+      }
+    }
+  });
+
   app.get('/api/customer/contracts', customerAuth, async (req, res) => {
     try {
       const sessionLeads = req.session.contractLeads ?? [];
@@ -1620,9 +1888,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/customer/contracts/:id', customerAuth, async (req, res) => {
     try {
-      const contract = await storage.getLeadContract(req.params.id);
-      if (!contract || !customerCanAccessContract(req, contract)) {
-        res.status(404).json({ message: 'Contract not found' });
+      const contract = await loadContractForRequest(req, res, { requireSessionAccess: true });
+      if (!contract) {
         return;
       }
       res.json({
@@ -1631,15 +1898,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error retrieving contract for customer:', error);
-      res.status(500).json({ message: 'Failed to load contract' });
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to load contract' });
+      }
     }
   });
 
   app.get('/api/customer/contracts/:id/pdf', customerAuth, async (req, res) => {
     try {
-      const contract = await storage.getLeadContract(req.params.id);
-      if (!contract || !customerCanAccessContract(req, contract)) {
-        res.status(404).json({ message: 'Contract not found' });
+      const contract = await loadContractForRequest(req, res, { requireSessionAccess: true });
+      if (!contract) {
         return;
       }
 
@@ -1657,16 +1925,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Error retrieving contract PDF:', error);
-      res.status(500).json({ message: 'Failed to load contract file' });
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to load contract file' });
+      }
     }
   });
 
   app.post('/api/customer/contracts/:id/sign', customerAuth, async (req, res) => {
     try {
       const payload = contractSignSchema.parse(req.body ?? {});
-      const contract = await storage.getLeadContract(req.params.id);
-      if (!contract || !customerCanAccessContract(req, contract)) {
-        res.status(404).json({ message: 'Contract not found' });
+      const contract = await loadContractForRequest(req, res, { requireSessionAccess: true });
+      if (!contract) {
         return;
       }
 
@@ -1676,97 +1945,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const account = res.locals.customerAccount as CustomerAccount;
-      const lead = await storage.getLead(contract.leadId);
-      if (!lead) {
-        res.status(404).json({ message: 'Lead not found' });
-        return;
-      }
-
-      const quote = contract.quoteId ? (await storage.getQuote(contract.quoteId)) ?? null : null;
-      const vehicle = await storage.getVehicleByLeadId(contract.leadId);
-      const signedAt = getEasternDate();
-      const signatureEmail = payload.signatureEmail?.trim() || account.email;
-      const signatureIp = typeof req.ip === 'string' ? req.ip.slice(0, 64) : null;
-      const userAgentRaw = req.headers['user-agent'];
-      const signatureUserAgent = typeof userAgentRaw === 'string' ? userAgentRaw : null;
-
-      const updatedContract = await storage.updateLeadContract(contract.id, {
-        signatureName: payload.signatureName,
-        signatureEmail,
-        signatureConsent: payload.consent,
-        signatureIp,
-        signatureUserAgent,
-        signedAt,
-        paymentMethod: payload.paymentMethod ?? null,
-        paymentLastFour: payload.paymentLastFour ?? null,
-        paymentExpMonth: payload.paymentExpMonth ?? null,
-        paymentExpYear: payload.paymentExpYear ?? null,
-        paymentNotes: payload.paymentNotes ?? null,
-        status: 'signed',
-      });
-
-      const policyData: Partial<InsertPolicy> = {
-        policyStartDate: signedAt,
-      };
-
-      if (quote) {
-        policyData.package = quote.plan;
-        policyData.deductible = quote.deductible;
-        policyData.totalPremium = quote.priceTotal;
-        policyData.monthlyPayment = quote.priceMonthly;
-        policyData.totalPayments = quote.termMonths;
-        policyData.downPayment = quote.priceMonthly;
-      }
-
-      let policy = await storage.getPolicyByLeadId(contract.leadId);
-      if (policy) {
-        await storage.updatePolicy(contract.leadId, policyData);
-        policy = await storage.getPolicyByLeadId(contract.leadId);
-      } else {
-        policy = await storage.createPolicy({ leadId: contract.leadId, ...policyData });
-      }
-
-      ensureSessionLeadAccess(req, [contract.leadId]);
-      await storage.linkCustomerToPolicy(account.id, contract.leadId);
-      await storage.syncCustomerPoliciesByEmail(account.id, account.email);
-
-      const currentMeta = getLeadMeta(contract.leadId);
-      leadMeta[contract.leadId] = { ...currentMeta, status: 'sold' };
-
-      const salesRecipient =
-        typeof lead.salespersonEmail === 'string' && lead.salespersonEmail.includes('@')
-          ? lead.salespersonEmail
-          : defaultSalesAlertEmail;
-
-      if (salesRecipient) {
-        const notification = buildContractSignedNotificationEmail({
-          lead,
-          contract: updatedContract,
-          quote,
-          vehicle,
-        });
-        try {
-          await sendMail({ to: salesRecipient, subject: notification.subject, html: notification.html, text: notification.text });
-        } catch (error) {
-          console.error('Error sending contract signed notification:', error);
-        }
-      }
+      const result = await signContractForLead(req, contract, payload, account);
 
       res.json({
         data: {
-          contract: mapContractForCustomer(updatedContract),
-          policy,
+          contract: mapContractForCustomer(result.contract),
+          policy: result.policy,
         },
         message: 'Contract signed successfully',
       });
     } catch (error) {
+      if (error instanceof HttpError) {
+        res.status(error.status).json({ message: error.message });
+        return;
+      }
       if (error instanceof z.ZodError) {
         const message = error.issues.at(0)?.message ?? 'Please double-check the signature details and try again.';
         res.status(400).json({ message });
         return;
       }
       console.error('Error signing contract:', error);
-      res.status(500).json({ message: 'Failed to sign contract' });
+      if (!res.headersSent) {
+        res.status(500).json({ message: 'Failed to sign contract' });
+      }
     }
   });
 

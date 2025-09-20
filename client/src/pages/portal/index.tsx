@@ -37,6 +37,7 @@ function LoadingState() {
 export default function CustomerPortal() {
   const [session, setSession] = useState<CustomerSessionSnapshot | null | undefined>(undefined);
   const [location] = useLocation();
+  const [contractId, setContractId] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -55,6 +56,15 @@ export default function CustomerPortal() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      setContractId(params.get("contract"));
+    } catch {
+      setContractId(null);
+    }
+  }, [location]);
 
   const handleAuthenticated = (snapshot: CustomerSessionSnapshot) => {
     setSession(snapshot);
@@ -84,6 +94,15 @@ export default function CustomerPortal() {
   }
 
   if (!session) {
+    if (contractId) {
+      return (
+        <div className="min-h-screen bg-slate-50 py-10">
+          <div className="mx-auto w-full max-w-3xl px-4">
+            <CustomerPortalContracts session={null} initialContractId={contractId} />
+          </div>
+        </div>
+      );
+    }
     return <CustomerPortalAuth onAuthenticated={handleAuthenticated} />;
   }
 
@@ -139,7 +158,7 @@ export default function CustomerPortal() {
             <CustomerPortalPayments session={session} />
           </Route>
           <Route path="/portal/contracts">
-            <CustomerPortalContracts session={session} />
+            <CustomerPortalContracts session={session} initialContractId={contractId} />
           </Route>
           <Route path="/portal/documents">
             <CustomerPortalDocuments session={session} />
