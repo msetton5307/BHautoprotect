@@ -215,6 +215,16 @@ const formatCurrencyInput = (value: number | null | undefined): string => {
   return (numeric / 100).toFixed(2);
 };
 
+const formatPolicyName = (value: string | null | undefined): string => {
+  if (!value) return "";
+  return value
+    .replace(/[_-]+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
 const parseCurrencyInput = (value: string): number | null => {
   const normalized = value.replace(/[$,]/g, "").trim();
   if (!normalized) {
@@ -240,6 +250,26 @@ const createPolicyFormState = (policy: any) => ({
   downPayment: formatCurrencyInput(policy?.downPayment),
   monthlyPayment: formatCurrencyInput(policy?.monthlyPayment),
   totalPayments: formatCurrencyInput(policy?.totalPayments),
+  leadFirstName: policy?.lead?.firstName ?? "",
+  leadLastName: policy?.lead?.lastName ?? "",
+  leadEmail: policy?.lead?.email ?? "",
+  leadPhone: policy?.lead?.phone ?? "",
+  leadState: policy?.lead?.state ?? "",
+  leadZip: policy?.lead?.zip ?? "",
+  vehicleYear:
+    policy?.vehicle?.year != null && !Number.isNaN(Number(policy.vehicle.year))
+      ? String(policy.vehicle.year)
+      : "",
+  vehicleMake: policy?.vehicle?.make ?? "",
+  vehicleModel: policy?.vehicle?.model ?? "",
+  vehicleTrim: policy?.vehicle?.trim ?? "",
+  vehicleVin: policy?.vehicle?.vin ?? "",
+  vehicleOdometer:
+    policy?.vehicle?.odometer != null && !Number.isNaN(Number(policy.vehicle.odometer))
+      ? String(policy.vehicle.odometer)
+      : "",
+  vehicleUsage: policy?.vehicle?.usage ?? "",
+  vehicleIsEv: policy?.vehicle?.ev ? "true" : "false",
 });
 
 const sanitizeHtmlForPreview = (value: string): string =>
@@ -349,9 +379,7 @@ const buildBrandedEmailFromPlainText = ({
   message: string;
   policy: any;
 }): string => {
-  const policyPackage = policy?.package
-    ? `${policy.package.charAt(0).toUpperCase()}${policy.package.slice(1)}`
-    : "Vehicle Protection";
+  const policyPackage = formatPolicyName(policy?.package) || "Vehicle Protection";
   const heroTitle = `${policyPackage} Update`;
   const heroSubtitle = `Policy ${policy?.id ?? "Details"}`;
   const bodyContent = convertPlainTextToHtml(message || "");
@@ -369,9 +397,7 @@ const buildBrandedEmailFromPlainText = ({
 const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
   const name = getPolicyHolderName(policy);
   const displayName = name || "there";
-  const policyPackage = policy?.package
-    ? `${policy.package.charAt(0).toUpperCase()}${policy.package.slice(1)}`
-    : "Vehicle Protection";
+  const policyPackage = formatPolicyName(policy?.package) || "Vehicle Protection";
   const policyId = policy?.id ?? "N/A";
   const heroSubtitle = `Policy ID • ${policyId}`;
   const vehicle = policy?.vehicle;
@@ -870,6 +896,17 @@ export default function AdminPolicyDetail() {
 
   const handlePolicyUpdate = async (event?: React.FormEvent<HTMLFormElement>) => {
     event?.preventDefault();
+
+    const sanitizeNullableString = (value: string) => {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
+
+    const sanitizeState = (value: string) => {
+      const trimmed = value.trim();
+      return trimmed.length > 0 ? trimmed.toUpperCase() : null;
+    };
+
     const payload: Record<string, unknown> = {
       package: policyForm.package.trim() || null,
       policyStartDate: policyForm.policyStartDate ? new Date(policyForm.policyStartDate).toISOString() : null,
@@ -884,6 +921,92 @@ export default function AdminPolicyDetail() {
       monthlyPayment: parseCurrencyInput(policyForm.monthlyPayment),
       totalPayments: parseCurrencyInput(policyForm.totalPayments),
     };
+
+    const emailValue = sanitizeNullableString(policyForm.leadEmail);
+    const leadPayload: Record<string, string | null> = {
+      firstName: sanitizeNullableString(policyForm.leadFirstName),
+      lastName: sanitizeNullableString(policyForm.leadLastName),
+      email: emailValue ? emailValue.toLowerCase() : null,
+      phone: sanitizeNullableString(policyForm.leadPhone),
+      state: sanitizeState(policyForm.leadState),
+      zip: sanitizeNullableString(policyForm.leadZip),
+    };
+
+    payload.lead = leadPayload;
+
+    const trimmedYear = policyForm.vehicleYear.trim();
+    const trimmedMake = policyForm.vehicleMake.trim();
+    const trimmedModel = policyForm.vehicleModel.trim();
+    const trimmedTrim = policyForm.vehicleTrim.trim();
+    const trimmedVin = policyForm.vehicleVin.trim();
+    const trimmedOdometer = policyForm.vehicleOdometer.trim();
+    const trimmedUsage = policyForm.vehicleUsage.trim();
+
+    const shouldSendVehicle =
+      Boolean(
+        trimmedYear ||
+          trimmedMake ||
+          trimmedModel ||
+          trimmedTrim ||
+          trimmedVin ||
+          trimmedOdometer ||
+          trimmedUsage
+      ) || Boolean(policy?.vehicle);
+
+    if (shouldSendVehicle) {
+      const vehiclePayload: Record<string, unknown> = {};
+
+      if (trimmedYear) {
+        const numericYear = Number.parseInt(trimmedYear, 10);
+        if (!Number.isNaN(numericYear)) {
+          vehiclePayload.year = numericYear;
+        }
+      }
+
+      if (trimmedMake) {
+        vehiclePayload.make = trimmedMake;
+      }
+
+      if (trimmedModel) {
+        vehiclePayload.model = trimmedModel;
+      }
+
+      if (trimmedOdometer) {
+        const numericOdometer = Number.parseInt(trimmedOdometer, 10);
+        if (!Number.isNaN(numericOdometer)) {
+          vehiclePayload.odometer = numericOdometer;
+        }
+      }
+
+      if (trimmedTrim) {
+        vehiclePayload.trim = trimmedTrim;
+      } else if (policy?.vehicle?.trim) {
+        vehiclePayload.trim = null;
+      }
+
+      if (trimmedVin) {
+        vehiclePayload.vin = trimmedVin.toUpperCase();
+      } else if (policy?.vehicle?.vin) {
+        vehiclePayload.vin = null;
+      }
+
+      if (trimmedUsage) {
+        vehiclePayload.usage = trimmedUsage;
+      } else if (policy?.vehicle?.usage) {
+        vehiclePayload.usage = null;
+      }
+
+      const evValue = policyForm.vehicleIsEv === "true";
+      if (!policy?.vehicle || policy.vehicle.ev !== evValue) {
+        vehiclePayload.ev = evValue;
+      } else if (policy?.vehicle) {
+        vehiclePayload.ev = evValue;
+      }
+
+      if (Object.keys(vehiclePayload).length > 0) {
+        payload.vehicle = vehiclePayload;
+      }
+    }
 
     setIsUpdatingPolicy(true);
     try {
@@ -1139,7 +1262,7 @@ export default function AdminPolicyDetail() {
                     <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-200/90">
                       <span className="font-mono text-xs uppercase tracking-[0.35em] text-slate-200/80">{policy.id}</span>
                       {policy.package ? (
-                        <span className="text-slate-200/80">• {policy.package} coverage</span>
+                        <span className="text-slate-200/80">• {formatPolicyName(policy.package)} coverage</span>
                       ) : null}
                     </p>
                   </div>
@@ -1261,7 +1384,7 @@ export default function AdminPolicyDetail() {
                 <dl className="grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-2">
                   <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Package</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{policy.package || "N/A"}</dd>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{formatPolicyName(policy.package) || "N/A"}</dd>
                   </div>
                   <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Policy start</dt>
@@ -1898,106 +2021,248 @@ export default function AdminPolicyDetail() {
           <DialogHeader>
             <DialogTitle>Edit policy details</DialogTitle>
             <DialogDescription>
-              Update coverage dates, payments, and package information. Changes sync instantly for your team.
+              Adjust coverage, customer contact information, and vehicle specs. Changes sync instantly for your team.
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handlePolicyUpdate} className="space-y-5">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="edit-policy-package">Package</Label>
-                <Input
-                  id="edit-policy-package"
-                  value={policyForm.package}
-                  onChange={event => handlePolicyFieldChange("package", event.target.value)}
-                  placeholder="Premium"
-                />
+          <form onSubmit={handlePolicyUpdate} className="space-y-6">
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-slate-900">Customer details</h4>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-first-name">First name</Label>
+                  <Input
+                    id="edit-policy-first-name"
+                    value={policyForm.leadFirstName}
+                    onChange={event => handlePolicyFieldChange("leadFirstName", event.target.value)}
+                    placeholder="Jordan"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-last-name">Last name</Label>
+                  <Input
+                    id="edit-policy-last-name"
+                    value={policyForm.leadLastName}
+                    onChange={event => handlePolicyFieldChange("leadLastName", event.target.value)}
+                    placeholder="Rivera"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="edit-policy-email">Email</Label>
+                  <Input
+                    id="edit-policy-email"
+                    type="email"
+                    value={policyForm.leadEmail}
+                    onChange={event => handlePolicyFieldChange("leadEmail", event.target.value)}
+                    placeholder="customer@example.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-phone">Phone</Label>
+                  <Input
+                    id="edit-policy-phone"
+                    value={policyForm.leadPhone}
+                    onChange={event => handlePolicyFieldChange("leadPhone", event.target.value)}
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-state">State</Label>
+                  <Input
+                    id="edit-policy-state"
+                    value={policyForm.leadState}
+                    onChange={event => handlePolicyFieldChange("leadState", event.target.value)}
+                    placeholder="NY"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-zip">ZIP code</Label>
+                  <Input
+                    id="edit-policy-zip"
+                    value={policyForm.leadZip}
+                    onChange={event => handlePolicyFieldChange("leadZip", event.target.value)}
+                    placeholder="10001"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-policy-expiration-miles">Expiration mileage</Label>
-                <Input
-                  id="edit-policy-expiration-miles"
-                  type="number"
-                  value={policyForm.expirationMiles}
-                  onChange={event => handlePolicyFieldChange("expirationMiles", event.target.value)}
-                  placeholder="75000"
-                />
+            </section>
+
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-slate-900">Vehicle information</h4>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vehicle-year">Year</Label>
+                  <Input
+                    id="edit-vehicle-year"
+                    type="number"
+                    value={policyForm.vehicleYear}
+                    onChange={event => handlePolicyFieldChange("vehicleYear", event.target.value)}
+                    placeholder="2019"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vehicle-make">Make</Label>
+                  <Input
+                    id="edit-vehicle-make"
+                    value={policyForm.vehicleMake}
+                    onChange={event => handlePolicyFieldChange("vehicleMake", event.target.value)}
+                    placeholder="Toyota"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vehicle-model">Model</Label>
+                  <Input
+                    id="edit-vehicle-model"
+                    value={policyForm.vehicleModel}
+                    onChange={event => handlePolicyFieldChange("vehicleModel", event.target.value)}
+                    placeholder="Camry"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vehicle-trim">Trim</Label>
+                  <Input
+                    id="edit-vehicle-trim"
+                    value={policyForm.vehicleTrim}
+                    onChange={event => handlePolicyFieldChange("vehicleTrim", event.target.value)}
+                    placeholder="XSE"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="edit-vehicle-vin">VIN</Label>
+                  <Input
+                    id="edit-vehicle-vin"
+                    value={policyForm.vehicleVin}
+                    onChange={event => handlePolicyFieldChange("vehicleVin", event.target.value)}
+                    placeholder="17-character VIN"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vehicle-odometer">Odometer</Label>
+                  <Input
+                    id="edit-vehicle-odometer"
+                    type="number"
+                    value={policyForm.vehicleOdometer}
+                    onChange={event => handlePolicyFieldChange("vehicleOdometer", event.target.value)}
+                    placeholder="45000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vehicle-usage">Usage</Label>
+                  <Input
+                    id="edit-vehicle-usage"
+                    value={policyForm.vehicleUsage}
+                    onChange={event => handlePolicyFieldChange("vehicleUsage", event.target.value)}
+                    placeholder="Personal"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-vehicle-ev">Electric vehicle</Label>
+                  <Select value={policyForm.vehicleIsEv} onValueChange={value => handlePolicyFieldChange("vehicleIsEv", value)}>
+                    <SelectTrigger id="edit-vehicle-ev">
+                      <SelectValue placeholder="Select" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-white text-slate-900">
+                      <SelectItem value="true">Yes</SelectItem>
+                      <SelectItem value="false">No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="edit-policy-start">Policy start date</Label>
-                <Input
-                  id="edit-policy-start"
-                  type="date"
-                  value={policyForm.policyStartDate}
-                  onChange={event => handlePolicyFieldChange("policyStartDate", event.target.value)}
-                />
+            </section>
+
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold text-slate-900">Coverage &amp; billing</h4>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-package">Package</Label>
+                  <Input
+                    id="edit-policy-package"
+                    value={policyForm.package}
+                    onChange={event => handlePolicyFieldChange("package", event.target.value)}
+                    placeholder="Basic"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-expiration-miles">Expiration mileage</Label>
+                  <Input
+                    id="edit-policy-expiration-miles"
+                    type="number"
+                    value={policyForm.expirationMiles}
+                    onChange={event => handlePolicyFieldChange("expirationMiles", event.target.value)}
+                    placeholder="75000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-start">Policy start date</Label>
+                  <Input
+                    id="edit-policy-start"
+                    type="date"
+                    value={policyForm.policyStartDate}
+                    onChange={event => handlePolicyFieldChange("policyStartDate", event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-expiration-date">Expiration date</Label>
+                  <Input
+                    id="edit-policy-expiration-date"
+                    type="date"
+                    value={policyForm.expirationDate}
+                    onChange={event => handlePolicyFieldChange("expirationDate", event.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-deductible">Deductible</Label>
+                  <Input
+                    id="edit-policy-deductible"
+                    type="number"
+                    value={policyForm.deductible}
+                    onChange={event => handlePolicyFieldChange("deductible", event.target.value)}
+                    placeholder="10000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-total-premium">Total premium</Label>
+                  <Input
+                    id="edit-policy-total-premium"
+                    type="number"
+                    value={policyForm.totalPremium}
+                    onChange={event => handlePolicyFieldChange("totalPremium", event.target.value)}
+                    placeholder="299900"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-down-payment">Down payment</Label>
+                  <Input
+                    id="edit-policy-down-payment"
+                    type="number"
+                    value={policyForm.downPayment}
+                    onChange={event => handlePolicyFieldChange("downPayment", event.target.value)}
+                    placeholder="49900"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-policy-monthly-payment">Monthly payment</Label>
+                  <Input
+                    id="edit-policy-monthly-payment"
+                    type="number"
+                    value={policyForm.monthlyPayment}
+                    onChange={event => handlePolicyFieldChange("monthlyPayment", event.target.value)}
+                    placeholder="15900"
+                  />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <Label htmlFor="edit-policy-total-payments">Total payments</Label>
+                  <Input
+                    id="edit-policy-total-payments"
+                    type="number"
+                    value={policyForm.totalPayments}
+                    onChange={event => handlePolicyFieldChange("totalPayments", event.target.value)}
+                    placeholder="899900"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-policy-expiration-date">Expiration date</Label>
-                <Input
-                  id="edit-policy-expiration-date"
-                  type="date"
-                  value={policyForm.expirationDate}
-                  onChange={event => handlePolicyFieldChange("expirationDate", event.target.value)}
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="edit-policy-deductible">Deductible</Label>
-                <Input
-                  id="edit-policy-deductible"
-                  type="number"
-                  value={policyForm.deductible}
-                  onChange={event => handlePolicyFieldChange("deductible", event.target.value)}
-                  placeholder="10000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-policy-total-premium">Total premium</Label>
-                <Input
-                  id="edit-policy-total-premium"
-                  type="number"
-                  value={policyForm.totalPremium}
-                  onChange={event => handlePolicyFieldChange("totalPremium", event.target.value)}
-                  placeholder="299900"
-                />
-              </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="edit-policy-down-payment">Down payment</Label>
-                <Input
-                  id="edit-policy-down-payment"
-                  type="number"
-                  value={policyForm.downPayment}
-                  onChange={event => handlePolicyFieldChange("downPayment", event.target.value)}
-                  placeholder="49900"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-policy-monthly-payment">Monthly payment</Label>
-                <Input
-                  id="edit-policy-monthly-payment"
-                  type="number"
-                  value={policyForm.monthlyPayment}
-                  onChange={event => handlePolicyFieldChange("monthlyPayment", event.target.value)}
-                  placeholder="15900"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-policy-total-payments">Total payments</Label>
-              <Input
-                id="edit-policy-total-payments"
-                type="number"
-                value={policyForm.totalPayments}
-                onChange={event => handlePolicyFieldChange("totalPayments", event.target.value)}
-                placeholder="899900"
-              />
-            </div>
-            <DialogFooter>
+            </section>
+
+            <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsEditPolicyOpen(false)} disabled={isUpdatingPolicy}>
                 Cancel
               </Button>
