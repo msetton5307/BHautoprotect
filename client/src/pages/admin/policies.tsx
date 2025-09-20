@@ -121,6 +121,11 @@ const getCoverageSummary = (policy: any) => {
 export default function AdminPolicies() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [, navigate] = useLocation();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [packageFilter, setPackageFilter] = useState<string>('all');
+  const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
+  const [sortField, setSortField] = useState<string>('createdAt');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const queriesEnabled = authenticated && !checking;
   const { data, isLoading } = useQuery({
     queryKey: ['/api/admin/policies'],
@@ -137,33 +142,10 @@ export default function AdminPolicies() {
     enabled: queriesEnabled,
   });
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return <AdminLogin onSuccess={markAuthenticated} />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  const policies = data?.data || [];
-
-  const [searchTerm, setSearchTerm] = useState("");
-  const [packageFilter, setPackageFilter] = useState<string>('all');
-  const [coverageFilter, setCoverageFilter] = useState<CoverageFilter>('all');
-  const [sortField, setSortField] = useState<string>('createdAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const policies = useMemo(() => {
+    const payload = data?.data;
+    return Array.isArray(payload) ? payload : [];
+  }, [data]);
 
   const packageOptions = useMemo(() => {
     const unique = new Set<string>();
@@ -317,6 +299,26 @@ export default function AdminPolicies() {
     { value: 'expired', label: 'Expired' },
     { value: 'unknown', label: 'Unknown' },
   ];
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
