@@ -186,19 +186,19 @@ export default function Landing() {
                   alt="Modern car dashboard"
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-6 left-6 right-6 grid gap-4 text-sm text-white">
-                  <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                    <span className="flex items-center gap-2 font-semibold">
-                      <Gauge className="w-4 h-4" /> 24/7 Roadside Assistance
-                    </span>
-                    <span className="text-blue-100">Included</span>
-                  </div>
-                  <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                    <span className="flex items-center gap-2 font-semibold">
-                      <Wrench className="w-4 h-4" /> Repairs Paid Directly
-                    </span>
-                    <span className="text-blue-100">Nationwide</span>
-                  </div>
+              </div>
+              <div className="mt-6 grid gap-4 text-sm text-white">
+                <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                  <span className="flex items-center gap-2 font-semibold">
+                    <Gauge className="w-4 h-4" /> 24/7 Roadside Assistance
+                  </span>
+                  <span className="text-blue-100">Included</span>
+                </div>
+                <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                  <span className="flex items-center gap-2 font-semibold">
+                    <Wrench className="w-4 h-4" /> Repairs Paid Directly
+                  </span>
+                  <span className="text-blue-100">Nationwide</span>
                 </div>
               </div>
             </motion.div>
