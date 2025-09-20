@@ -1481,7 +1481,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     if (quote) {
       policyData.package = quote.plan;
-      policyData.deductible = quote.deductible;
+      if (quote.deductible != null) {
+        policyData.deductible = quote.deductible * 100;
+      }
       policyData.totalPremium = quote.priceTotal;
       policyData.monthlyPayment = quote.priceMonthly;
       const termMonths = quote.termMonths ?? 0;
