@@ -321,6 +321,17 @@ const getLeadMeta = (id: string): LeadMeta => {
   return leadMeta[id] || DEFAULT_META;
 };
 
+const loadLeadFromRequest = async (req: Request, res: Response): Promise<Lead | null> => {
+  const lead = await storage.getLead(req.params.id);
+  if (!lead) {
+    res.status(404).json({ message: 'Lead not found' });
+    return null;
+  }
+  req.params.id = lead.id;
+  res.locals.lead = lead;
+  return lead;
+};
+
 const getEasternDate = () =>
   new Date(
     new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
@@ -1473,7 +1484,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       policyData.deductible = quote.deductible;
       policyData.totalPremium = quote.priceTotal;
       policyData.monthlyPayment = quote.priceMonthly;
-      policyData.totalPayments = quote.termMonths;
+      const termMonths = quote.termMonths ?? 0;
+      policyData.totalPayments = quote.priceMonthly * termMonths;
       policyData.downPayment = quote.priceMonthly;
     }
 
@@ -2662,15 +2674,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Retrieve basic metadata for a lead
-  app.get('/api/leads/:id/meta', (req, res) => {
-    const meta = getLeadMeta(req.params.id);
-    res.json({ data: meta, message: 'Lead metadata retrieved successfully' });
+  app.get('/api/leads/:id/meta', async (req, res) => {
+    try {
+      const lead = await loadLeadFromRequest(req, res);
+      if (!lead) {
+        return;
+      }
+      const meta = getLeadMeta(lead.id);
+      res.json({ data: meta, message: 'Lead metadata retrieved successfully' });
+    } catch (error) {
+      console.error('Error fetching lead metadata:', error);
+      res.status(500).json({ message: 'Failed to fetch lead metadata' });
+    }
   });
 
   // Retrieve vehicle information for a lead
   app.get('/api/leads/:id/vehicle', async (req, res) => {
     try {
-      const vehicle = await storage.getVehicleByLeadId(req.params.id);
+      const lead = await loadLeadFromRequest(req, res);
+      if (!lead) {
+        return;
+      }
+      const vehicle = await storage.getVehicleByLeadId(lead.id);
       res.json({ data: vehicle, message: 'Vehicle retrieved successfully' });
     } catch (error) {
       console.error('Error fetching vehicle:', error);
@@ -2681,7 +2706,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Retrieve quotes for a lead
   app.get('/api/leads/:id/quotes', async (req, res) => {
     try {
-      const quotes = await storage.getQuotesByLeadId(req.params.id);
+      const lead = await loadLeadFromRequest(req, res);
+      if (!lead) {
+        return;
+      }
+      const quotes = await storage.getQuotesByLeadId(lead.id);
       res.json({ data: quotes, message: 'Quotes retrieved successfully' });
     } catch (error) {
       console.error('Error fetching quotes:', error);
@@ -2690,13 +2719,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update basic lead metadata such as tags
-  app.post('/api/leads/:id/meta', (req, res) => {
+  app.post('/api/leads/:id/meta', async (req, res) => {
     const schema = z.object({ tags: z.string().optional() });
     try {
+      const lead = await loadLeadFromRequest(req, res);
+      if (!lead) {
+        return;
+      }
       const data = schema.parse(req.body);
       const tags = data.tags ? data.tags.split(',').map(t => t.trim()).filter(Boolean) : [];
-      const current = getLeadMeta(req.params.id);
-      leadMeta[req.params.id] = { ...current, tags };
+      const current = getLeadMeta(lead.id);
+      leadMeta[lead.id] = { ...current, tags };
       res.redirect('/admin');
     } catch (error) {
       console.error('Error saving meta:', error);
@@ -2714,14 +2747,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     try {
-      const leadId = req.params.id;
       const data = schema.parse(req.body);
 
-      const lead = await storage.getLead(leadId);
+      const lead = await loadLeadFromRequest(req, res);
       if (!lead) {
-        return res.status(404).json({ message: 'Lead not found' });
+        return;
       }
 
+      const leadId = lead.id;
       const recipient = typeof lead.email === 'string' ? lead.email.trim() : '';
       if (!recipient) {
         return res.status(400).json({ message: 'Lead must have an email address before sending a quote' });
@@ -2775,14 +2808,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/admin/leads/:id/contracts', async (req, res) => {
     try {
-      const leadId = req.params.id;
       const payload = contractCreateSchema.parse(req.body ?? {});
 
-      const lead = await storage.getLead(leadId);
+      const lead = await loadLeadFromRequest(req, res);
       if (!lead) {
-        res.status(404).json({ message: 'Lead not found' });
         return;
       }
+      const leadId = lead.id;
 
       const quote = await storage.getQuote(payload.quoteId);
       if (!quote || quote.leadId !== leadId) {
@@ -3075,16 +3107,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: get single lead with associated data
   app.get('/api/admin/leads/:id', async (req, res) => {
     try {
-      const lead = await storage.getLead(req.params.id);
+      const lead = await loadLeadFromRequest(req, res);
       if (!lead) {
-        return res.status(404).json({ message: 'Lead not found' });
+        return;
       }
-      const vehicle = await storage.getVehicleByLeadId(req.params.id);
-      const quotes = await storage.getQuotesByLeadId(req.params.id);
-      const notes = await storage.getNotesByLeadId(req.params.id);
-      const policy = await storage.getPolicyByLeadId(req.params.id);
-      const contracts = await storage.getLeadContracts(req.params.id);
-      const meta = getLeadMeta(req.params.id);
+      const leadId = lead.id;
+      const vehicle = await storage.getVehicleByLeadId(leadId);
+      const quotes = await storage.getQuotesByLeadId(leadId);
+      const notes = await storage.getNotesByLeadId(leadId);
+      const policy = await storage.getPolicyByLeadId(leadId);
+      const contracts = await storage.getLeadContracts(leadId);
+      const meta = getLeadMeta(leadId);
       res.json({
         data: {
           lead: { ...lead, status: meta.status },
@@ -3107,7 +3140,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const schema = z.object({ content: z.string().min(1) });
     try {
       const data = schema.parse(req.body);
-      const note = await storage.createNote({ leadId: req.params.id, content: data.content });
+      const lead = await loadLeadFromRequest(req, res);
+      if (!lead) {
+        return;
+      }
+      const note = await storage.createNote({ leadId: lead.id, content: data.content });
       res.json({ data: note, message: 'Note created successfully' });
     } catch (error) {
       console.error('Error creating note:', error);
@@ -3129,7 +3166,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       totalPayments: z.coerce.number().optional(),
     });
     try {
-      const existingPolicy = await storage.getPolicyByLeadId(req.params.id);
+      const lead = await loadLeadFromRequest(req, res);
+      if (!lead) {
+        return;
+      }
+      const leadId = lead.id;
+      const existingPolicy = await storage.getPolicyByLeadId(leadId);
       if (existingPolicy) {
         return res.status(409).json({
           data: existingPolicy,
@@ -3137,9 +3179,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       const data = schema.parse(req.body);
-      const policy = await storage.createPolicy({ leadId: req.params.id, ...data });
-      const current = getLeadMeta(req.params.id);
-      leadMeta[req.params.id] = { ...current, status: 'sold' };
+      const policy = await storage.createPolicy({ leadId, ...data });
+      const current = getLeadMeta(leadId);
+      leadMeta[leadId] = { ...current, status: 'sold' };
       res.json({ data: policy, message: 'Policy created successfully' });
     } catch (error) {
       console.error('Error converting lead:', error);
@@ -3174,10 +3216,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const data = leadSchema.parse(req.body);
       const { status, consentTimestamp, vehicle, policy, ...updates } = data as any;
-      const existingLead = await storage.getLead(req.params.id);
+      const existingLead = await loadLeadFromRequest(req, res);
       if (!existingLead) {
-        return res.status(404).json({ message: 'Lead not found' });
+        return;
       }
+      const leadId = existingLead.id;
       const leadUpdates = Object.fromEntries(
         Object.entries(updates).filter(([key, value]) => {
           const current = (existingLead as any)[key];
@@ -3188,32 +3231,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       ) as Partial<InsertLead>;
       if (Object.keys(leadUpdates).length > 0) {
-        await storage.updateLead(req.params.id, leadUpdates);
+        await storage.updateLead(leadId, leadUpdates);
       }
       if (vehicle) {
-        const existingVehicle = await storage.getVehicleByLeadId(req.params.id);
+        const existingVehicle = await storage.getVehicleByLeadId(leadId);
         if (existingVehicle) {
-          await storage.updateVehicle(req.params.id, vehicle);
+          await storage.updateVehicle(leadId, vehicle);
         } else {
-          await storage.createVehicle({ ...vehicle, leadId: req.params.id });
+          await storage.createVehicle({ ...vehicle, leadId });
         }
       }
       if (policy) {
-        await storage.updatePolicy(req.params.id, policy);
+        await storage.updatePolicy(leadId, policy);
       }
       if (status) {
-        const current = getLeadMeta(req.params.id);
-        leadMeta[req.params.id] = { ...current, status };
+        const current = getLeadMeta(leadId);
+        leadMeta[leadId] = { ...current, status };
       }
-      const updatedLead = await storage.getLead(req.params.id);
-      const updatedVehicle = await storage.getVehicleByLeadId(req.params.id);
-      const updatedPolicy = await storage.getPolicyByLeadId(req.params.id);
+      const updatedLead = await storage.getLead(leadId);
+      const updatedVehicle = await storage.getVehicleByLeadId(leadId);
+      const updatedPolicy = await storage.getPolicyByLeadId(leadId);
       res.json({
         data: {
           lead: updatedLead,
           vehicle: updatedVehicle,
           policy: updatedPolicy,
-          status: getLeadMeta(req.params.id).status,
+          status: getLeadMeta(leadId).status,
         },
         message: 'Lead updated successfully',
       });
