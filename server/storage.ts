@@ -75,8 +75,11 @@ const resolveLeadIdCandidates = (value: string | null | undefined): string[] => 
   candidates.add(trimmed);
 
   const digitsOnly = trimmed.replace(/\D/g, '');
-  if (digitsOnly.length === 8) {
+  if (digitsOnly.length > 0) {
     candidates.add(digitsOnly);
+    if (digitsOnly.length < 8) {
+      candidates.add(digitsOnly.padStart(8, '0'));
+    }
   }
 
   return Array.from(candidates);
