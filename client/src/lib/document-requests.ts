@@ -79,6 +79,37 @@ export const DOCUMENT_REQUEST_TYPE_COPY: Record<
   },
 };
 
+export const DOCUMENT_REQUEST_DEFAULTS: Record<
+  DocumentRequestType,
+  { title: string; instructions: string }
+> = {
+  vin_photo: {
+    title: 'VIN photo for verification',
+    instructions:
+      'Please snap a clear photo of the VIN plate or door jamb sticker so we can confirm the vehicle on file matches your policy.',
+  },
+  odometer_photo: {
+    title: 'Current mileage confirmation',
+    instructions:
+      'Take a quick photo of your dashboard or digital display that clearly shows the current mileage reading for this vehicle.',
+  },
+  diagnosis_report: {
+    title: 'Diagnosis report from your shop',
+    instructions:
+      'Upload the inspection or diagnosis report from your technician so our team can review the recommended work.',
+  },
+  repair_invoice: {
+    title: 'Repair invoice for reimbursement',
+    instructions:
+      'Send the finalized invoice from your repair facility, including parts and labor, so we can finish processing reimbursement.',
+  },
+  other: {
+    title: 'Supporting document upload',
+    instructions:
+      'Share any additional paperwork or photos our team mentioned so we can keep your claim moving.',
+  },
+};
+
 export const DOCUMENT_REQUEST_STATUS_COPY: Record<
   DocumentRequestStatus,
   { label: string; description: string; tone: 'pending' | 'notice' | 'success' | 'muted' }
