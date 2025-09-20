@@ -55,23 +55,6 @@ export default function AdminClaimNew() {
     }
   });
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return <AdminLogin onSuccess={markAuthenticated} />;
-  }
-
-  const filtered = (customers || []).filter((c: any) => {
-    const value = `${c.lead.firstName} ${c.lead.lastName} ${c.lead.email} ${c.lead.phone} ${c.policy.id}`.toLowerCase();
-    return value.includes(search.toLowerCase());
-  });
-
   const createClaim = useMutation({
     mutationFn: async (data: typeof form) => {
       const res = await fetchWithAuth('/api/admin/claims', {
@@ -94,6 +77,23 @@ export default function AdminClaimNew() {
     onError: () => {
       toast({ title: 'Error', description: 'Failed to create claim', variant: 'destructive' });
     }
+  });
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
+
+  const filtered = (customers || []).filter((c: any) => {
+    const value = `${c.lead.firstName} ${c.lead.lastName} ${c.lead.email} ${c.lead.phone} ${c.policy.id}`.toLowerCase();
+    return value.includes(search.toLowerCase());
   });
 
   const handleSelect = (c: any) => {
