@@ -1190,7 +1190,7 @@ export default function AdminPolicyDetail() {
                           key={template.id}
                           variant="secondary"
                           size="sm"
-                          className="gap-2 rounded-full border border-slate-200 bg-white px-4"
+                          className="gap-2 rounded-full border border-slate-200 bg-white px-4 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                           onClick={() => handleOpenEmailDialog(template.id)}
                         >
                           <Sparkles className="h-4 w-4" />
