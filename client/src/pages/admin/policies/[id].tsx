@@ -1922,7 +1922,7 @@ export default function AdminPolicyDetail() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="edit-policy-deductible">Deductible (cents)</Label>
+                <Label htmlFor="edit-policy-deductible">Deductible</Label>
                 <Input
                   id="edit-policy-deductible"
                   type="number"
@@ -1932,7 +1932,7 @@ export default function AdminPolicyDetail() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-policy-total-premium">Total premium (cents)</Label>
+                <Label htmlFor="edit-policy-total-premium">Total premium</Label>
                 <Input
                   id="edit-policy-total-premium"
                   type="number"
@@ -1944,7 +1944,7 @@ export default function AdminPolicyDetail() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="edit-policy-down-payment">Down payment (cents)</Label>
+                <Label htmlFor="edit-policy-down-payment">Down payment</Label>
                 <Input
                   id="edit-policy-down-payment"
                   type="number"
@@ -1954,7 +1954,7 @@ export default function AdminPolicyDetail() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-policy-monthly-payment">Monthly payment (cents)</Label>
+                <Label htmlFor="edit-policy-monthly-payment">Monthly payment</Label>
                 <Input
                   id="edit-policy-monthly-payment"
                   type="number"
@@ -1965,7 +1965,7 @@ export default function AdminPolicyDetail() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-policy-total-payments">Total payments (cents)</Label>
+              <Label htmlFor="edit-policy-total-payments">Total payments</Label>
               <Input
                 id="edit-policy-total-payments"
                 type="number"
