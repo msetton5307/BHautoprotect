@@ -484,6 +484,30 @@ export default function AdminPolicyDetail() {
   const defaultTemplates = useMemo(() => buildDefaultEmailTemplates(policy), [policy]);
   const savedTemplates = templatesResponse?.data ?? [];
 
+  const primaryPaymentProfile = paymentProfiles[0] ?? null;
+  const hasPaymentProfile = !!primaryPaymentProfile;
+  const autopayEnabled = primaryPaymentProfile?.autopayEnabled ?? false;
+  const autopayLabel = hasPaymentProfile
+    ? autopayEnabled
+      ? "Autopay active"
+      : "Manual payments"
+    : "No payment method";
+  const autopayBadgeClass = autopayEnabled
+    ? "border-emerald-300/60 bg-emerald-500/15 text-emerald-700"
+    : "border-slate-200 bg-white/70 text-slate-600";
+  const autopayHeroBadgeClass = autopayEnabled
+    ? "border-emerald-200/70 bg-emerald-400/30 text-emerald-50"
+    : "border-white/30 bg-white/20 text-white";
+  const monthlyPaymentDisplay = formatCurrency(policy?.monthlyPayment);
+  const totalPremiumDisplay = formatCurrency(policy?.totalPremium);
+  const downPaymentDisplay = formatCurrency(policy?.downPayment);
+  const deductibleDisplay = formatCurrency(policy?.deductible);
+  const coverageStartDisplay = formatDate(policy?.policyStartDate);
+  const coverageEndDisplay = formatDate(policy?.expirationDate);
+  const expirationMilesDisplay =
+    policy?.expirationMiles != null ? `${Number(policy.expirationMiles).toLocaleString()} mi` : "N/A";
+  const policyCreatedDisplay = formatDate(policy?.createdAt);
+
   const templateOptions = useMemo<TemplateOption[]>(() => {
     const options: TemplateOption[] = [];
     for (const template of defaultTemplates) {
@@ -544,7 +568,6 @@ export default function AdminPolicyDetail() {
       setIsTemplateCustomized(true);
     }
     setNewTemplateName("");
-    setPreviewTab("preview");
   }, [policy?.id, leadEmail, templateOptions, fallbackSubject]);
 
   if (checking) {
@@ -813,404 +836,589 @@ export default function AdminPolicyDetail() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-slate-50">
       <AdminNav />
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
-        <Button variant="ghost" asChild>
-          <Link href="/admin/policies">
-            <ArrowLeft className="h-4 w-4 mr-2" /> Back to Policies
-          </Link>
-        </Button>
-
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold text-slate-900">Policy overview</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage documents, notes, and send beautifully formatted updates in just a few clicks.
-          </p>
+      <div className="mx-auto w-full max-w-6xl px-4 py-10 space-y-8">
+        <div className="flex flex-col gap-4">
+          <Button
+            variant="ghost"
+            asChild
+            className="w-fit rounded-full border border-transparent bg-white/80 px-4 py-2 text-slate-700 shadow-sm transition hover:border-slate-200 hover:bg-white"
+          >
+            <Link href="/admin/policies">
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Policies
+            </Link>
+          </Button>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">Policy workspace</p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-900">Policy overview</h1>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">
+              Manage documents, notes, and send beautifully formatted updates in just a few clicks.
+            </p>
+          </div>
         </div>
 
-        <Card className="border-slate-200 bg-white/70 shadow-sm">
-          <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-            <div>
-              <CardTitle className="text-lg font-semibold text-slate-900">Customer email tools</CardTitle>
-              <CardDescription>Send polished policy updates with saved templates or a custom note.</CardDescription>
-            </div>
-            <Badge variant="outline" className="self-start rounded-full border-primary/30 bg-primary/5 text-xs font-medium text-primary">
-              {defaultTemplates.length + savedTemplates.length} templates ready
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick templates</p>
-              {defaultTemplates.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {defaultTemplates.map(template => (
-                    <Button
-                      key={template.id}
-                      variant="secondary"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => handleOpenEmailDialog(template.id)}
+        <div className="grid gap-6 lg:grid-cols-[2fr,1fr] xl:gap-8">
+          <div className="space-y-6">
+            <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+              <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-700 px-6 py-6 text-white sm:px-8 sm:py-8">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/60">Policy holder</p>
+                    <h2 className="mt-3 text-3xl font-semibold tracking-tight">
+                      {policyHolderName || "Policyholder"}
+                    </h2>
+                    <p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-200/90">
+                      <span className="font-mono text-xs uppercase tracking-[0.35em] text-slate-200/80">{policy.id}</span>
+                      {policy.package ? (
+                        <span className="text-slate-200/80">• {policy.package} coverage</span>
+                      ) : null}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-start gap-3 text-xs text-slate-200/80 sm:flex-row sm:items-center">
+                    <Badge
+                      variant="outline"
+                      className={`rounded-full border bg-transparent px-3 py-1 text-xs font-medium backdrop-blur ${autopayHeroBadgeClass}`}
                     >
-                      <Sparkles className="h-4 w-4" />
-                      {template.name}
-                    </Button>
-                  ))}
+                      {autopayLabel}
+                    </Badge>
+                    <span>Created {policyCreatedDisplay}</span>
+                  </div>
                 </div>
-              ) : (
-                <p className="mt-3 text-sm text-muted-foreground">No suggested templates yet—jump into the composer to craft your own.</p>
-              )}
-            </div>
-            <Separator />
-            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div className="text-xs text-muted-foreground">
-                Emails go to {leadEmail ? <span className="font-medium text-slate-700">{leadEmail}</span> : "the policyholder"}.
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button className="gap-2" onClick={() => handleOpenEmailDialog()}>
-                  <Mail className="h-4 w-4" />
-                  Open composer
-                </Button>
-                <Button
+              <div className="grid gap-4 border-t border-slate-200 bg-white px-6 py-5 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-5">
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Coverage window</p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">
+                    {coverageStartDisplay} → {coverageEndDisplay}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Monthly payment</p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">{monthlyPaymentDisplay}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Total premium</p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">{totalPremiumDisplay}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Deductible</p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">{deductibleDisplay}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Expiration mileage</p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">{expirationMilesDisplay}</p>
+                </div>
+              </div>
+            </section>
+
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardHeader className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold text-slate-900">Customer email tools</CardTitle>
+                  <CardDescription className="text-sm text-slate-500">
+                    Send polished policy updates with saved templates or a custom note.
+                  </CardDescription>
+                </div>
+                <Badge
                   variant="outline"
-                  className="gap-2"
-                  onClick={() => handleOpenEmailDialog(CUSTOM_TEMPLATE_ID)}
+                  className="self-start rounded-full border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-primary"
                 >
-                  <PencilLine className="h-4 w-4" />
-                  Start from scratch
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+                  {defaultTemplates.length + savedTemplates.length} templates ready
+                </Badge>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick templates</p>
+                  {defaultTemplates.length > 0 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {defaultTemplates.map(template => (
+                        <Button
+                          key={template.id}
+                          variant="secondary"
+                          size="sm"
+                          className="gap-2 rounded-full border border-slate-200 bg-white px-4"
+                          onClick={() => handleOpenEmailDialog(template.id)}
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          {template.name}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      No suggested templates yet—jump into the composer to craft your own.
+                    </p>
+                  )}
+                </div>
+                <Separator />
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="text-xs text-muted-foreground">
+                    Emails go to {leadEmail ? <span className="font-medium text-slate-700">{leadEmail}</span> : "the policyholder"}.
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button className="gap-2" onClick={() => handleOpenEmailDialog()}>
+                      <Mail className="h-4 w-4" />
+                      Open composer
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="gap-2"
+                      onClick={() => handleOpenEmailDialog(CUSTOM_TEMPLATE_ID)}
+                    >
+                      <PencilLine className="h-4 w-4" />
+                      Start from scratch
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Policy Details</CardTitle>
-            <CardDescription>ID: {policy.id}</CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-            <div><span className="font-medium">Package:</span> {policy.package || "N/A"}</div>
-            <div><span className="font-medium">Policy Start:</span> {policy.policyStartDate ? new Date(policy.policyStartDate).toLocaleDateString() : "N/A"}</div>
-            <div><span className="font-medium">Expiration Date:</span> {policy.expirationDate ? new Date(policy.expirationDate).toLocaleDateString() : "N/A"}</div>
-            <div><span className="font-medium">Expiration Miles:</span> {policy.expirationMiles ?? "N/A"}</div>
-            <div><span className="font-medium">Deductible:</span> {policy.deductible != null ? `$${policy.deductible}` : "N/A"}</div>
-            <div><span className="font-medium">Total Premium:</span> {policy.totalPremium != null ? `$${policy.totalPremium}` : "N/A"}</div>
-            <div><span className="font-medium">Down Payment:</span> {policy.downPayment != null ? `$${policy.downPayment}` : "N/A"}</div>
-            <div><span className="font-medium">Monthly Payment:</span> {policy.monthlyPayment != null ? `$${policy.monthlyPayment}` : "N/A"}</div>
-            <div><span className="font-medium">Total Payments:</span> {policy.totalPayments != null ? `$${policy.totalPayments}` : "N/A"}</div>
-            <div><span className="font-medium">Created:</span> {new Date(policy.createdAt).toLocaleDateString()}</div>
-          </CardContent>
-        </Card>
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-slate-900">Coverage &amp; terms</CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Reference the contract and premium details for this policy.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Package</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{policy.package || "N/A"}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Policy start</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{coverageStartDisplay}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Expiration date</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{coverageEndDisplay}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Expiration mileage</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{expirationMilesDisplay}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Deductible</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{deductibleDisplay}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Total premium</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{totalPremiumDisplay}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Down payment</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{downPaymentDisplay}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Monthly payment</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{monthlyPaymentDisplay}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Total payments</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">
+                      {policy.totalPayments != null ? formatCurrency(policy.totalPayments) : "N/A"}
+                    </dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Created</dt>
+                    <dd className="mt-2 text-sm font-semibold text-slate-900">{policyCreatedDisplay}</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Customer</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-            <div><span className="font-medium">Name:</span> {policyHolderName || "N/A"}</div>
-            <div><span className="font-medium">Email:</span> {leadEmail || "N/A"}</div>
-            <div><span className="font-medium">Phone:</span> {lead.phone || "N/A"}</div>
-            <div><span className="font-medium">State:</span> {lead.state || "N/A"}</div>
-          </CardContent>
-        </Card>
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold text-slate-900">Policy documents</CardTitle>
+                  <CardDescription className="text-sm text-slate-500">
+                    Upload supporting paperwork and keep it handy for the team.
+                  </CardDescription>
+                </div>
+                <Badge
+                  variant="outline"
+                  className="self-start rounded-full border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600"
+                >
+                  {files.length} {files.length === 1 ? "file" : "files"}
+                </Badge>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <form
+                  onSubmit={async event => {
+                    event.preventDefault();
+                    const formElement = event.currentTarget as HTMLFormElement;
+                    const formData = new FormData(formElement);
+                    const file = formData.get("file") as File | null;
+                    if (!file) {
+                      toast({
+                        title: "File required",
+                        description: "Choose a file before uploading.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    try {
+                      const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/files`, {
+                        method: "POST",
+                        headers: { "x-filename": file.name, ...getAuthHeaders() },
+                        body: file,
+                      });
+                      ensureAuthorized(response);
+                      if (!response.ok) {
+                        throw new Error("Failed to upload file");
+                      }
+                      queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                      formElement.reset();
+                    } catch (error) {
+                      toast({
+                        title: "Upload failed",
+                        description: error instanceof Error ? error.message : "Failed to upload file",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="space-y-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-4"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Add a new document</p>
+                      <p className="text-xs text-muted-foreground">Accepted formats up to 10 MB.</p>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <Input type="file" name="file" className="max-w-xs" />
+                      <Button type="submit" className="sm:self-start">
+                        Upload file
+                      </Button>
+                    </div>
+                  </div>
+                </form>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Billing &amp; Payments</CardTitle>
-            <CardDescription>Latest details synced from the customer portal.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 text-sm">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">Saved payment methods</h3>
-              {isLoadingPaymentProfiles ? (
-                <p className="mt-2 text-xs text-muted-foreground">Loading payment methods…</p>
-              ) : paymentProfiles.length === 0 ? (
-                <p className="mt-2 text-xs text-muted-foreground">No payment details have been submitted yet.</p>
-              ) : (
-                <div className="mt-3 grid gap-4 md:grid-cols-2">
-                  {paymentProfiles.map(profile => (
-                    <div key={profile.id} className="rounded-lg border border-slate-200 p-4 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">
-                            {profile.cardBrand || profile.paymentMethod || "Payment method"}
-                            {profile.cardLastFour ? ` · ••••${profile.cardLastFour}` : ""}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {profile.accountName || "No cardholder name on file"}
-                          </p>
-                          {profile.customer ? (
-                            <p className="mt-1 text-xs text-slate-500">
-                              Portal account: {profile.customer.displayName || profile.customer.email}
+                {files.length > 0 ? (
+                  <div className="space-y-3">
+                    {files.map((file: any) => (
+                      <div
+                        key={file.id}
+                        className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <Paperclip className="h-4 w-4" />
+                          </span>
+                          <div>
+                            <a
+                              className="font-medium text-slate-900 hover:text-primary hover:underline"
+                              href={`/${file.filePath}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              {file.fileName}
+                            </a>
+                            <p className="text-xs text-muted-foreground">Uploaded {formatDate(file.createdAt)}</p>
+                          </div>
+                        </div>
+                        <Button asChild variant="ghost" size="sm" className="gap-2 text-primary">
+                          <a href={`/${file.filePath}`} target="_blank" rel="noreferrer">
+                            View document
+                            <ExternalLink className="h-4 w-4" />
+                          </a>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                    <Paperclip className="h-5 w-5 text-slate-400" />
+                    No documents uploaded yet.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <PolicyDocumentRequests policyId={policy.id} customers={policy.customers ?? []} />
+
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-slate-900">Notes</CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Capture quick updates for teammates and future reference.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form
+                  onSubmit={async event => {
+                    event.preventDefault();
+                    const form = event.currentTarget;
+                    const textarea = form.elements.namedItem("note") as HTMLTextAreaElement;
+                    if (!textarea.value.trim()) {
+                      toast({
+                        title: "Note required",
+                        description: "Write a quick note before saving.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+                    try {
+                      const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/notes`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                        body: JSON.stringify({ content: textarea.value }),
+                      });
+                      ensureAuthorized(response);
+                      if (!response.ok) {
+                        throw new Error("Failed to save note");
+                      }
+                      textarea.value = "";
+                      queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+                    } catch (error) {
+                      toast({
+                        title: "Could not save note",
+                        description: error instanceof Error ? error.message : "Failed to save note",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                  className="space-y-3"
+                >
+                  <Textarea name="note" className="w-full" placeholder="Add a note" />
+                  <Button type="submit" className="self-end">
+                    Add Note
+                  </Button>
+                </form>
+                <ul className="mt-4 space-y-3">
+                  {notes.map((note: any) => (
+                    <li key={note.id} className="rounded-lg border border-slate-200 bg-slate-50/70 p-3 text-sm">
+                      <div className="text-slate-800">{note.content}</div>
+                      <div className="mt-1 text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString()}</div>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-slate-900">Customer snapshot</CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Quick contact and vehicle reference details.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-5 text-sm text-slate-600">
+                <section className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</h3>
+                  <dl className="mt-3 space-y-3">
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Name</dt>
+                      <dd className="mt-1 font-medium text-slate-900">{policyHolderName || "N/A"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Email</dt>
+                      <dd className="mt-1 font-medium text-slate-900 break-words">{leadEmail || "N/A"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Phone</dt>
+                      <dd className="mt-1 font-medium text-slate-900">{lead.phone || "N/A"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">State</dt>
+                      <dd className="mt-1 font-medium text-slate-900">{lead.state || "N/A"}</dd>
+                    </div>
+                  </dl>
+                </section>
+
+                <section className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vehicle</h3>
+                  <dl className="mt-3 grid grid-cols-1 gap-3">
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Year</dt>
+                      <dd className="mt-1 font-medium text-slate-900">{vehicle.year || "N/A"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Make</dt>
+                      <dd className="mt-1 font-medium text-slate-900">{vehicle.make || "N/A"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Model</dt>
+                      <dd className="mt-1 font-medium text-slate-900">{vehicle.model || "N/A"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Trim</dt>
+                      <dd className="mt-1 font-medium text-slate-900">{vehicle.trim || "N/A"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">VIN</dt>
+                      <dd className="mt-1 font-medium text-slate-900 break-all">{vehicle.vin || "N/A"}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Odometer</dt>
+                      <dd className="mt-1 font-medium text-slate-900">
+                        {vehicle.odometer != null ? `${vehicle.odometer} miles` : "N/A"}
+                      </dd>
+                    </div>
+                  </dl>
+                </section>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold text-slate-900">Billing &amp; payments</CardTitle>
+                <CardDescription className="text-sm text-slate-500">
+                  Latest details synced from the customer portal.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 text-sm text-slate-600">
+                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Payment status</p>
+                  <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs font-medium ${autopayBadgeClass}`}>
+                      {autopayLabel}
+                    </Badge>
+                    <span className="text-xs text-slate-500">
+                      {hasPaymentProfile
+                        ? primaryPaymentProfile?.cardBrand || primaryPaymentProfile?.paymentMethod || "Payment method"
+                        : "Awaiting saved payment details"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Monthly payment</p>
+                    <p className="mt-2 text-base font-semibold text-slate-900">{monthlyPaymentDisplay}</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Down payment</p>
+                    <p className="mt-2 text-base font-semibold text-slate-900">{downPaymentDisplay}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Saved payment methods</h3>
+                  {isLoadingPaymentProfiles ? (
+                    <p className="mt-2 text-xs text-muted-foreground">Loading payment methods…</p>
+                  ) : paymentProfiles.length === 0 ? (
+                    <p className="mt-2 text-xs text-muted-foreground">No payment details have been submitted yet.</p>
+                  ) : (
+                    <div className="mt-3 grid gap-4">
+                      {paymentProfiles.map(profile => (
+                        <div key={profile.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {profile.cardBrand || profile.paymentMethod || "Payment method"}
+                                {profile.cardLastFour ? ` · ••••${profile.cardLastFour}` : ""}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {profile.accountName || "No cardholder name on file"}
+                              </p>
+                              {profile.customer ? (
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Portal account: {profile.customer.displayName || profile.customer.email}
+                                </p>
+                              ) : null}
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={
+                                profile.autopayEnabled
+                                  ? "rounded-full border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
+                                  : "rounded-full border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                              }
+                            >
+                              {profile.autopayEnabled ? "Autopay on" : "Autopay off"}
+                            </Badge>
+                          </div>
+                          <dl className="mt-4 grid grid-cols-2 gap-3 text-xs uppercase tracking-wide text-slate-500">
+                            <div>
+                              <dt>Last four</dt>
+                              <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                                {profile.cardLastFour || "—"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Expiry</dt>
+                              <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                                {formatCardExpiry(profile.cardExpiryMonth, profile.cardExpiryYear)}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Billing zip</dt>
+                              <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                                {profile.billingZip || "—"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt>Internal ref</dt>
+                              <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                                {profile.accountIdentifier || "—"}
+                              </dd>
+                            </div>
+                          </dl>
+                          {profile.notes ? (
+                            <p className="mt-3 text-xs text-slate-500">Notes: {profile.notes}</p>
+                          ) : null}
+                          {profile.updatedAt ? (
+                            <p className="mt-3 text-xs text-slate-400">
+                              Updated {new Date(profile.updatedAt).toLocaleString()}
                             </p>
                           ) : null}
                         </div>
-                        <Badge
-                          variant="outline"
-                          className={
-                            profile.autopayEnabled
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                              : "border-slate-200 bg-slate-100 text-slate-700"
-                          }
-                        >
-                          {profile.autopayEnabled ? "Autopay on" : "Autopay off"}
-                        </Badge>
-                      </div>
-                      <dl className="mt-4 grid grid-cols-2 gap-3 text-xs uppercase text-slate-500">
-                        <div>
-                          <dt>Last four</dt>
-                          <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                            {profile.cardLastFour || "—"}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Expiry</dt>
-                          <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                            {formatCardExpiry(profile.cardExpiryMonth, profile.cardExpiryYear)}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Billing zip</dt>
-                          <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                            {profile.billingZip || "—"}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt>Internal ref</dt>
-                          <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                            {profile.accountIdentifier || "—"}
-                          </dd>
-                        </div>
-                      </dl>
-                      {profile.notes ? (
-                        <p className="mt-3 text-xs text-slate-500">Notes: {profile.notes}</p>
-                      ) : null}
-                      {profile.updatedAt ? (
-                        <p className="mt-3 text-xs text-slate-400">
-                          Updated {new Date(profile.updatedAt).toLocaleString()}
-                        </p>
-                      ) : null}
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">Charge history</h3>
-              {isLoadingCharges ? (
-                <p className="mt-2 text-xs text-muted-foreground">Loading charges…</p>
-              ) : charges.length === 0 ? (
-                <p className="mt-2 text-xs text-muted-foreground">No charges logged for this policy.</p>
-              ) : (
-                <div className="mt-3 overflow-hidden rounded-lg border border-slate-200">
-                  <table className="min-w-full divide-y divide-slate-200 text-sm">
-                    <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Description</th>
-                        <th className="px-4 py-3 text-left">Date</th>
-                        <th className="px-4 py-3 text-left">Status</th>
-                        <th className="px-4 py-3 text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
-                      {charges.map(charge => {
-                        const status = chargeStatusStyles[charge.status];
-                        return (
-                          <tr key={charge.id}>
-                            <td className="px-4 py-3">
-                              <div className="font-medium text-slate-900">{charge.description}</div>
-                              {charge.notes ? <div className="text-xs text-slate-500">{charge.notes}</div> : null}
-                            </td>
-                            <td className="px-4 py-3 text-slate-600">{formatChargeDate(charge.chargedAt)}</td>
-                            <td className="px-4 py-3">
-                              <Badge variant="outline" className={status.className}>
-                                {status.label}
-                              </Badge>
-                            </td>
-                            <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                              {formatChargeAmount(charge.amountCents)}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Vehicle</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
-            <div><span className="font-medium">Year:</span> {vehicle.year || "N/A"}</div>
-            <div><span className="font-medium">Make:</span> {vehicle.make || "N/A"}</div>
-            <div><span className="font-medium">Model:</span> {vehicle.model || "N/A"}</div>
-            <div><span className="font-medium">Trim:</span> {vehicle.trim || "N/A"}</div>
-            <div><span className="font-medium">VIN:</span> {vehicle.vin || "N/A"}</div>
-            <div><span className="font-medium">Odometer:</span> {vehicle.odometer != null ? vehicle.odometer : "N/A"}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form
-              onSubmit={async event => {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const textarea = form.elements.namedItem("note") as HTMLTextAreaElement;
-                if (!textarea.value.trim()) {
-                  toast({
-                    title: "Note required",
-                    description: "Write a quick note before saving.",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                try {
-                  const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/notes`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-                    body: JSON.stringify({ content: textarea.value }),
-                  });
-                  ensureAuthorized(response);
-                  if (!response.ok) {
-                    throw new Error("Failed to save note");
-                  }
-                  textarea.value = "";
-                  queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
-                } catch (error) {
-                  toast({
-                    title: "Could not save note",
-                    description: error instanceof Error ? error.message : "Failed to save note",
-                    variant: "destructive",
-                  });
-                }
-              }}
-              className="space-y-2"
-            >
-              <Textarea name="note" className="w-full" placeholder="Add a note" />
-              <Button type="submit">Add Note</Button>
-            </form>
-            <ul className="mt-4 space-y-2">
-              {notes.map((note: any) => (
-                <li key={note.id} className="border-b pb-2 text-sm">
-                  <div>{note.content}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(note.createdAt).toLocaleString()}</div>
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200 bg-white/70 shadow-sm">
-          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <CardTitle className="text-lg font-semibold text-slate-900">Policy documents</CardTitle>
-              <CardDescription>Upload supporting paperwork and keep it handy for the team.</CardDescription>
-            </div>
-            <Badge variant="outline" className="self-start rounded-full border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
-              {files.length} {files.length === 1 ? "file" : "files"}
-            </Badge>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <form
-              onSubmit={async event => {
-                event.preventDefault();
-                const formElement = event.currentTarget as HTMLFormElement;
-                const formData = new FormData(formElement);
-                const file = formData.get("file") as File | null;
-                if (!file) {
-                  toast({
-                    title: "File required",
-                    description: "Choose a file before uploading.",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                try {
-                  const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/files`, {
-                    method: "POST",
-                    headers: { "x-filename": file.name, ...getAuthHeaders() },
-                    body: file,
-                  });
-                  ensureAuthorized(response);
-                  if (!response.ok) {
-                    throw new Error("Failed to upload file");
-                  }
-                  queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
-                  formElement.reset();
-                } catch (error) {
-                  toast({
-                    title: "Upload failed",
-                    description: error instanceof Error ? error.message : "Failed to upload file",
-                    variant: "destructive",
-                  });
-                }
-              }}
-              className="space-y-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-4"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-medium text-slate-700">Add a new document</p>
-                  <p className="text-xs text-muted-foreground">Accepted formats up to 10 MB.</p>
-                </div>
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Input type="file" name="file" className="max-w-xs" />
-                  <Button type="submit" className="sm:self-start">Upload file</Button>
-                </div>
-              </div>
-            </form>
-
-            {files.length > 0 ? (
-              <div className="space-y-3">
-                {files.map((file: any) => (
-                  <div
-                    key={file.id}
-                    className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                        <Paperclip className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <a
-                          className="font-medium text-slate-900 hover:text-primary hover:underline"
-                          href={`/${file.filePath}`}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          {file.fileName}
-                        </a>
-                        <p className="text-xs text-muted-foreground">Uploaded {formatDate(file.createdAt)}</p>
-                      </div>
+                  <h3 className="text-sm font-semibold text-slate-900">Charge history</h3>
+                  {isLoadingCharges ? (
+                    <p className="mt-2 text-xs text-muted-foreground">Loading charges…</p>
+                  ) : charges.length === 0 ? (
+                    <p className="mt-2 text-xs text-muted-foreground">No charges logged for this policy.</p>
+                  ) : (
+                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
+                      <table className="min-w-full divide-y divide-slate-200 text-sm">
+                        <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
+                          <tr>
+                            <th className="px-4 py-3 text-left">Description</th>
+                            <th className="px-4 py-3 text-left">Date</th>
+                            <th className="px-4 py-3 text-left">Status</th>
+                            <th className="px-4 py-3 text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {charges.map(charge => {
+                            const status = chargeStatusStyles[charge.status];
+                            return (
+                              <tr key={charge.id}>
+                                <td className="px-4 py-3">
+                                  <div className="font-medium text-slate-900">{charge.description}</div>
+                                  {charge.notes ? <div className="text-xs text-slate-500">{charge.notes}</div> : null}
+                                </td>
+                                <td className="px-4 py-3 text-slate-600">{formatChargeDate(charge.chargedAt)}</td>
+                                <td className="px-4 py-3">
+                                  <Badge variant="outline" className={status.className}>
+                                    {status.label}
+                                  </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-right font-semibold text-slate-900">
+                                  {formatChargeAmount(charge.amountCents)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
-                    <Button asChild variant="ghost" size="sm" className="gap-2 text-primary">
-                      <a href={`/${file.filePath}`} target="_blank" rel="noreferrer">
-                        View document
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex items-center gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                <Paperclip className="h-5 w-5 text-slate-400" />
-                No documents uploaded yet.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <PolicyDocumentRequests policyId={policy.id} customers={policy.customers ?? []} />
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
       <Dialog
         open={isEmailDialogOpen}
