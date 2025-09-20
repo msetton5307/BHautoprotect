@@ -502,6 +502,11 @@ export default function AdminPolicies() {
                         : '';
                       const coverageStatus = getCoverageStatus(policy);
                       const coverageSummary = getCoverageSummary(policy);
+                      const odometerValue = policy.vehicle?.odometer;
+                      const odometerDisplay =
+                        odometerValue != null && !Number.isNaN(Number(odometerValue))
+                          ? Number(odometerValue).toLocaleString()
+                          : '—';
 
                       return (
                         <TableRow
@@ -526,7 +531,9 @@ export default function AdminPolicies() {
                           </TableCell>
                           <TableCell className="px-4 py-3 align-top text-slate-700 whitespace-normal break-words">
                             <div className="flex flex-col gap-1">
-                              <span className="font-mono text-xs uppercase tracking-wide text-slate-400">{policy.id}</span>
+                              <span className="font-mono text-sm font-semibold uppercase tracking-wide text-slate-900">
+                                {policy.id}
+                              </span>
                               <span className="font-medium text-slate-900">{policy.package || 'Package TBD'}</span>
                               <span className="text-xs text-slate-500">Deductible · {formatDeductible(policy.deductible)}</span>
                             </div>
@@ -542,7 +549,7 @@ export default function AdminPolicies() {
                             <div className="flex flex-col gap-1">
                               <span>{vehicleSummary || 'Vehicle pending'}</span>
                               <span className="text-xs text-slate-500">VIN · {policy.vehicle?.vin || '—'}</span>
-                              <span className="text-xs text-slate-500">Miles · {policy.expirationMiles ?? '—'}</span>
+                              <span className="text-xs text-slate-500">Odometer · {odometerDisplay}</span>
                             </div>
                           </TableCell>
                           <TableCell className="px-4 py-3 align-top text-slate-700 whitespace-normal break-words">
