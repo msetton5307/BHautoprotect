@@ -280,20 +280,35 @@ export default function AdminLeadDetail() {
     },
   });
 
+  const leadPayload = leadData?.data as
+    | {
+        lead?: any;
+        vehicle?: any;
+        quotes: any[];
+        notes: any[];
+        policy: any;
+        contracts?: LeadContractSummary[];
+      }
+    | undefined;
+
   useEffect(() => {
-    if (leadData?.data?.lead) {
-      setLeadForm(leadData.data.lead);
+    if (!leadPayload) {
+      return;
     }
-    if (leadData?.data?.vehicle) {
-      const v = leadData.data.vehicle;
+
+    if (leadPayload.lead) {
+      setLeadForm(leadPayload.lead);
+    }
+    if (leadPayload.vehicle) {
+      const v = leadPayload.vehicle;
       setVehicleForm({
         ...v,
         year: v.year?.toString(),
         odometer: v.odometer?.toString(),
       });
     }
-    if (leadData?.data?.policy) {
-      const p = leadData.data.policy;
+    if (leadPayload.policy) {
+      const p = leadPayload.policy;
       setPolicyForm({
         package: p.package || '',
         expirationMiles: p.expirationMiles?.toString() || '',
@@ -306,7 +321,7 @@ export default function AdminLeadDetail() {
         totalPayments: p.totalPayments?.toString() || '',
       });
     }
-  }, [leadData]);
+  }, [leadPayload]);
 
   if (checking) {
     return (
@@ -328,7 +343,26 @@ export default function AdminLeadDetail() {
     );
   }
 
-  if (!leadData?.data) {
+  const quotes = leadPayload?.quotes ?? [];
+  const notes = leadPayload?.notes ?? [];
+  const existingPolicy = leadPayload?.policy;
+  const contracts = leadPayload?.contracts ?? [];
+
+  const contractGroups = useMemo(() => {
+    const grouped: Record<string, LeadContractSummary[]> = {};
+    contracts.forEach((contract) => {
+      if (!contract.quoteId) {
+        return;
+      }
+      if (!grouped[contract.quoteId]) {
+        grouped[contract.quoteId] = [];
+      }
+      grouped[contract.quoteId].push(contract);
+    });
+    return grouped;
+  }, [contracts]);
+
+  if (!leadPayload) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -340,27 +374,6 @@ export default function AdminLeadDetail() {
       </div>
     );
   }
-
-  const { quotes, notes, policy: existingPolicy, contracts = [] } = leadData.data as {
-    quotes: any[];
-    notes: any[];
-    policy: any;
-    contracts?: LeadContractSummary[];
-  };
-
-  const contractGroups = useMemo(() => {
-    const grouped: Record<string, LeadContractSummary[]> = {};
-    (contracts as LeadContractSummary[]).forEach((contract) => {
-      if (!contract.quoteId) {
-        return;
-      }
-      if (!grouped[contract.quoteId]) {
-        grouped[contract.quoteId] = [];
-      }
-      grouped[contract.quoteId].push(contract);
-    });
-    return grouped;
-  }, [contracts]);
   const hasPolicy = Boolean(existingPolicy);
   const convertButtonDisabled = convertLeadMutation.isPending || hasPolicy;
   const convertButtonLabel = hasPolicy
