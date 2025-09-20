@@ -34,7 +34,7 @@ export default function CustomerPortalAuth({ onAuthenticated }: Props) {
         title: "Welcome back",
         description: "You are now signed in to your policy portal.",
       });
-      onAuthenticated({ customer: result.customer, policies: result.policies });
+      onAuthenticated({ customer: result.customer, policies: result.policies, contracts: result.contracts });
     } else {
       toast({ title: "Sign in failed", description: result.message, variant: "destructive" });
     }

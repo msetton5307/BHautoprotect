@@ -7,6 +7,7 @@ import CustomerPortalClaims from "./claims";
 import CustomerPortalPayments from "./payments";
 import CustomerPortalPolicyRequest from "./policy-request";
 import CustomerPortalDocuments from "./documents";
+import CustomerPortalContracts from "./contracts";
 import {
   checkCustomerSession,
   logoutCustomer,
@@ -16,6 +17,7 @@ import {
 const NAV_LINKS = [
   { href: "/portal", label: "Overview" },
   { href: "/portal/claims", label: "Claims" },
+  { href: "/portal/contracts", label: "Contracts" },
   { href: "/portal/payments", label: "Payments" },
   { href: "/portal/documents", label: "Documents" },
   { href: "/portal/policies/new", label: "Add Coverage" },
@@ -135,6 +137,9 @@ export default function CustomerPortal() {
           </Route>
           <Route path="/portal/payments">
             <CustomerPortalPayments session={session} />
+          </Route>
+          <Route path="/portal/contracts">
+            <CustomerPortalContracts session={session} />
           </Route>
           <Route path="/portal/documents">
             <CustomerPortalDocuments session={session} />

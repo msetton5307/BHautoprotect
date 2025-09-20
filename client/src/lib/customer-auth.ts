@@ -40,6 +40,27 @@ export type CustomerPolicy = {
   } | null;
 };
 
+export type CustomerContract = {
+  id: string;
+  leadId: string;
+  quoteId: string | null;
+  status: string;
+  fileName: string;
+  fileType?: string | null;
+  fileSize?: number | null;
+  signedAt?: string | null;
+  signatureName?: string | null;
+  signatureEmail?: string | null;
+  signatureConsent?: boolean;
+  paymentMethod?: string | null;
+  paymentLastFour?: string | null;
+  paymentExpMonth?: number | null;
+  paymentExpYear?: number | null;
+  paymentNotes?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
 export type CustomerClaim = {
   id: string;
   policyId: string | null;
@@ -133,12 +154,14 @@ export function getStoredCustomerName(): string | null {
 export type CustomerSessionSnapshot = {
   customer: CustomerAccount;
   policies: CustomerPolicy[];
+  contracts: CustomerContract[];
 };
 
 type AuthSuccess = {
   success: true;
   customer: CustomerAccount;
   policies: CustomerPolicy[];
+  contracts: CustomerContract[];
 };
 
 type AuthFailure = {
@@ -158,8 +181,9 @@ function mapAuthResponse(data: unknown): AuthSuccess | null {
     return null;
   }
 
-  const payload = (data as { customer?: unknown; policies?: unknown }).customer;
+  const payload = (data as { customer?: unknown }).customer;
   const policies = (data as { policies?: unknown }).policies;
+  const contracts = (data as { contracts?: unknown }).contracts;
 
   if (!payload || typeof payload !== "object") {
     return null;
@@ -174,6 +198,7 @@ function mapAuthResponse(data: unknown): AuthSuccess | null {
     success: true,
     customer,
     policies: Array.isArray(policies) ? (policies as CustomerPolicy[]) : [],
+    contracts: Array.isArray(contracts) ? (contracts as CustomerContract[]) : [],
   } as AuthSuccess;
 }
 
@@ -245,7 +270,7 @@ export async function checkCustomerSession(): Promise<CustomerSessionSnapshot | 
     }
 
     storeSession(mapped.customer.email, mapped.customer.displayName ?? null);
-    return { customer: mapped.customer, policies: mapped.policies };
+    return { customer: mapped.customer, policies: mapped.policies, contracts: mapped.contracts };
   } catch {
     return null;
   }
