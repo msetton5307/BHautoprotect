@@ -27,6 +27,7 @@ import {
 } from "@shared/schema";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import { calculateQuote } from "../client/src/lib/pricing";
 import { verifyPassword, hashPassword } from "./password";
 
@@ -132,6 +133,8 @@ const portalContractsBaseUrl = trimmedPortalBaseUrl
   : `${defaultPortalBaseUrl}/portal/contracts`;
 
 const MAX_CONTRACT_FILE_BYTES = 5 * 1024 * 1024;
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const placeholderContractPath = path.join(__dirname, 'assets', 'placeholder-contract.pdf');
 let placeholderContractBase64: string | null = null;
@@ -942,6 +945,7 @@ const buildQuoteEmail = ({
 
 export async function registerRoutes(app: Express): Promise<Server> {
   await storage.ensureNumericIdSequences();
+  await storage.ensureCustomerPaymentProfileCardFields();
   await storage.ensureDefaultAdminUser();
   await storage.ensureDefaultEmailTemplates();
 

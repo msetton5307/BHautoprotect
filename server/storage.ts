@@ -223,6 +223,7 @@ export interface IStorage {
   ensureNumericIdSequences(): Promise<void>;
   ensureDefaultAdminUser(): Promise<void>;
   ensureDefaultEmailTemplates(): Promise<void>;
+  ensureCustomerPaymentProfileCardFields(): Promise<void>;
 
   // Customer account operations
   getCustomerAccount(id: string): Promise<CustomerAccount | undefined>;
@@ -682,6 +683,17 @@ export class DatabaseStorage implements IStorage {
           9999999
         )
       );
+    `);
+  }
+
+  async ensureCustomerPaymentProfileCardFields(): Promise<void> {
+    await db.execute(sql`
+      ALTER TABLE customer_payment_profiles
+        ADD COLUMN IF NOT EXISTS card_brand varchar(40),
+        ADD COLUMN IF NOT EXISTS card_last_four varchar(4),
+        ADD COLUMN IF NOT EXISTS card_expiry_month integer,
+        ADD COLUMN IF NOT EXISTS card_expiry_year integer,
+        ADD COLUMN IF NOT EXISTS billing_zip varchar(16);
     `);
   }
 
