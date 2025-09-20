@@ -1188,9 +1188,9 @@ export default function AdminPolicyDetail() {
                       {defaultTemplates.map(template => (
                         <Button
                           key={template.id}
-                          variant="secondary"
+                          variant="outline"
                           size="sm"
-                          className="gap-2 rounded-full border border-slate-200 bg-white px-4 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          className="gap-2 rounded-full border-slate-200 bg-white px-4 text-slate-700 hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
                           onClick={() => handleOpenEmailDialog(template.id)}
                         >
                           <Sparkles className="h-4 w-4" />
