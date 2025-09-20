@@ -50,6 +50,8 @@ export const policyChargeStatusEnum = pgEnum('policy_charge_status', [
   'refunded',
 ]);
 
+export const contractStatusEnum = pgEnum('contract_status', ['draft', 'sent', 'signed', 'void']);
+
 const shortId = sql`substring(replace(gen_random_uuid()::text, '-', ''), 1, 8)`;
 const leadIdDefault = sql<string>`lpad(nextval('lead_id_seq')::text, 8, '0')`;
 
@@ -71,6 +73,7 @@ export const leads = pgTable("leads", {
   phone: varchar("phone"),
   zip: varchar("zip"),
   state: varchar("state"),
+  salespersonEmail: varchar('salesperson_email'),
   consentTCPA: boolean("consent_tcpa").default(false),
   consentTimestamp: timestamp("consent_timestamp"),
   consentIP: varchar("consent_ip"),
@@ -173,6 +176,33 @@ export const policyFiles = pgTable("policy_files", {
   fileName: text("file_name").notNull(),
   filePath: text("file_path").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const leadContracts = pgTable('lead_contracts', {
+  id: varchar('id').primaryKey().default(shortId),
+  leadId: varchar('lead_id', { length: 8 })
+    .references(() => leads.id, { onDelete: 'cascade' })
+    .notNull(),
+  quoteId: varchar('quote_id').references(() => quotes.id, { onDelete: 'set null' }),
+  uploadedBy: varchar('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+  fileName: text('file_name').notNull(),
+  fileType: text('file_type'),
+  fileSize: integer('file_size'),
+  fileData: text('file_data').notNull(),
+  status: contractStatusEnum('status').notNull().default('draft'),
+  signatureName: text('signature_name'),
+  signatureEmail: text('signature_email'),
+  signatureIp: varchar('signature_ip', { length: 64 }),
+  signatureUserAgent: text('signature_user_agent'),
+  signatureConsent: boolean('signature_consent').default(false),
+  signedAt: timestamp('signed_at'),
+  paymentMethod: text('payment_method'),
+  paymentLastFour: varchar('payment_last_four', { length: 4 }),
+  paymentExpMonth: integer('payment_exp_month'),
+  paymentExpYear: integer('payment_exp_year'),
+  paymentNotes: text('payment_notes'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
 });
 
 export const customerAccounts = pgTable('customer_accounts', {
@@ -402,6 +432,13 @@ export const insertCustomerDocumentUploadSchema = createInsertSchema(customerDoc
   createdAt: true,
 });
 
+export const insertLeadContractSchema = createInsertSchema(leadContracts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  signedAt: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
@@ -452,3 +489,5 @@ export type CustomerDocumentRequest = typeof customerDocumentRequests.$inferSele
 export type InsertCustomerDocumentRequest = z.infer<typeof insertCustomerDocumentRequestSchema>;
 export type CustomerDocumentUpload = typeof customerDocumentUploads.$inferSelect;
 export type InsertCustomerDocumentUpload = z.infer<typeof insertCustomerDocumentUploadSchema>;
+export type LeadContract = typeof leadContracts.$inferSelect;
+export type InsertLeadContract = z.infer<typeof insertLeadContractSchema>;

@@ -7,6 +7,7 @@ import {
   claims,
   policyNotes,
   policyFiles,
+  leadContracts,
   emailTemplates,
   siteSettings,
   users,
@@ -32,6 +33,8 @@ import {
   type InsertPolicyNote,
   type PolicyFile,
   type InsertPolicyFile,
+  type LeadContract,
+  type InsertLeadContract,
   type EmailTemplate,
   type InsertEmailTemplate,
   type SiteSetting,
@@ -152,6 +155,7 @@ export interface IStorage {
   updateVehicle(leadId: string, updates: Partial<InsertVehicle>): Promise<Vehicle>;
   
   // Quote operations
+  getQuote(id: string): Promise<Quote | undefined>;
   getQuotesByLeadId(leadId: string): Promise<Quote[]>;
   createQuote(quote: InsertQuote): Promise<Quote>;
 
@@ -182,6 +186,15 @@ export interface IStorage {
   // Policy file operations
   getPolicyFiles(policyId: string): Promise<PolicyFile[]>;
   createPolicyFile(file: InsertPolicyFile): Promise<PolicyFile>;
+
+  // Contract operations
+  getLeadContracts(leadId: string): Promise<LeadContract[]>;
+  getLeadContract(contractId: string): Promise<LeadContract | undefined>;
+  createLeadContract(contract: InsertLeadContract): Promise<LeadContract>;
+  updateLeadContract(
+    contractId: string,
+    updates: Partial<Omit<LeadContract, 'id' | 'leadId' | 'createdAt'>>,
+  ): Promise<LeadContract>;
 
   // Email template operations
   getEmailTemplates(): Promise<EmailTemplate[]>;
@@ -325,6 +338,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Quote operations
+  async getQuote(id: string): Promise<Quote | undefined> {
+    const [quote] = await db.select().from(quotes).where(eq(quotes.id, id));
+    return quote;
+  }
+
   async getQuotesByLeadId(leadId: string): Promise<Quote[]> {
     const result = await db.select().from(quotes).where(eq(quotes.leadId, leadId)).orderBy(desc(quotes.createdAt));
     return result;
@@ -481,6 +499,38 @@ export class DatabaseStorage implements IStorage {
   async createPolicyFile(fileData: InsertPolicyFile): Promise<PolicyFile> {
     const [file] = await db.insert(policyFiles).values(fileData).returning();
     return file;
+  }
+
+  // Contract operations
+  async getLeadContracts(leadId: string): Promise<LeadContract[]> {
+    const result = await db
+      .select()
+      .from(leadContracts)
+      .where(eq(leadContracts.leadId, leadId))
+      .orderBy(desc(leadContracts.createdAt));
+    return result;
+  }
+
+  async getLeadContract(contractId: string): Promise<LeadContract | undefined> {
+    const [contract] = await db.select().from(leadContracts).where(eq(leadContracts.id, contractId));
+    return contract;
+  }
+
+  async createLeadContract(contractData: InsertLeadContract): Promise<LeadContract> {
+    const [contract] = await db.insert(leadContracts).values(contractData).returning();
+    return contract;
+  }
+
+  async updateLeadContract(
+    contractId: string,
+    updates: Partial<Omit<LeadContract, 'id' | 'leadId' | 'createdAt'>>,
+  ): Promise<LeadContract> {
+    const [contract] = await db
+      .update(leadContracts)
+      .set({ ...updates, updatedAt: getEasternDate() })
+      .where(eq(leadContracts.id, contractId))
+      .returning();
+    return contract;
   }
 
   // Email template operations

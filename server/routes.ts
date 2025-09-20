@@ -23,6 +23,7 @@ import {
   type CustomerAccount,
   documentRequestTypeEnum,
   documentRequestStatusEnum,
+  type LeadContract,
 } from "@shared/schema";
 import fs from "fs";
 import path from "path";
@@ -125,6 +126,25 @@ const defaultPortalBaseUrl = 'https://bhautoprotect.com';
 const portalDocumentsBaseUrl = trimmedPortalBaseUrl
   ? `${trimmedPortalBaseUrl}/portal/documents`
   : `${defaultPortalBaseUrl}/portal/documents`;
+
+const portalContractsBaseUrl = trimmedPortalBaseUrl
+  ? `${trimmedPortalBaseUrl}/portal/contracts`
+  : `${defaultPortalBaseUrl}/portal/contracts`;
+
+const MAX_CONTRACT_FILE_BYTES = 5 * 1024 * 1024;
+
+const placeholderContractPath = path.join(__dirname, 'assets', 'placeholder-contract.pdf');
+let placeholderContractBase64: string | null = null;
+
+try {
+  if (fs.existsSync(placeholderContractPath)) {
+    placeholderContractBase64 = fs.readFileSync(placeholderContractPath).toString('base64');
+  }
+} catch (error) {
+  console.warn('Unable to load placeholder contract PDF:', error);
+}
+
+const defaultSalesAlertEmail = process.env.SALES_ALERT_EMAIL?.trim() || 'sales@bhautoprotect.com';
 
 const leadWebhookRateLimitWindowMs = 60 * 1000;
 const leadWebhookRateLimitMax = 30;
@@ -290,6 +310,7 @@ declare module "express-session" {
   interface SessionData {
     user?: AuthenticatedUser;
     customer?: AuthenticatedCustomer;
+    contractLeads?: string[];
   }
 }
 
@@ -438,6 +459,220 @@ const formatPlanName = (plan: string | null | undefined): string => {
     return "Vehicle Protection";
   }
   return `${plan.charAt(0).toUpperCase()}${plan.slice(1)}`;
+};
+
+const getPlaceholderContractFile = () => {
+  if (!placeholderContractBase64) {
+    throw new Error('No contract template is available. Please upload a contract PDF.');
+  }
+  const buffer = Buffer.from(placeholderContractBase64, 'base64');
+  return {
+    base64: placeholderContractBase64,
+    size: buffer.length,
+    fileName: 'BH-Auto-Protect-Contract.pdf',
+    fileType: 'application/pdf',
+  };
+};
+
+const extractBase64Data = (input: string): string => {
+  if (input.includes(',')) {
+    const [, data] = input.split(',', 2);
+    return data ?? '';
+  }
+  return input;
+};
+
+const mapContractForAdmin = (contract: LeadContract) => ({
+  id: contract.id,
+  leadId: contract.leadId,
+  quoteId: contract.quoteId,
+  uploadedBy: contract.uploadedBy,
+  fileName: contract.fileName,
+  fileType: contract.fileType,
+  fileSize: contract.fileSize,
+  status: contract.status,
+  signedAt: contract.signedAt,
+  signatureName: contract.signatureName,
+  signatureEmail: contract.signatureEmail,
+  signatureIp: contract.signatureIp,
+  signatureUserAgent: contract.signatureUserAgent,
+  signatureConsent: contract.signatureConsent,
+  paymentMethod: contract.paymentMethod,
+  paymentLastFour: contract.paymentLastFour,
+  paymentExpMonth: contract.paymentExpMonth,
+  paymentExpYear: contract.paymentExpYear,
+  paymentNotes: contract.paymentNotes,
+  createdAt: contract.createdAt,
+  updatedAt: contract.updatedAt,
+  fileData: contract.fileData,
+});
+
+const mapContractForCustomer = (contract: LeadContract) => ({
+  id: contract.id,
+  leadId: contract.leadId,
+  quoteId: contract.quoteId,
+  status: contract.status,
+  fileName: contract.fileName,
+  fileType: contract.fileType,
+  fileSize: contract.fileSize,
+  signedAt: contract.signedAt,
+  signatureName: contract.signatureName,
+  signatureEmail: contract.signatureEmail,
+  signatureConsent: contract.signatureConsent,
+  paymentMethod: contract.paymentMethod,
+  paymentLastFour: contract.paymentLastFour,
+  paymentExpMonth: contract.paymentExpMonth,
+  paymentExpYear: contract.paymentExpYear,
+  paymentNotes: contract.paymentNotes,
+  createdAt: contract.createdAt,
+  updatedAt: contract.updatedAt,
+});
+
+const ensureSessionLeadAccess = (req: Request, leadIds: (string | null | undefined)[]) => {
+  const existing = req.session.contractLeads ?? [];
+  const combined = new Set(existing);
+  leadIds
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .forEach((value) => combined.add(value));
+  req.session.contractLeads = Array.from(combined);
+  return req.session.contractLeads;
+};
+
+const gatherContractsForLeads = async (leadIds: string[]) => {
+  const unique = Array.from(new Set(leadIds.filter((value) => value.trim().length > 0)));
+  if (unique.length === 0) {
+    return [] as LeadContract[];
+  }
+  const results = await Promise.all(unique.map((leadId) => storage.getLeadContracts(leadId)));
+  return results.flat();
+};
+
+const customerCanAccessContract = (req: Request, contract: LeadContract) => {
+  const leadIds = req.session.contractLeads ?? [];
+  return leadIds.includes(contract.leadId);
+};
+
+const buildContractInviteEmail = ({
+  lead,
+  vehicle,
+  quote,
+  contract,
+}: {
+  lead: Lead;
+  vehicle: Vehicle | null | undefined;
+  quote: Quote;
+  contract: LeadContract;
+}) => {
+  const displayName = getLeadDisplayName(lead);
+  const vehicleSummary = getVehicleSummary(vehicle);
+  const planName = formatPlanName(quote.plan);
+  const monthly = `$${(quote.priceMonthly / 100).toFixed(2)}/mo`;
+  const contractLink = `${portalContractsBaseUrl}?contract=${contract.id}`;
+  const subject = `${planName} contract ready for ${vehicleSummary}`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.1);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#0f172a,#2563eb);padding:32px;color:#e2e8f0;">
+                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BH AUTO PROTECT</div>
+                <div style="font-size:24px;font-weight:700;margin-top:12px;">Your ${escapeHtml(planName)} contract is ready</div>
+                <div style="margin-top:8px;font-size:14px;opacity:0.85;">Quote ${escapeHtml(quote.id)} • ${escapeHtml(monthly)}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
+                <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+                  We prepared your contract for ${escapeHtml(vehicleSummary)}. Review the PDF and complete the digital signature to finalize coverage.
+                </p>
+                <div style="background:#f1f5f9;border-radius:14px;padding:22px 24px;margin-bottom:24px;border:1px solid #e2e8f0;">
+                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:10px;">Next steps</div>
+                  <ol style="margin:0;padding-left:18px;color:#1f2937;font-size:15px;line-height:1.7;">
+                    <li style="margin-bottom:8px;">Open the contract PDF to confirm your plan details.</li>
+                    <li style="margin-bottom:8px;">Provide your digital signature and payment preferences.</li>
+                    <li>We'll activate your policy immediately and email your confirmation packet.</li>
+                  </ol>
+                </div>
+                <div style="text-align:center;margin-bottom:28px;">
+                  <a href="${escapeHtml(contractLink)}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 28px;border-radius:9999px;background:#2563eb;color:#ffffff;font-weight:600;text-decoration:none;">Review & Sign Contract</a>
+                </div>
+                <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
+                  Need adjustments? Reply to this email or call <a href="tel:18882001234" style="color:#2563eb;text-decoration:none;font-weight:600;">1 (888) 200-1234</a>. Our concierge team can update payment schedules, deductibles, and start dates instantly.
+                </p>
+                <p style="margin:0;font-size:15px;line-height:1.7;">Warmly,<br/><strong>The BH Auto Protect Team</strong></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  const text = `Hi ${displayName},\n\nYour ${planName} contract for ${vehicleSummary} is ready. Review the PDF and provide your digital signature to activate coverage.\n\nSign the contract: ${contractLink}\nQuote: ${quote.id} (${monthly})\n\nNeed help? Call 1 (888) 200-1234 or reply to this email.\n\nThe BH Auto Protect Team`;
+  return { subject, html, text };
+};
+
+const buildContractSignedNotificationEmail = ({
+  lead,
+  contract,
+  quote,
+  vehicle,
+}: {
+  lead: Lead;
+  contract: LeadContract;
+  quote: Quote | null;
+  vehicle: Vehicle | null | undefined;
+}) => {
+  const customerName = getLeadDisplayName(lead);
+  const vehicleSummary = getVehicleSummary(vehicle);
+  const planName = quote ? formatPlanName(quote.plan) : 'Vehicle Protection';
+  const subject = `Contract signed • ${customerName}`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#0f172a;font-family:'Helvetica Neue',Arial,sans-serif;color:#f8fafc;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:28px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#111827;border-radius:18px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.35);">
+            <tr>
+              <td style="padding:30px 32px;background:linear-gradient(135deg,#1e293b,#0f172a);">
+                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#64748b;">Contract Signed</div>
+                <div style="font-size:24px;font-weight:700;margin-top:12px;color:#e2e8f0;">${escapeHtml(customerName)} locked in coverage</div>
+                <div style="margin-top:6px;font-size:13px;color:#94a3b8;">${escapeHtml(planName)} • Lead ${escapeHtml(lead.id)}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px;color:#e2e8f0;">
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.7;">The customer signed their contract digitally. We recorded their consent and payment preferences.</p>
+                <div style="background:#1e293b;border-radius:14px;padding:18px 22px;margin-bottom:20px;">
+                  <div style="font-size:13px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;">Snapshot</div>
+                  <p style="margin:0 0 10px;font-size:15px;">Vehicle: ${escapeHtml(vehicleSummary)}</p>
+                  <p style="margin:0 0 10px;font-size:15px;">Plan: ${escapeHtml(planName)}${quote ? ` • $${(quote.priceMonthly / 100).toFixed(2)}/mo` : ''}</p>
+                  <p style="margin:0;font-size:15px;">Signed: ${contract.signedAt ? new Date(contract.signedAt).toLocaleString() : 'Pending timestamp'}</p>
+                </div>
+                <p style="margin:0;font-size:15px;line-height:1.7;">The policy record has been created and the operations team received an alert. Reach out if you need to confirm onboarding details.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+  const text = `Contract signed for ${customerName}\nVehicle: ${vehicleSummary}\nPlan: ${planName}${quote ? ` • $${(quote.priceMonthly / 100).toFixed(2)}/mo` : ''}\nSigned: ${contract.signedAt ? new Date(contract.signedAt).toLocaleString() : 'Pending timestamp'}\n\nPolicy has been created automatically.`;
+  return { subject, html, text };
 };
 
 const documentDueDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -976,6 +1211,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.syncCustomerPoliciesByEmail(account.id, account.email);
+      const policies = await storage.getCustomerPolicies(account.id);
+      res.locals.customerPolicies = policies;
+      ensureSessionLeadAccess(
+        req,
+        policies.map((policy) => policy.leadId),
+      );
       req.session.customer = toAuthenticatedCustomer(account);
       res.locals.customerAccount = account;
       next();
@@ -1066,6 +1307,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     status: z.enum(DOCUMENT_REQUEST_STATUS_VALUES),
   });
 
+  const contractCreateSchema = z.object({
+    quoteId: z.string().trim().min(1, 'Quote is required'),
+    fileName: z.string().trim().min(1).max(255).optional(),
+    fileType: z.string().trim().max(120).optional(),
+    fileData: z.string().trim().optional(),
+    salespersonEmail: z.string().trim().email('Enter a valid salesperson email').optional(),
+    usePlaceholder: z.boolean().optional(),
+  });
+
+  const contractSignSchema = z.object({
+    signatureName: z.string().trim().min(2, 'Signature is required').max(160),
+    signatureEmail: z.string().trim().email('Enter a valid email').optional(),
+    consent: z.boolean(),
+    paymentMethod: z.string().trim().max(120).optional(),
+    paymentLastFour: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{2,4}$/)
+      .optional(),
+    paymentExpMonth: z.coerce.number().int().min(1).max(12).optional(),
+    paymentExpYear: z.coerce
+      .number()
+      .int()
+      .min(currentYear)
+      .max(maxCardExpiryYear)
+      .optional(),
+    paymentNotes: z.string().trim().max(2000).optional(),
+  });
+
   const documentUploadSchema = z.object({
     fileName: z
       .string()
@@ -1150,51 +1420,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email, policyId } = customerLoginSchema.parse(req.body);
       const normalizedEmail = email.trim().toLowerCase();
-      const normalizedPolicyId = policyId.trim();
+      const normalizedId = policyId.trim();
 
-      const policy = await storage.getPolicy(normalizedPolicyId);
-      if (!policy) {
-        res.status(404).json({ message: 'Policy not found' });
-        return;
-      }
-
-      const policyEmail = policy.lead?.email?.trim().toLowerCase();
-      if (!policyEmail || policyEmail !== normalizedEmail) {
-        res
-          .status(403)
-          .json({ message: 'We could not match that policy with the provided email address.' });
-        return;
-      }
-
-      const displayNameParts = [
-        typeof policy.lead?.firstName === 'string' ? policy.lead.firstName.trim() : '',
-        typeof policy.lead?.lastName === 'string' ? policy.lead.lastName.trim() : '',
-      ].filter((value) => value.length > 0);
-      const inferredDisplayName = displayNameParts.join(' ');
-      const displayName = inferredDisplayName.length > 0 ? inferredDisplayName : null;
-
+      const accountDisplayNameParts: string[] = [];
       let account = await storage.getCustomerAccountByEmail(normalizedEmail);
-      if (!account) {
-        account = await storage.createCustomerAccount({
-          email: normalizedEmail,
-          passwordHash: hashPassword(normalizedPolicyId),
-          displayName,
+      let policies = [] as Awaited<ReturnType<typeof storage.getCustomerPolicies>>;
+      let contracts: LeadContract[] = [];
+      const leadIdsForSession: string[] = [];
+
+      const policy = await storage.getPolicy(normalizedId);
+      if (policy) {
+        const policyEmail = policy.lead?.email?.trim().toLowerCase();
+        if (!policyEmail || policyEmail !== normalizedEmail) {
+          res
+            .status(403)
+            .json({ message: 'We could not match that policy with the provided email address.' });
+          return;
+        }
+
+        accountDisplayNameParts.push(
+          typeof policy.lead?.firstName === 'string' ? policy.lead.firstName.trim() : '',
+        );
+        accountDisplayNameParts.push(
+          typeof policy.lead?.lastName === 'string' ? policy.lead.lastName.trim() : '',
+        );
+
+        if (!account) {
+          account = await storage.createCustomerAccount({
+            email: normalizedEmail,
+            passwordHash: hashPassword(normalizedId),
+            displayName: accountDisplayNameParts.join(' ').trim() || null,
+          });
+        }
+
+        await storage.linkCustomerToPolicy(account.id, normalizedId);
+        await storage.syncCustomerPoliciesByEmail(account.id, normalizedEmail);
+        policies = await storage.getCustomerPolicies(account.id);
+        policies.forEach((policyRecord) => {
+          if (policyRecord.leadId) {
+            leadIdsForSession.push(policyRecord.leadId);
+          }
         });
+        contracts = await gatherContractsForLeads(leadIdsForSession);
+      } else {
+        const lead = await storage.getLead(normalizedId);
+        if (!lead) {
+          res.status(404).json({ message: 'We could not find a matching policy or contract.' });
+          return;
+        }
+
+        const leadEmail = lead.email?.trim().toLowerCase();
+        if (!leadEmail || leadEmail !== normalizedEmail) {
+          res
+            .status(403)
+            .json({ message: 'We could not match that lead with the provided email address.' });
+          return;
+        }
+
+        accountDisplayNameParts.push(
+          typeof lead.firstName === 'string' ? lead.firstName.trim() : '',
+        );
+        accountDisplayNameParts.push(
+          typeof lead.lastName === 'string' ? lead.lastName.trim() : '',
+        );
+
+        if (!account) {
+          account = await storage.createCustomerAccount({
+            email: normalizedEmail,
+            passwordHash: hashPassword(normalizedId),
+            displayName: accountDisplayNameParts.join(' ').trim() || null,
+          });
+        }
+
+        await storage.syncCustomerPoliciesByEmail(account.id, normalizedEmail);
+        policies = await storage.getCustomerPolicies(account.id);
+        leadIdsForSession.push(lead.id);
+        policies.forEach((policyRecord) => {
+          if (policyRecord.leadId) {
+            leadIdsForSession.push(policyRecord.leadId);
+          }
+        });
+        contracts = await storage.getLeadContracts(lead.id);
+        if (contracts.length === 0) {
+          res.status(404).json({ message: 'No contracts are ready for this account yet.' });
+          return;
+        }
       }
 
-      await storage.linkCustomerToPolicy(account.id, normalizedPolicyId);
-      await storage.syncCustomerPoliciesByEmail(account.id, normalizedEmail);
+      if (!account) {
+        res.status(500).json({ message: 'Unable to create customer account' });
+        return;
+      }
 
+      const inferredDisplayName = accountDisplayNameParts.filter(Boolean).join(' ').trim();
       const accountUpdates: { lastLoginAt: Date; displayName?: string | null } = {
         lastLoginAt: getEasternDate(),
       };
 
-      if ((!account.displayName || account.displayName.trim().length === 0) && displayName) {
-        accountUpdates.displayName = displayName;
+      if ((!account.displayName || account.displayName.trim().length === 0) && inferredDisplayName) {
+        accountUpdates.displayName = inferredDisplayName;
       }
 
       const updatedAccount = await storage.updateCustomerAccount(account.id, accountUpdates);
-      const policies = await storage.getCustomerPolicies(account.id);
       const authenticatedCustomer = toAuthenticatedCustomer(updatedAccount);
 
       await new Promise<void>((resolve, reject) => {
@@ -1204,6 +1531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return;
           }
           req.session.customer = authenticatedCustomer;
+          ensureSessionLeadAccess(req, leadIdsForSession);
           resolve();
         });
       });
@@ -1212,6 +1540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: {
           customer: sanitizeCustomerAccount(updatedAccount),
           policies,
+          contracts: contracts.map(mapContractForCustomer),
         },
         message: 'Login successful',
       });
@@ -1249,6 +1578,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       await storage.syncCustomerPoliciesByEmail(account.id, account.email);
       const policies = await storage.getCustomerPolicies(account.id);
+      const sessionLeads = ensureSessionLeadAccess(
+        req,
+        policies.map((policy) => policy.leadId),
+      );
+      const contracts = await gatherContractsForLeads(sessionLeads ?? []);
       req.session.customer = toAuthenticatedCustomer(account);
 
       res.json({
@@ -1256,12 +1590,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
           authenticated: true,
           customer: sanitizeCustomerAccount(account),
           policies,
+          contracts: contracts.map(mapContractForCustomer),
         },
         message: 'Session verified',
       });
     } catch (error) {
       console.error('Error verifying customer session:', error);
       res.status(500).json({ message: 'Failed to verify session' });
+    }
+  });
+
+  app.get('/api/customer/contracts', customerAuth, async (req, res) => {
+    try {
+      const sessionLeads = req.session.contractLeads ?? [];
+      const contracts = await gatherContractsForLeads(sessionLeads);
+      res.json({
+        data: contracts.map(mapContractForCustomer),
+        message: 'Contracts retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error loading contracts for customer:', error);
+      res.status(500).json({ message: 'Failed to load contracts' });
+    }
+  });
+
+  app.get('/api/customer/contracts/:id', customerAuth, async (req, res) => {
+    try {
+      const contract = await storage.getLeadContract(req.params.id);
+      if (!contract || !customerCanAccessContract(req, contract)) {
+        res.status(404).json({ message: 'Contract not found' });
+        return;
+      }
+      res.json({
+        data: mapContractForCustomer(contract),
+        message: 'Contract retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error retrieving contract for customer:', error);
+      res.status(500).json({ message: 'Failed to load contract' });
+    }
+  });
+
+  app.get('/api/customer/contracts/:id/pdf', customerAuth, async (req, res) => {
+    try {
+      const contract = await storage.getLeadContract(req.params.id);
+      if (!contract || !customerCanAccessContract(req, contract)) {
+        res.status(404).json({ message: 'Contract not found' });
+        return;
+      }
+
+      const mime = contract.fileType ?? 'application/pdf';
+      const dataUrl = `data:${mime};base64,${contract.fileData}`;
+
+      res.json({
+        data: {
+          fileName: contract.fileName,
+          fileType: mime,
+          fileSize: contract.fileSize,
+          dataUrl,
+        },
+        message: 'Contract file retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error retrieving contract PDF:', error);
+      res.status(500).json({ message: 'Failed to load contract file' });
+    }
+  });
+
+  app.post('/api/customer/contracts/:id/sign', customerAuth, async (req, res) => {
+    try {
+      const payload = contractSignSchema.parse(req.body ?? {});
+      const contract = await storage.getLeadContract(req.params.id);
+      if (!contract || !customerCanAccessContract(req, contract)) {
+        res.status(404).json({ message: 'Contract not found' });
+        return;
+      }
+
+      if (contract.status === 'signed') {
+        res.status(400).json({ message: 'This contract has already been signed.' });
+        return;
+      }
+
+      const account = res.locals.customerAccount as CustomerAccount;
+      const lead = await storage.getLead(contract.leadId);
+      if (!lead) {
+        res.status(404).json({ message: 'Lead not found' });
+        return;
+      }
+
+      const quote = contract.quoteId ? (await storage.getQuote(contract.quoteId)) ?? null : null;
+      const vehicle = await storage.getVehicleByLeadId(contract.leadId);
+      const signedAt = getEasternDate();
+      const signatureEmail = payload.signatureEmail?.trim() || account.email;
+      const signatureIp = typeof req.ip === 'string' ? req.ip.slice(0, 64) : null;
+      const userAgentRaw = req.headers['user-agent'];
+      const signatureUserAgent = typeof userAgentRaw === 'string' ? userAgentRaw : null;
+
+      const updatedContract = await storage.updateLeadContract(contract.id, {
+        signatureName: payload.signatureName,
+        signatureEmail,
+        signatureConsent: payload.consent,
+        signatureIp,
+        signatureUserAgent,
+        signedAt,
+        paymentMethod: payload.paymentMethod ?? null,
+        paymentLastFour: payload.paymentLastFour ?? null,
+        paymentExpMonth: payload.paymentExpMonth ?? null,
+        paymentExpYear: payload.paymentExpYear ?? null,
+        paymentNotes: payload.paymentNotes ?? null,
+        status: 'signed',
+      });
+
+      const policyData: Partial<InsertPolicy> = {
+        policyStartDate: signedAt,
+      };
+
+      if (quote) {
+        policyData.package = quote.plan;
+        policyData.deductible = quote.deductible;
+        policyData.totalPremium = quote.priceTotal;
+        policyData.monthlyPayment = quote.priceMonthly;
+        policyData.totalPayments = quote.termMonths;
+        policyData.downPayment = quote.priceMonthly;
+      }
+
+      let policy = await storage.getPolicyByLeadId(contract.leadId);
+      if (policy) {
+        await storage.updatePolicy(contract.leadId, policyData);
+        policy = await storage.getPolicyByLeadId(contract.leadId);
+      } else {
+        policy = await storage.createPolicy({ leadId: contract.leadId, ...policyData });
+      }
+
+      ensureSessionLeadAccess(req, [contract.leadId]);
+      await storage.linkCustomerToPolicy(account.id, contract.leadId);
+      await storage.syncCustomerPoliciesByEmail(account.id, account.email);
+
+      const currentMeta = getLeadMeta(contract.leadId);
+      leadMeta[contract.leadId] = { ...currentMeta, status: 'sold' };
+
+      const salesRecipient =
+        typeof lead.salespersonEmail === 'string' && lead.salespersonEmail.includes('@')
+          ? lead.salespersonEmail
+          : defaultSalesAlertEmail;
+
+      if (salesRecipient) {
+        const notification = buildContractSignedNotificationEmail({
+          lead,
+          contract: updatedContract,
+          quote,
+          vehicle,
+        });
+        try {
+          await sendMail({ to: salesRecipient, subject: notification.subject, html: notification.html, text: notification.text });
+        } catch (error) {
+          console.error('Error sending contract signed notification:', error);
+        }
+      }
+
+      res.json({
+        data: {
+          contract: mapContractForCustomer(updatedContract),
+          policy,
+        },
+        message: 'Contract signed successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Please double-check the signature details and try again.';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error signing contract:', error);
+      res.status(500).json({ message: 'Failed to sign contract' });
     }
   });
 
@@ -2067,6 +2568,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/admin/leads/:id/contracts', async (req, res) => {
+    try {
+      const leadId = req.params.id;
+      const payload = contractCreateSchema.parse(req.body ?? {});
+
+      const lead = await storage.getLead(leadId);
+      if (!lead) {
+        res.status(404).json({ message: 'Lead not found' });
+        return;
+      }
+
+      const quote = await storage.getQuote(payload.quoteId);
+      if (!quote || quote.leadId !== leadId) {
+        res.status(404).json({ message: 'Quote not found for this lead' });
+        return;
+      }
+
+      const recipient = typeof lead.email === 'string' ? lead.email.trim() : '';
+      if (!recipient) {
+        res.status(400).json({ message: 'Lead must have an email address before sending a contract' });
+        return;
+      }
+
+      let fileName = payload.fileName?.trim();
+      let fileType = payload.fileType?.trim().toLowerCase();
+      let fileSize: number;
+      let base64Data: string;
+
+      if (payload.fileData && payload.fileData.trim().length > 0) {
+        const raw = extractBase64Data(payload.fileData.trim());
+        let buffer: Buffer;
+        try {
+          buffer = Buffer.from(raw, 'base64');
+        } catch {
+          res.status(400).json({ message: 'We could not read that file. Please upload a valid PDF.' });
+          return;
+        }
+
+        if (buffer.length === 0) {
+          res.status(400).json({ message: 'The uploaded file is empty.' });
+          return;
+        }
+
+        if (buffer.length > MAX_CONTRACT_FILE_BYTES) {
+          res.status(400).json({ message: 'Contract files must be 5MB or smaller.' });
+          return;
+        }
+
+        base64Data = raw;
+        fileSize = buffer.length;
+        fileType = fileType || 'application/pdf';
+        fileName = fileName || `${lead.id}-contract.pdf`;
+      } else {
+        if (!placeholderContractBase64) {
+          res.status(400).json({ message: 'Please upload a PDF of the contract to continue.' });
+          return;
+        }
+        const placeholder = getPlaceholderContractFile();
+        base64Data = placeholder.base64;
+        fileSize = placeholder.size;
+        fileType = fileType || placeholder.fileType;
+        fileName = fileName || placeholder.fileName;
+      }
+
+      if (!fileType || !fileType.includes('pdf')) {
+        res.status(400).json({ message: 'Contracts must be uploaded as PDF files.' });
+        return;
+      }
+
+      if (!fileName) {
+        fileName = `${lead.id}-contract.pdf`;
+      }
+
+      if (payload.salespersonEmail && payload.salespersonEmail !== lead.salespersonEmail) {
+        await storage.updateLead(leadId, { salespersonEmail: payload.salespersonEmail });
+        lead.salespersonEmail = payload.salespersonEmail;
+      }
+
+      const authenticatedUser = res.locals.user as AuthenticatedUser | undefined;
+
+      const contract = await storage.createLeadContract({
+        leadId,
+        quoteId: quote.id,
+        uploadedBy: authenticatedUser?.id ?? null,
+        fileName,
+        fileType,
+        fileSize,
+        fileData: base64Data,
+        status: 'sent',
+      });
+
+      const vehicle = await storage.getVehicleByLeadId(leadId);
+      const { subject, html, text } = buildContractInviteEmail({ lead, vehicle, quote, contract });
+
+      await sendMail({ to: recipient, subject, html, text });
+
+      res.status(201).json({
+        data: mapContractForAdmin(contract),
+        message: 'Contract prepared and sent to the customer',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid contract details';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error creating contract:', error);
+      res.status(500).json({ message: 'Failed to create contract' });
+    }
+  });
+
   app.get('/api/admin/me', (_req, res) => {
     const user = res.locals.user as AuthenticatedUser;
     res.json({
@@ -2266,6 +2878,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotes = await storage.getQuotesByLeadId(req.params.id);
       const notes = await storage.getNotesByLeadId(req.params.id);
       const policy = await storage.getPolicyByLeadId(req.params.id);
+      const contracts = await storage.getLeadContracts(req.params.id);
       const meta = getLeadMeta(req.params.id);
       res.json({
         data: {
@@ -2274,6 +2887,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           quotes,
           notes,
           policy,
+          contracts: contracts.map(mapContractForAdmin),
         },
         message: 'Lead retrieved successfully',
       });

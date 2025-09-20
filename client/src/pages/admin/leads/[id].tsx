@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,15 @@ const authJsonHeaders = () => ({
   'Content-Type': 'application/json',
 });
 
+type LeadContractSummary = {
+  id: string;
+  quoteId: string | null;
+  status: string;
+  signedAt?: string | null;
+  fileName: string;
+  fileSize?: number | null;
+};
+
 export default function AdminLeadDetail() {
   const { id } = useParams();
   const { toast } = useToast();
@@ -36,6 +45,8 @@ export default function AdminLeadDetail() {
     priceTotal: 299900, // $2999.00
     priceMonthly: 8331, // $83.31
   });
+  const [contractUploads, setContractUploads] = useState<Record<string, { fileName: string; fileType: string; fileData: string }>>({});
+  const [contractSendingQuote, setContractSendingQuote] = useState<string | null>(null);
   const [policyForm, setPolicyForm] = useState({
     package: '',
     expirationMiles: '',
@@ -140,6 +151,64 @@ export default function AdminLeadDetail() {
         description: "Failed to create quote",
         variant: "destructive",
       });
+    },
+  });
+
+  const createContractMutation = useMutation({
+    mutationFn: async (input: {
+      quoteId: string;
+      fileName?: string;
+      fileType?: string;
+      fileData?: string;
+      salespersonEmail?: string;
+    }) => {
+      const res = await fetchWithAuth(`/api/admin/leads/${id}/contracts`, {
+        method: 'POST',
+        headers: authJsonHeaders(),
+        body: JSON.stringify({
+          quoteId: input.quoteId,
+          fileName: input.fileName,
+          fileType: input.fileType,
+          fileData: input.fileData,
+          salespersonEmail: input.salespersonEmail,
+          usePlaceholder: !input.fileData,
+        }),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const message = typeof body.message === 'string' ? body.message : 'Failed to send contract';
+        throw new Error(message);
+      }
+      return res.json();
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
+      if (variables?.quoteId) {
+        setContractUploads((prev) => {
+          const copy = { ...prev };
+          delete copy[variables.quoteId];
+          return copy;
+        });
+      }
+      toast({
+        title: 'Contract sent',
+        description: 'The customer has been invited to review and sign.',
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to send contract',
+        variant: 'destructive',
+      });
+    },
+    onSettled: () => {
+      setContractSendingQuote(null);
     },
   });
 
@@ -272,7 +341,26 @@ export default function AdminLeadDetail() {
     );
   }
 
-  const { quotes, notes, policy: existingPolicy } = leadData.data;
+  const { quotes, notes, policy: existingPolicy, contracts = [] } = leadData.data as {
+    quotes: any[];
+    notes: any[];
+    policy: any;
+    contracts?: LeadContractSummary[];
+  };
+
+  const contractGroups = useMemo(() => {
+    const grouped: Record<string, LeadContractSummary[]> = {};
+    (contracts as LeadContractSummary[]).forEach((contract) => {
+      if (!contract.quoteId) {
+        return;
+      }
+      if (!grouped[contract.quoteId]) {
+        grouped[contract.quoteId] = [];
+      }
+      grouped[contract.quoteId].push(contract);
+    });
+    return grouped;
+  }, [contracts]);
   const hasPolicy = Boolean(existingPolicy);
   const convertButtonDisabled = convertLeadMutation.isPending || hasPolicy;
   const convertButtonLabel = hasPolicy
@@ -288,6 +376,55 @@ export default function AdminLeadDetail() {
 
   const handleCreateQuote = () => {
     createQuoteMutation.mutate(quoteForm);
+  };
+
+  const handleContractFileChange = (quoteId: string, file?: File | null) => {
+    if (!file) {
+      setContractUploads((prev) => {
+        const copy = { ...prev };
+        delete copy[quoteId];
+        return copy;
+      });
+      return;
+    }
+
+    if (file.type !== 'application/pdf') {
+      toast({
+        title: 'Unsupported file type',
+        description: 'Please upload a PDF contract file.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') {
+        setContractUploads((prev) => ({
+          ...prev,
+          [quoteId]: {
+            fileName: file.name,
+            fileType: file.type,
+            fileData: result,
+          },
+        }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSendContract = (quoteId: string) => {
+    const upload = contractUploads[quoteId];
+    const salespersonEmail = (leadForm.salespersonEmail || '').trim();
+    setContractSendingQuote(quoteId);
+    createContractMutation.mutate({
+      quoteId,
+      fileName: upload?.fileName,
+      fileType: upload?.fileType,
+      fileData: upload?.fileData,
+      salespersonEmail: salespersonEmail.length > 0 ? salespersonEmail : undefined,
+    });
   };
 
   const handleSave = () => {
@@ -597,11 +734,13 @@ export default function AdminLeadDetail() {
                         </div>
                       </div>
                       <div>
-                        <Label>Sales Person</Label>
+                        <Label>Salesperson Email</Label>
                         <Input
-                          value={leadForm.salespersonUserId || ''}
+                          type="email"
+                          placeholder="name@company.com"
+                          value={leadForm.salespersonEmail || ''}
                           onChange={(e) =>
-                            setLeadForm({ ...leadForm, salespersonUserId: e.target.value })
+                            setLeadForm({ ...leadForm, salespersonEmail: e.target.value })
                           }
                         />
                       </div>
@@ -992,6 +1131,65 @@ export default function AdminLeadDetail() {
                           </div>
                           <div>
                             <span className="font-medium">Term:</span> {quote.termMonths} months
+                          </div>
+                        </div>
+                        <div className="mt-4 space-y-3 border-t pt-4">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium">Contract workflow</p>
+                            {contractGroups[quote.id]?.length ? (
+                              <span className="text-xs text-muted-foreground uppercase">
+                                {contractGroups[quote.id][0].status === 'signed' ? 'Signed' : 'Awaiting signature'}
+                              </span>
+                            ) : null}
+                          </div>
+                          {contractGroups[quote.id]?.length ? (
+                            <ul className="space-y-1 text-sm text-slate-600">
+                              {contractGroups[quote.id].map((contract) => {
+                                const statusLabel =
+                                  contract.status === 'signed'
+                                    ? 'Signed'
+                                    : contract.status === 'sent'
+                                    ? 'Awaiting signature'
+                                    : contract.status;
+                                return (
+                                <li key={contract.id} className="flex items-center justify-between">
+                                  <span className="capitalize">{statusLabel}</span>
+                                  {contract.signedAt ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      {new Date(contract.signedAt).toLocaleString()}
+                                    </span>
+                                  ) : null}
+                                </li>
+                                );
+                              })}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">
+                              No contract sent yet for this quote.
+                            </p>
+                          )}
+                          <div className="space-y-2">
+                            <Input
+                              type="file"
+                              accept="application/pdf"
+                              onChange={(event) =>
+                                handleContractFileChange(quote.id, event.target.files?.[0] || null)
+                              }
+                            />
+                            <Button
+                              variant="secondary"
+                              onClick={() => handleSendContract(quote.id)}
+                              disabled={
+                                createContractMutation.isPending && contractSendingQuote === quote.id
+                              }
+                            >
+                              {createContractMutation.isPending && contractSendingQuote === quote.id
+                                ? 'Sending...'
+                                : 'Send contract'}
+                            </Button>
+                            <p className="text-xs text-muted-foreground">
+                              We’ll use the standard placeholder contract if no PDF is uploaded.
+                            </p>
                           </div>
                         </div>
                       </div>
