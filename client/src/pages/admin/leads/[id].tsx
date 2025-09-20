@@ -67,6 +67,29 @@ const parseCurrencyInput = (value: string): number | null => {
   return Math.round(numeric * 100);
 };
 
+const formatDollarInput = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const numeric = typeof value === 'number' ? value : Number(value);
+  if (Number.isNaN(numeric)) {
+    return '';
+  }
+  return numeric.toFixed(2);
+};
+
+const parseDollarInput = (value: string): number | null => {
+  const normalized = value.replace(/[$,]/g, '').trim();
+  if (!normalized) {
+    return null;
+  }
+  const numeric = Number.parseFloat(normalized);
+  if (Number.isNaN(numeric)) {
+    return null;
+  }
+  return Math.round(numeric);
+};
+
 export default function AdminLeadDetail() {
   const { id } = useParams();
   const { toast } = useToast();
@@ -272,7 +295,6 @@ export default function AdminLeadDetail() {
     }
 
     const currencyFields: (keyof PolicyFormState)[] = [
-      'deductible',
       'totalPremium',
       'downPayment',
       'monthlyPayment',
@@ -284,6 +306,11 @@ export default function AdminLeadDetail() {
       if (cents !== null) {
         payload[field] = cents;
       }
+    }
+
+    const deductibleDollars = parseDollarInput(form.deductible);
+    if (deductibleDollars !== null) {
+      payload.deductible = deductibleDollars;
     }
 
     return payload;
@@ -391,7 +418,7 @@ export default function AdminLeadDetail() {
         package: p.package || '',
         expirationMiles: p.expirationMiles?.toString() || '',
         expirationDate: p.expirationDate ? p.expirationDate.slice(0, 10) : '',
-        deductible: formatCurrencyInput(p.deductible),
+        deductible: formatDollarInput(p.deductible),
         totalPremium: formatCurrencyInput(p.totalPremium),
         downPayment: formatCurrencyInput(p.downPayment),
         policyStartDate: p.policyStartDate ? p.policyStartDate.slice(0, 10) : '',

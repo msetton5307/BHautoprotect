@@ -1482,7 +1482,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (quote) {
       policyData.package = quote.plan;
       if (quote.deductible != null) {
-        policyData.deductible = quote.deductible * 100;
+        policyData.deductible = quote.deductible;
       }
       policyData.totalPremium = quote.priceTotal;
       policyData.monthlyPayment = quote.priceMonthly;

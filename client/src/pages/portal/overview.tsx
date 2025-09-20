@@ -68,6 +68,11 @@ function formatFromCents(value: number | null | undefined): string {
   return currencyFormatter.format(value / 100);
 }
 
+function formatDeductible(value: number | null | undefined): string {
+  if (value == null) return "On file";
+  return currencyFormatter.format(value);
+}
+
 function computeMonthlyTotal(policies: CustomerPolicy[]): number {
   return policies.reduce((total, policy) => total + (policy.monthlyPayment ?? 0), 0);
 }
@@ -284,7 +289,7 @@ export default function CustomerPortalOverview({ session }: Props) {
                     </div>
                     <div>
                       <p className="font-medium text-slate-700">Deductible</p>
-                      <p>{formatFromCents(policy.deductible)}</p>
+                      <p>{formatDeductible(policy.deductible)}</p>
                     </div>
                     <div>
                       <p className="font-medium text-slate-700">Monthly payment</p>
