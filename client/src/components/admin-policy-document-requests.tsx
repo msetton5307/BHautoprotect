@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Select,
   SelectContent,
@@ -25,7 +26,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { fetchWithAuth, getAuthHeaders } from "@/lib/auth";
 import { cn } from "@/lib/utils";
-import { Calendar, CheckCircle2, UploadCloud, FileDown, Clock3 } from "lucide-react";
+import { Calendar, CheckCircle2, UploadCloud, FileDown, Clock3, ChevronDown } from "lucide-react";
 
 type Props = {
   policyId: string;
@@ -77,6 +78,7 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
   const [dueDate, setDueDate] = useState<string>("");
   const [sendEmail, setSendEmail] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [showRequests, setShowRequests] = useState(true);
   const hasCustomers = customers.length > 0;
 
   const { data, isLoading } = useQuery<AdminDocumentRequestsResponse>({
@@ -93,6 +95,28 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
   });
 
   const requests = useMemo(() => data?.data?.requests ?? [], [data]);
+  const requestSummary = useMemo(() => {
+    const awaiting = requests.filter(request => request.status === "pending").length;
+    const received = requests.filter(request => request.status === "submitted").length;
+    const completed = requests.filter(request => request.status === "completed").length;
+    return { awaiting, received, completed, total: requests.length };
+  }, [requests]);
+  const allUploads = useMemo(
+    () =>
+      requests
+        .flatMap(request =>
+          request.uploads.map(upload => ({
+            upload,
+            request,
+          })),
+        )
+        .sort((a, b) => {
+          const left = a.upload.createdAt ? new Date(a.upload.createdAt).valueOf() : 0;
+          const right = b.upload.createdAt ? new Date(b.upload.createdAt).valueOf() : 0;
+          return right - left;
+        }),
+    [requests],
+  );
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -300,139 +324,210 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
         </CardContent>
       </Card>
 
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">Requests on file</h3>
-          <p className="text-sm text-slate-500">
-            Track what’s been asked for, see customer uploads, and close out tasks once everything looks good.
-          </p>
+      <Collapsible open={showRequests} onOpenChange={setShowRequests} className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-base font-semibold text-slate-900">Document collaboration</h3>
+            <p className="text-sm text-slate-500">
+              Track outstanding requests, surface uploads, and keep everyone aligned in one workspace.
+            </p>
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
+              Snapshot: {requestSummary.awaiting} awaiting • {requestSummary.received} received • {requestSummary.completed} completed
+            </p>
+          </div>
+          <CollapsibleTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="inline-flex items-center gap-2 text-slate-600 hover:text-slate-900"
+            >
+              {showRequests ? "Hide details" : "Show details"}
+              <ChevronDown className={`h-4 w-4 transition-transform ${showRequests ? "rotate-180" : ""}`} />
+            </Button>
+          </CollapsibleTrigger>
         </div>
-        {isLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-44 rounded-xl" />
-            <Skeleton className="h-44 rounded-xl" />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Awaiting docs</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{requestSummary.awaiting}</p>
           </div>
-        ) : requests.length === 0 ? (
-          <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-sm text-slate-500">
-            <UploadCloud className="h-5 w-5 text-slate-300" />
-            No document requests yet for this policy.
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Received</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{requestSummary.received}</p>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {requests.map((request) => {
-              const typeInfo = DOCUMENT_REQUEST_TYPE_COPY[request.type];
-              const statusInfo = DOCUMENT_REQUEST_STATUS_COPY[request.status];
-              const toneClass =
-                statusInfo.tone === "success"
-                  ? "bg-emerald-100 text-emerald-900 border border-emerald-200"
-                  : statusInfo.tone === "notice"
-                    ? "bg-amber-100 text-amber-900 border border-amber-200"
-                    : statusInfo.tone === "pending"
-                      ? "bg-sky-100 text-sky-900 border border-sky-200"
-                      : "bg-slate-100 text-slate-600 border border-slate-200";
-
-              return (
-                <Card key={request.id} className="overflow-hidden border-slate-200">
-                  <CardHeader className="space-y-4 bg-gradient-to-br from-white via-slate-50 to-white">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary">
-                        {typeInfo.label}
-                      </Badge>
-                      <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-xs font-medium", toneClass)}>
-                        {statusInfo.label}
-                      </span>
-                      {request.dueDate ? (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">
-                          <Clock3 className="h-3.5 w-3.5" /> Due {formatDate(request.dueDate)}
-                        </span>
-                      ) : null}
-                    </div>
-                    <div className="space-y-1">
-                      <CardTitle className="text-lg font-semibold text-slate-900">{request.title}</CardTitle>
-                      <p className="text-sm text-slate-500">
-                        {request.customer?.displayName?.trim() || request.customer?.email} • Policy {request.policyId}
-                      </p>
-                      <p className="text-xs text-slate-500">{statusInfo.description}</p>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4 text-sm text-slate-600">
-                    <div className="rounded-lg border border-dashed border-slate-200 bg-white/70 p-4">
-                      <p className="font-medium text-slate-700">Instructions for the customer</p>
-                      <p className="mt-2 text-sm text-slate-600">
-                        {request.instructions?.trim() || typeInfo.hint}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={statusMutation.isPending}
-                        onClick={() => statusMutation.mutate({ requestId: request.id, status: "submitted" })}
-                      >
-                        Mark as received
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={statusMutation.isPending}
-                        onClick={() => statusMutation.mutate({ requestId: request.id, status: "completed" })}
-                      >
-                        Close out request
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        disabled={statusMutation.isPending}
-                        onClick={() => statusMutation.mutate({ requestId: request.id, status: "pending" })}
-                      >
-                        Re-open
-                      </Button>
-                    </div>
-                    {request.uploads.length > 0 ? (
-                      <div className="space-y-2">
-                        <p className="text-sm font-semibold text-slate-700">Customer uploads</p>
-                        <div className="space-y-2">
-                          {request.uploads.map((upload) => (
-                            <div
-                              key={upload.id}
-                              className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"
-                            >
-                              <div>
-                                <p className="font-medium text-slate-800">{upload.fileName}</p>
-                                <p className="text-xs text-slate-500">
-                                  {formatFileSize(upload.fileSize)} • Uploaded {formatDate(upload.createdAt)}
-                                </p>
-                              </div>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="border-slate-200"
-                                onClick={() => handleDownload(upload.id, upload.fileName)}
-                                disabled={downloadingId === upload.id}
-                              >
-                                {downloadingId === upload.id ? "Preparing…" : "Download"}
-                                <FileDown className="ml-2 h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          ))}
+          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Completed</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{requestSummary.completed}</p>
+          </div>
+        </div>
+        <CollapsibleContent className="space-y-4">
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-44 rounded-xl" />
+              <Skeleton className="h-44 rounded-xl" />
+            </div>
+          ) : (
+            <>
+              {allUploads.length > 0 ? (
+                <div className="rounded-xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+                  <h4 className="text-sm font-semibold text-slate-900">Customer uploads</h4>
+                  <p className="text-xs text-slate-500">
+                    Quick look at everything customers have shared so far.
+                  </p>
+                  <div className="mt-3 divide-y divide-slate-100">
+                    {allUploads.map(({ upload, request }) => (
+                      <div key={upload.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-slate-800">{upload.fileName}</p>
+                          <p className="text-xs text-slate-500">
+                            {request.title} • {formatFileSize(upload.fileSize)} • Uploaded {formatDate(upload.createdAt)}
+                          </p>
                         </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="border-slate-200"
+                          onClick={() => handleDownload(upload.id, upload.fileName)}
+                          disabled={downloadingId === upload.id}
+                        >
+                          {downloadingId === upload.id ? "Preparing…" : "Download"}
+                          <FileDown className="ml-2 h-3.5 w-3.5" />
+                        </Button>
                       </div>
-                    ) : (
-                      <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3 text-xs text-slate-500">
-                        No files uploaded yet.
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-5 text-sm text-slate-500">
+                  <UploadCloud className="mr-2 inline h-4 w-4 text-slate-300" /> No customer uploads yet.
+                </div>
+              )}
+              {requests.length === 0 ? (
+                <div className="flex items-center gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50/70 px-4 py-6 text-sm text-slate-500">
+                  <UploadCloud className="h-5 w-5 text-slate-300" />
+                  No document requests yet for this policy.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {requests.map(request => {
+                    const typeInfo = DOCUMENT_REQUEST_TYPE_COPY[request.type];
+                    const statusInfo = DOCUMENT_REQUEST_STATUS_COPY[request.status];
+                    const toneClass =
+                      statusInfo.tone === "success"
+                        ? "bg-emerald-100 text-emerald-900 border border-emerald-200"
+                        : statusInfo.tone === "notice"
+                          ? "bg-amber-100 text-amber-900 border border-amber-200"
+                          : statusInfo.tone === "pending"
+                            ? "bg-sky-100 text-sky-900 border border-sky-200"
+                            : "bg-slate-100 text-slate-600 border border-slate-200";
+
+                    return (
+                      <Card key={request.id} className="overflow-hidden border-slate-200">
+                        <CardHeader className="space-y-4 bg-gradient-to-br from-white via-slate-50 to-white">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className="border-primary/40 bg-primary/5 text-primary">
+                              {typeInfo.label}
+                            </Badge>
+                            <span className={cn("inline-flex items-center rounded-full px-3 py-1 text-xs font-medium", toneClass)}>
+                              {statusInfo.label}
+                            </span>
+                            {request.dueDate ? (
+                              <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900">
+                                <Clock3 className="h-3.5 w-3.5" /> Due {formatDate(request.dueDate)}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="space-y-1">
+                            <CardTitle className="text-lg font-semibold text-slate-900">{request.title}</CardTitle>
+                            <p className="text-sm text-slate-500">
+                              {request.customer?.displayName?.trim() || request.customer?.email} • Policy {request.policyId}
+                            </p>
+                            <p className="text-xs text-slate-500">{statusInfo.description}</p>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4 text-sm text-slate-600">
+                          <div className="rounded-lg border border-dashed border-slate-200 bg-white/70 p-4">
+                            <p className="font-medium text-slate-700">Instructions for the customer</p>
+                            <p className="mt-2 text-sm text-slate-600">
+                              {request.instructions?.trim() || typeInfo.hint}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={statusMutation.isPending}
+                              onClick={() => statusMutation.mutate({ requestId: request.id, status: "submitted" })}
+                            >
+                              Mark as received
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={statusMutation.isPending}
+                              onClick={() => statusMutation.mutate({ requestId: request.id, status: "completed" })}
+                            >
+                              Close out request
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              disabled={statusMutation.isPending}
+                              onClick={() => statusMutation.mutate({ requestId: request.id, status: "pending" })}
+                            >
+                              Re-open
+                            </Button>
+                          </div>
+                          {request.uploads.length > 0 ? (
+                            <div className="space-y-2">
+                              <p className="text-sm font-semibold text-slate-700">Customer uploads</p>
+                              <div className="space-y-2">
+                                {request.uploads.map(upload => (
+                                  <div
+                                    key={upload.id}
+                                    className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm"
+                                  >
+                                    <div>
+                                      <p className="font-medium text-slate-800">{upload.fileName}</p>
+                                      <p className="text-xs text-slate-500">
+                                        {formatFileSize(upload.fileSize)} • Uploaded {formatDate(upload.createdAt)}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-slate-200"
+                                      onClick={() => handleDownload(upload.id, upload.fileName)}
+                                      disabled={downloadingId === upload.id}
+                                    >
+                                      {downloadingId === upload.id ? "Preparing…" : "Download"}
+                                      <FileDown className="ml-2 h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3 text-xs text-slate-500">
+                              No files uploaded yet.
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }

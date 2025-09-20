@@ -16,6 +16,7 @@ import {
   type InsertLead,
   type Lead,
   type Policy,
+  type InsertPolicy,
   type Quote,
   type User,
   type Vehicle,
@@ -94,6 +95,23 @@ const DOCUMENT_REQUEST_TYPE_COPY: Record<(typeof DOCUMENT_REQUEST_TYPE_VALUES)[n
     hint: 'Provide any additional paperwork our team asked for.',
   },
 };
+
+const policyUpdateSchema = z.object({
+  package: z
+    .string()
+    .trim()
+    .min(1)
+    .optional()
+    .nullable(),
+  policyStartDate: z.string().datetime().optional().nullable(),
+  expirationDate: z.string().datetime().optional().nullable(),
+  expirationMiles: z.number().int().optional().nullable(),
+  deductible: z.number().int().optional().nullable(),
+  totalPremium: z.number().int().optional().nullable(),
+  downPayment: z.number().int().optional().nullable(),
+  monthlyPayment: z.number().int().optional().nullable(),
+  totalPayments: z.number().int().optional().nullable(),
+});
 
 const portalBaseUrlEnv =
   process.env.PORTAL_BASE_URL ||
@@ -2424,6 +2442,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching policy:', error);
       res.status(500).json({ message: 'Failed to fetch policy' });
+    }
+  });
+
+  app.put('/api/admin/policies/:id', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const parsed = policyUpdateSchema.parse(req.body ?? {});
+      const updates: Partial<InsertPolicy> = {};
+
+      if (Object.prototype.hasOwnProperty.call(parsed, 'package')) {
+        updates.package = parsed.package ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'policyStartDate')) {
+        updates.policyStartDate = parsed.policyStartDate ? new Date(parsed.policyStartDate) : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'expirationDate')) {
+        updates.expirationDate = parsed.expirationDate ? new Date(parsed.expirationDate) : null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'expirationMiles')) {
+        updates.expirationMiles = parsed.expirationMiles ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'deductible')) {
+        updates.deductible = parsed.deductible ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'totalPremium')) {
+        updates.totalPremium = parsed.totalPremium ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'downPayment')) {
+        updates.downPayment = parsed.downPayment ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'monthlyPayment')) {
+        updates.monthlyPayment = parsed.monthlyPayment ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'totalPayments')) {
+        updates.totalPayments = parsed.totalPayments ?? null;
+      }
+
+      const updated = await storage.updatePolicyById(req.params.id, updates);
+      if (!updated) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const policy = await storage.getPolicy(req.params.id);
+      res.json({ data: policy, message: 'Policy updated successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid policy payload' });
+        return;
+      }
+      console.error('Error updating policy:', error);
+      res.status(500).json({ message: 'Failed to update policy' });
     }
   });
 
