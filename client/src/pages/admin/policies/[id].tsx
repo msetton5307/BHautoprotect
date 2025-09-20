@@ -16,14 +16,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Separator } from "@/components/ui/separator";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
 import { fetchWithAuth, getAuthHeaders, clearCredentials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import PolicyDocumentRequests from "@/components/admin-policy-document-requests";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Mail, Paperclip, PencilLine, Sparkles, ExternalLink } from "lucide-react";
 
 const CUSTOM_TEMPLATE_ID = "custom";
 
@@ -512,7 +512,7 @@ export default function AdminPolicyDetail() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
-  const [previewTab, setPreviewTab] = useState<"preview" | "html">("preview");
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
 
   const previewSource = useMemo(() => {
     const sanitized = sanitizeHtmlForPreview(emailHtml);
@@ -588,7 +588,7 @@ export default function AdminPolicyDetail() {
   const handleOpenEmailDialog = (templateId?: string) => {
     setEmailRecipient(leadEmail);
     setNewTemplateName("");
-    setPreviewTab("preview");
+    setIsPreviewVisible(false);
 
     if (templateId === CUSTOM_TEMPLATE_ID) {
       setSelectedTemplateId(CUSTOM_TEMPLATE_ID);
@@ -822,29 +822,67 @@ export default function AdminPolicyDetail() {
           </Link>
         </Button>
 
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold text-slate-900">Policy overview</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage documents, notes, and send beautifully formatted updates in just a few clicks.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 justify-end">
-            {defaultTemplates.map(template => (
-              <Button
-                key={template.id}
-                variant="secondary"
-                onClick={() => handleOpenEmailDialog(template.id)}
-              >
-                {template.name}
-              </Button>
-            ))}
-            <Button variant="outline" onClick={() => handleOpenEmailDialog(CUSTOM_TEMPLATE_ID)}>
-              Custom email
-            </Button>
-            <Button onClick={() => handleOpenEmailDialog()}>Open composer</Button>
-          </div>
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold text-slate-900">Policy overview</h1>
+          <p className="text-sm text-muted-foreground">
+            Manage documents, notes, and send beautifully formatted updates in just a few clicks.
+          </p>
         </div>
+
+        <Card className="border-slate-200 bg-white/70 shadow-sm">
+          <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+            <div>
+              <CardTitle className="text-lg font-semibold text-slate-900">Customer email tools</CardTitle>
+              <CardDescription>Send polished policy updates with saved templates or a custom note.</CardDescription>
+            </div>
+            <Badge variant="outline" className="self-start rounded-full border-primary/30 bg-primary/5 text-xs font-medium text-primary">
+              {defaultTemplates.length + savedTemplates.length} templates ready
+            </Badge>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Quick templates</p>
+              {defaultTemplates.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {defaultTemplates.map(template => (
+                    <Button
+                      key={template.id}
+                      variant="secondary"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => handleOpenEmailDialog(template.id)}
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      {template.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-muted-foreground">No suggested templates yet—jump into the composer to craft your own.</p>
+              )}
+            </div>
+            <Separator />
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="text-xs text-muted-foreground">
+                Emails go to {leadEmail ? <span className="font-medium text-slate-700">{leadEmail}</span> : "the policyholder"}.
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button className="gap-2" onClick={() => handleOpenEmailDialog()}>
+                  <Mail className="h-4 w-4" />
+                  Open composer
+                </Button>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => handleOpenEmailDialog(CUSTOM_TEMPLATE_ID)}
+                >
+                  <PencilLine className="h-4 w-4" />
+                  Start from scratch
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
@@ -1072,11 +1110,17 @@ export default function AdminPolicyDetail() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Files</CardTitle>
+        <Card className="border-slate-200 bg-white/70 shadow-sm">
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle className="text-lg font-semibold text-slate-900">Policy documents</CardTitle>
+              <CardDescription>Upload supporting paperwork and keep it handy for the team.</CardDescription>
+            </div>
+            <Badge variant="outline" className="self-start rounded-full border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-600">
+              {files.length} {files.length === 1 ? "file" : "files"}
+            </Badge>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
             <form
               onSubmit={async event => {
                 event.preventDefault();
@@ -1111,20 +1155,58 @@ export default function AdminPolicyDetail() {
                   });
                 }
               }}
-              className="space-y-2"
+              className="space-y-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-4"
             >
-              <Input type="file" name="file" />
-              <Button type="submit">Upload File</Button>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Add a new document</p>
+                  <p className="text-xs text-muted-foreground">Accepted formats up to 10 MB.</p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Input type="file" name="file" className="max-w-xs" />
+                  <Button type="submit" className="sm:self-start">Upload file</Button>
+                </div>
+              </div>
             </form>
-            <ul className="mt-4 space-y-2">
-              {files.map((file: any) => (
-                <li key={file.id}>
-                  <a className="text-primary underline" href={`/${file.filePath}`} target="_blank" rel="noreferrer">
-                    {file.fileName}
-                  </a>
-                </li>
-              ))}
-            </ul>
+
+            {files.length > 0 ? (
+              <div className="space-y-3">
+                {files.map((file: any) => (
+                  <div
+                    key={file.id}
+                    className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="mt-1 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                        <Paperclip className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <a
+                          className="font-medium text-slate-900 hover:text-primary hover:underline"
+                          href={`/${file.filePath}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {file.fileName}
+                        </a>
+                        <p className="text-xs text-muted-foreground">Uploaded {formatDate(file.createdAt)}</p>
+                      </div>
+                    </div>
+                    <Button asChild variant="ghost" size="sm" className="gap-2 text-primary">
+                      <a href={`/${file.filePath}`} target="_blank" rel="noreferrer">
+                        View document
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                <Paperclip className="h-5 w-5 text-slate-400" />
+                No documents uploaded yet.
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -1137,6 +1219,7 @@ export default function AdminPolicyDetail() {
           if (!open) {
             setIsTemplateCustomized(false);
             setNewTemplateName("");
+            setIsPreviewVisible(false);
           }
         }}
       >
@@ -1148,7 +1231,7 @@ export default function AdminPolicyDetail() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-5">
-            <div className="grid gap-2">
+            <section className="grid gap-2">
               <Label htmlFor="policy-email-recipient">Recipient</Label>
               <Input
                 id="policy-email-recipient"
@@ -1157,8 +1240,9 @@ export default function AdminPolicyDetail() {
                 onChange={event => setEmailRecipient(event.target.value)}
               />
               <p className="text-xs text-muted-foreground">Separate multiple addresses with commas.</p>
-            </div>
-            <div className="grid gap-2">
+            </section>
+            <Separator />
+            <section className="grid gap-2">
               <Label htmlFor="policy-email-template">Template</Label>
               <Select value={selectedTemplateId} onValueChange={handleTemplateSelect}>
                 <SelectTrigger id="policy-email-template">
@@ -1179,45 +1263,57 @@ export default function AdminPolicyDetail() {
                   ? "Loading saved templates..."
                   : "Switch templates to reuse team-approved messaging or choose \"Custom draft\" to write something unique."}
               </p>
-            </div>
-            <div className="grid gap-2">
+            </section>
+            <Separator />
+            <section className="grid gap-2">
               <Label htmlFor="policy-email-subject">Subject</Label>
               <Input
                 id="policy-email-subject"
                 value={emailSubject}
                 onChange={event => handleSubjectChange(event.target.value)}
               />
-            </div>
-            <div className="grid gap-3">
-              <Label>Message</Label>
-              <Tabs value={previewTab} onValueChange={value => setPreviewTab(value as "preview" | "html")}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="preview">Preview</TabsTrigger>
-                  <TabsTrigger value="html">HTML source</TabsTrigger>
-                </TabsList>
-                <TabsContent value="preview">
-                  <div className="rounded-md border bg-muted/40">
-                    <iframe
-                      title="Email preview"
-                      sandbox=""
-                      srcDoc={previewSource}
-                      className="h-[60vh] max-h-[420px] w-full border-0 bg-white"
-                    />
-                  </div>
-                </TabsContent>
-                <TabsContent value="html">
-                  <Textarea
-                    id="policy-email-body"
-                    value={emailHtml}
-                    onChange={event => handleHtmlChange(event.target.value)}
-                    rows={14}
-                    className="font-mono text-sm"
-                    spellCheck={false}
+            </section>
+            <Separator />
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="policy-email-body" className="text-sm font-medium text-slate-700">
+                  Message
+                </Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-2 text-slate-600 hover:text-slate-900"
+                  onClick={() => setIsPreviewVisible(prev => !prev)}
+                >
+                  {isPreviewVisible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {isPreviewVisible ? "Hide preview" : "Show preview"}
+                </Button>
+              </div>
+              <Textarea
+                id="policy-email-body"
+                value={emailHtml}
+                onChange={event => handleHtmlChange(event.target.value)}
+                rows={14}
+                className="font-mono text-sm"
+                spellCheck={false}
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste or edit HTML for the email body. Use the preview to double-check formatting when needed.
+              </p>
+              {isPreviewVisible ? (
+                <div className="overflow-hidden rounded-md border bg-muted/40">
+                  <iframe
+                    title="Email preview"
+                    sandbox=""
+                    srcDoc={previewSource}
+                    className="h-[60vh] max-h-[420px] w-full border-0 bg-white"
                   />
-                </TabsContent>
-              </Tabs>
-            </div>
-            <div className="grid gap-2">
+                </div>
+              ) : null}
+            </section>
+            <Separator />
+            <section className="grid gap-2">
               <Label htmlFor="policy-email-template-name">Save as template</Label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <Input
@@ -1243,7 +1339,7 @@ export default function AdminPolicyDetail() {
               <p className="text-xs text-muted-foreground">
                 Saved templates are shared with your team and appear in the template picker above.
               </p>
-            </div>
+            </section>
           </div>
           <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button

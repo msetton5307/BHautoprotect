@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  DOCUMENT_REQUEST_DEFAULTS,
   DOCUMENT_REQUEST_STATUS_COPY,
   DOCUMENT_REQUEST_TYPE_COPY,
   type CustomerDocumentRequestRecord,
@@ -70,8 +71,9 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
   const { toast } = useToast();
   const [customerId, setCustomerId] = useState(customers[0]?.id ?? "");
   const [type, setType] = useState<keyof typeof DOCUMENT_REQUEST_TYPE_COPY>("vin_photo");
-  const [title, setTitle] = useState("VIN photo for verification");
-  const [instructions, setInstructions] = useState("");
+  const initialDefaults = DOCUMENT_REQUEST_DEFAULTS[type];
+  const [title, setTitle] = useState(initialDefaults.title);
+  const [instructions, setInstructions] = useState(initialDefaults.instructions);
   const [dueDate, setDueDate] = useState<string>("");
   const [sendEmail, setSendEmail] = useState(true);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -125,7 +127,9 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
           ? "The customer received an email with upload instructions."
           : "The request is now visible in the customer portal.",
       });
-      setInstructions("");
+      const preset = DOCUMENT_REQUEST_DEFAULTS[type];
+      setTitle(preset.title);
+      setInstructions(preset.instructions);
       setDueDate("");
     },
     onError: (error: Error) => {
@@ -214,7 +218,16 @@ export default function PolicyDocumentRequests({ policyId, customers }: Props) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="admin-document-type">Document type</Label>
-              <Select value={type} onValueChange={(value) => setType(value as typeof type)}>
+              <Select
+                value={type}
+                onValueChange={(value) => {
+                  const nextType = value as typeof type;
+                  setType(nextType);
+                  const preset = DOCUMENT_REQUEST_DEFAULTS[nextType];
+                  setTitle(preset.title);
+                  setInstructions(preset.instructions);
+                }}
+              >
                 <SelectTrigger id="admin-document-type">
                   <SelectValue />
                 </SelectTrigger>
