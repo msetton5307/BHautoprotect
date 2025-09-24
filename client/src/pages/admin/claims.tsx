@@ -166,26 +166,6 @@ export default function AdminClaims() {
     }
   });
 
-  if (checking) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (!authenticated) {
-    return <AdminLogin onSuccess={markAuthenticated} />;
-  }
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
   const claims: ClaimRecord[] = data?.data || [];
 
   const { totalClaims, openClaims, attentionClaims } = useMemo(() => {
@@ -233,6 +213,26 @@ export default function AdminClaims() {
         return sortOrder === "desc" ? bTime - aTime : aTime - bTime;
       });
   }, [claims, searchTerm, statusFilter, sortOrder]);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <AdminLogin onSuccess={markAuthenticated} />;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
