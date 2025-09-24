@@ -3,12 +3,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Mail, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Label } from "@/components/ui/label";
 
 const claimFormSchema = z.object({
   firstName: z.string().min(1, "Required"),
@@ -33,6 +33,13 @@ export default function Claims() {
     },
   });
 
+  const {
+    handleSubmit,
+    register,
+    reset,
+    formState: { errors, isSubmitting },
+  } = form;
+
   const onSubmit = async (values: ClaimForm) => {
     try {
       const res = await fetch('/api/claims', {
@@ -42,7 +49,7 @@ export default function Claims() {
       });
       if (!res.ok) throw new Error('Failed');
       toast({ title: 'Claim submitted', description: "We'll be in touch soon." });
-      form.reset();
+      reset();
     } catch (error) {
       toast({ title: 'Submission failed', variant: 'destructive' });
     }
@@ -101,78 +108,74 @@ export default function Claims() {
           <CardContent className="p-6">
             <h2 className="text-2xl font-bold mb-2">Need Assistance?</h2>
             <p className="text-gray-600 mb-6">Send us a message and we'll get back to you.</p>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>First Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="First name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    placeholder="First name"
+                    autoComplete="given-name"
+                    {...register("firstName")}
                   />
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Last name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {errors.firstName && (
+                    <p className="text-sm font-medium text-destructive">{errors.firstName.message}</p>
+                  )}
                 </div>
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="you@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Last name"
+                    autoComplete="family-name"
+                    {...register("lastName")}
+                  />
+                  {errors.lastName && (
+                    <p className="text-sm font-medium text-destructive">{errors.lastName.message}</p>
                   )}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  {...register("email")}
                 />
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="(555) 123-4567" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                {errors.email && (
+                  <p className="text-sm font-medium text-destructive">{errors.email.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  placeholder="(555) 123-4567"
+                  autoComplete="tel"
+                  {...register("phone")}
                 />
-                <FormField
-                  control={form.control}
-                  name="message"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Message</FormLabel>
-                      <FormControl>
-                        <Textarea rows={4} placeholder="How can we help?" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                {errors.phone && (
+                  <p className="text-sm font-medium text-destructive">{errors.phone.message}</p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="message">Message</Label>
+                <Textarea
+                  id="message"
+                  rows={4}
+                  placeholder="How can we help?"
+                  {...register("message")}
                 />
-                <Button type="submit" className="w-full">SUBMIT YOUR MESSAGE</Button>
-              </form>
-            </Form>
+                {errors.message && (
+                  <p className="text-sm font-medium text-destructive">{errors.message.message}</p>
+                )}
+              </div>
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? "Submitting..." : "SUBMIT YOUR MESSAGE"}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>
