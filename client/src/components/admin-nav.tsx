@@ -41,7 +41,8 @@ export default function AdminNav() {
           <div className="flex items-center gap-2 rounded-full bg-slate-100/80 p-1 text-sm font-medium text-slate-600 shadow-inner">
             {navItems.map(({ href, label, icon: Icon }) => {
               const isActive =
-                location === href || location.startsWith(`${href}/`);
+                location === href ||
+                (href !== "/admin" && location.startsWith(`${href}/`));
               return (
                 <Link
                   key={href}
