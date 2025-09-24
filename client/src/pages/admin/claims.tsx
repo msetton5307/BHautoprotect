@@ -21,7 +21,7 @@ type ClaimRecord = {
   email?: string | null;
   phone?: string | null;
   message?: string | null;
-  status: ClaimStatus;
+  status?: string | null;
   createdAt?: string | null;
   updatedAt?: string | null;
   nextEstimate?: string | null;
@@ -72,6 +72,8 @@ const statusMeta: Record<ClaimStatus, { label: string; description: string; badg
   },
 };
 
+type StatusMeta = (typeof statusMeta)[ClaimStatus];
+
 const statusFilters: { value: ClaimStatus | "all"; label: string }[] = [
   { value: "all", label: "All statuses" },
   { value: "new", label: statusMeta.new.label },
@@ -121,6 +123,27 @@ const formatVehicle = (claim: ClaimRecord) => {
   return details || "—";
 };
 
+const formatStatusLabel = (status: ClaimRecord["status"]) =>
+  status
+    ? status
+        .split("_")
+        .filter(Boolean)
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ")
+    : "Unknown";
+
+const getStatusMeta = (status: ClaimRecord["status"]): StatusMeta => {
+  if (status && statusMeta[status as ClaimStatus]) {
+    return statusMeta[status as ClaimStatus];
+  }
+
+  return {
+    label: formatStatusLabel(status),
+    description: "Status not recognized",
+    badgeClass: "border-slate-200 bg-slate-100 text-slate-600",
+  } satisfies StatusMeta;
+};
+
 export default function AdminClaims() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
 
@@ -167,8 +190,8 @@ export default function AdminClaims() {
 
   const { totalClaims, openClaims, attentionClaims } = useMemo(() => {
     const total = claims.length;
-    const open = claims.filter((claim) => openStatuses.includes(claim.status)).length;
-    const needsAttention = claims.filter((claim) => attentionStatuses.includes(claim.status)).length;
+    const open = claims.filter((claim) => openStatuses.includes((claim.status ?? "") as ClaimStatus)).length;
+    const needsAttention = claims.filter((claim) => attentionStatuses.includes((claim.status ?? "") as ClaimStatus)).length;
     return { totalClaims: total, openClaims: open, attentionClaims: needsAttention };
   }, [claims]);
 
@@ -318,7 +341,7 @@ export default function AdminClaims() {
                 </TableHeader>
                 <TableBody>
                   {filteredClaims.map((claim) => {
-                    const meta = statusMeta[claim.status];
+                    const meta = getStatusMeta(claim.status);
                     return (
                       <TableRow key={claim.id} className="hover:bg-slate-50/70">
                         <TableCell className="align-top">
