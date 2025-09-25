@@ -8,6 +8,9 @@ interface LogoProps {
   textClassName?: string;
   titleClassName?: string;
   subtitleClassName?: string;
+  variant?: "default" | "inverse";
+  emblemWrapperClassName?: string;
+  emblemClassName?: string;
 }
 
 export function Logo({
@@ -16,6 +19,9 @@ export function Logo({
   textClassName,
   titleClassName,
   subtitleClassName,
+  variant = "default",
+  emblemWrapperClassName,
+  emblemClassName,
 }: LogoProps) {
   const { data } = useBranding();
   const logoUrl = useMemo(() => {
@@ -23,22 +29,37 @@ export function Logo({
     return typeof value === "string" && value.trim().length > 0 ? value : null;
   }, [data]);
 
+  const emblemClasses = cn(
+    "h-16 w-auto sm:h-20",
+    logoUrl && "object-contain",
+    variant === "inverse" && "drop-shadow-[0_12px_28px_rgba(15,23,42,0.16)]",
+    emblemClassName,
+  );
+
   return (
     <div className={cn("flex items-center gap-3", className)}>
-      {logoUrl ? (
-        <img
-          src={logoUrl}
-          alt="BH Auto Protect logo"
-          className="h-16 w-auto object-contain sm:h-20"
-          loading="lazy"
-        />
-      ) : (
-        <svg
-          viewBox="0 0 320 120"
-          role="img"
-          aria-labelledby="bh-logo-title bh-logo-desc"
-          className="h-16 w-auto sm:h-20"
-        >
+      <div
+        className={cn(
+          "flex flex-shrink-0 items-center justify-center",
+          variant === "inverse" &&
+            "rounded-2xl bg-white/95 p-2 shadow-lg shadow-black/10 ring-1 ring-white/60 backdrop-blur",
+          emblemWrapperClassName,
+        )}
+      >
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt="BH Auto Protect logo"
+            className={emblemClasses}
+            loading="lazy"
+          />
+        ) : (
+          <svg
+            viewBox="0 0 320 120"
+            role="img"
+            aria-labelledby="bh-logo-title bh-logo-desc"
+            className={emblemClasses}
+          >
           <title id="bh-logo-title">BH Auto Protect</title>
           <desc id="bh-logo-desc">Stylized car silhouette above a shield with a checkmark</desc>
           <defs>
@@ -70,8 +91,9 @@ export function Logo({
               strokeLinejoin="round"
             />
           </g>
-        </svg>
-      )}
+          </svg>
+        )}
+      </div>
       {showText && (
         <div className={cn("flex flex-col leading-tight", textClassName)}>
           <span

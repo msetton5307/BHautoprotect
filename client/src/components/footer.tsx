@@ -12,6 +12,7 @@ export default function Footer() {
               titleClassName="text-white"
               subtitleClassName="text-blue-200"
               textClassName="gap-1"
+              variant="inverse"
             />
             <p className="text-gray-400 mb-4">
               Protecting your vehicle and your wallet with comprehensive extended warranty coverage.
