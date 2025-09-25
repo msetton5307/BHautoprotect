@@ -2,8 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Users, FileText, Target, TrendingUp, Activity, Calendar, UserPlus, Sparkles, ArrowRight } from "lucide-react";
+import { Users, FileText, Target, TrendingUp, Activity, Calendar, Sparkles, ArrowRight } from "lucide-react";
 import { Link } from "wouter";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
@@ -95,9 +94,6 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h1 className="text-3xl font-semibold text-slate-900 sm:text-4xl">BH Auto Protect Admin Dashboard</h1>
-              <p className="mt-3 text-base leading-relaxed text-slate-500">
-                Stay ahead of every lead, policy, and claim with a streamlined workspace built for clarity. Review the latest activity and jump into action without the clutter.
-              </p>
             </div>
           </div>
           <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
@@ -273,64 +269,9 @@ export default function AdminDashboard() {
               </CardContent>
             </Card>
 
-            <Card className="overflow-hidden rounded-3xl border-none bg-white shadow-lg ring-1 ring-slate-900/5">
-              <CardHeader className="pb-0">
-                <CardTitle className="flex items-center gap-2 text-xl text-slate-900">
-                  <Users className="h-5 w-5 text-sky-500" />
-                  Quick actions
-                </CardTitle>
-                <CardDescription className="text-sm text-slate-500">
-                  Jump straight into the most common workflows.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-4 pb-8 pt-6 md:grid-cols-2">
-                <Button className="h-20 justify-between rounded-2xl border border-transparent bg-slate-900 px-5 text-left text-base font-semibold text-white shadow-lg transition hover:bg-slate-800" asChild>
-                  <Link href="/admin/leads">
-                    Manage leads
-                    <ArrowRight className="h-5 w-5" />
-                  </Link>
-                </Button>
-                <Button className="h-20 justify-between rounded-2xl border border-slate-200 bg-white px-5 text-left text-base font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50" variant="outline" asChild>
-                  <Link href="/admin/users">
-                    Manage users
-                    <UserPlus className="h-5 w-5" />
-                  </Link>
-                </Button>
-                <Button className="h-20 justify-between rounded-2xl border border-slate-200 bg-white px-5 text-left text-base font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50" variant="outline">
-                  Performance insights
-                  <TrendingUp className="h-5 w-5" />
-                </Button>
-                <Button className="h-20 justify-between rounded-2xl border border-slate-200 bg-white px-5 text-left text-base font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50" variant="outline">
-                  Update brand assets
-                  <Sparkles className="h-5 w-5" />
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </section>
 
-        <Separator className="border-slate-200/80" />
-
-        <section className="grid gap-6 text-sm text-slate-500 lg:grid-cols-3">
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">Today’s priorities</h2>
-            <p className="mt-3 leading-relaxed">
-              Review recently quoted leads and follow up with warm prospects. Confirm upcoming renewal reminders to keep retention strong.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">Workflow tips</h2>
-            <p className="mt-3 leading-relaxed">
-              Use advanced filters on the leads page to isolate duplicates and speed up your outbound efforts.
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white/80 p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-slate-900">Need help?</h2>
-            <p className="mt-3 leading-relaxed">
-              Reach out to the BH Auto Protect support team for onboarding assistance or to request new dashboard metrics.
-            </p>
-          </div>
-        </section>
       </main>
     </div>
   );
