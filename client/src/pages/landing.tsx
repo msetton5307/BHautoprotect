@@ -15,6 +15,13 @@ import {
   Sparkle,
   Gauge,
   Wrench,
+  PhoneCall,
+  ClipboardCheck,
+  BarChart3,
+  Headset,
+  Globe,
+  Car,
+  LifeBuoy,
 } from "lucide-react";
 import Navigation from "@/components/navigation";
 import QuoteModal from "@/components/quote-modal";
@@ -90,6 +97,84 @@ const testimonials = [
     role: "Toyota Camry Owner",
     image:
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100",
+  },
+];
+
+const quickBenefits = [
+  {
+    icon: PhoneCall,
+    title: "Talk to a Protection Specialist",
+    description:
+      "Book a 10-minute consult with an ASE-certified advisor who will tailor protection to how you drive.",
+    metric: "Avg. wait time: 60 seconds",
+    cta: "Request a Call",
+  },
+  {
+    icon: ClipboardCheck,
+    title: "Instant Coverage Blueprint",
+    description:
+      "We audit your current coverage, uncover hidden repair exposures, and send a custom plan straight to your inbox.",
+    metric: "Avg. uncovered risk: $1,850",
+    cta: "Build My Plan",
+  },
+  {
+    icon: BarChart3,
+    title: "Unlock Exclusive Savings",
+    description:
+      "Access manufacturer-level discounts, deductible flexibility, and bonuses for low-mileage vehicles.",
+    metric: "Limited-time incentives updated daily",
+    cta: "See My Savings",
+  },
+];
+
+const coverageHighlights = [
+  {
+    icon: Car,
+    title: "Powertrain Elite",
+    subtitle: "Perfect for commuters under 80K miles",
+    bullets: [
+      "Engine, transmission, and AWD systems",
+      "Hybrid & EV battery module coverage",
+      "Rental reimbursement up to $60/day",
+    ],
+  },
+  {
+    icon: LifeBuoy,
+    title: "Lifestyle Add-Ons",
+    subtitle: "Enhance your plan for road trips and rideshare",
+    bullets: [
+      "Trip interruption & hotel reimbursement",
+      "Rideshare-friendly downtime protection",
+      "Roadside assistance with concierge dispatch",
+    ],
+  },
+  {
+    icon: Globe,
+    title: "Nationwide Repair Network",
+    subtitle: "35,000+ ASE-certified facilities on standby",
+    bullets: [
+      "Direct-pay relationships in all 50 states",
+      "Mobile mechanic partners in major metros",
+      "Real-time claim tracking from any device",
+    ],
+  },
+];
+
+const assurancePoints = [
+  {
+    icon: Shield,
+    title: "30-Day Confidence Guarantee",
+    description: "Cancel anytime in the first month for a full refund—no questions, no fees.",
+  },
+  {
+    icon: Headset,
+    title: "Concierge Claims Team",
+    description: "Live bilingual support 24/7 with proactive updates from inspection to payout.",
+  },
+  {
+    icon: BarChart3,
+    title: "Data-Driven Savings",
+    description: "Benchmark your quote against nationwide averages to ensure you secure the best rate.",
   },
 ];
 
@@ -206,6 +291,55 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* Quick Benefits Strip */}
+      <motion.section
+        className="relative z-20 -mt-16 pb-12"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.4 }}
+        variants={fadeIn(0.1)}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-6 md:grid-cols-3">
+            {quickBenefits.map((benefit, index) => {
+              const Icon = benefit.icon;
+              return (
+                <motion.div
+                  key={benefit.title}
+                  initial={{ opacity: 0, y: 30 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.6, delay: index * 0.1, ease: "easeOut" }}
+                  className="group relative h-full overflow-hidden rounded-3xl border border-blue-100 bg-white/95 p-8 shadow-[0_40px_90px_-60px_rgba(15,23,42,0.55)]"
+                >
+                  <div
+                    className="absolute inset-0 bg-gradient-to-br from-blue-50 via-white to-white opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                    aria-hidden
+                  />
+                  <div className="relative">
+                    <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-primary">
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-3">{benefit.title}</h3>
+                    <p className="text-gray-600 leading-relaxed">{benefit.description}</p>
+                    <p className="mt-4 text-sm font-semibold uppercase tracking-[0.3em] text-primary/70">
+                      {benefit.metric}
+                    </p>
+                    <Button
+                      variant="outline"
+                      className="mt-6 border-primary text-primary transition-colors hover:bg-primary hover:text-white"
+                      onClick={openQuoteModal}
+                    >
+                      {benefit.cta}
+                    </Button>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.section>
+
       {/* Trust Badges */}
       <motion.section
         className="bg-white py-14"
@@ -230,6 +364,96 @@ export default function Landing() {
               <Award className="w-7 h-7 text-yellow-500" /> Award Winner
             </div>
             <div className="flex items-center justify-center h-12 text-xl font-bold">BBB A+</div>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Coverage Highlights */}
+      <motion.section
+        className="relative overflow-hidden py-24"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={fadeIn(0.15)}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800" aria-hidden />
+        <div className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-blue-500/20 to-transparent" aria-hidden />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-white">
+          <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] items-center">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.4em]">
+                Total Coverage Experience
+              </span>
+              <h2 className="mt-6 text-3xl md:text-4xl font-bold leading-tight">
+                Go Beyond the Basics with Concierge-Level Coverage and Perks
+              </h2>
+              <p className="mt-4 text-lg text-blue-100/90 leading-relaxed">
+                Every quote includes a personalized coverage roadmap, proactive service reminders, and transparent pricing so you know exactly what is protected before you sign.
+              </p>
+              <ul className="mt-8 space-y-4 text-blue-100">
+                <li className="flex items-start gap-3">
+                  <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10">
+                    <Check className="w-4 h-4 text-white" />
+                  </span>
+                  <span>Flexible deductible options from $0–$200 tailored to your payment comfort.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10">
+                    <Check className="w-4 h-4 text-white" />
+                  </span>
+                  <span>Digital service locker to store maintenance receipts and repair history.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10">
+                    <Check className="w-4 h-4 text-white" />
+                  </span>
+                  <span>Exclusive loyalty rewards for multi-vehicle households and returning members.</span>
+                </li>
+              </ul>
+              <Button
+                size="lg"
+                className="mt-10 bg-white text-primary hover:bg-blue-50 px-10 py-6 font-semibold"
+                onClick={openQuoteModal}
+              >
+                Design My Coverage Plan
+              </Button>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {coverageHighlights.map((highlight, index) => {
+                const Icon = highlight.icon;
+                return (
+                  <motion.div
+                    key={highlight.title}
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.6, delay: index * 0.1, ease: "easeOut" }}
+                    className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/95 p-8 text-slate-900 shadow-[0_45px_90px_-50px_rgba(15,23,42,0.55)]"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-br from-blue-100 via-white to-white opacity-80" aria-hidden />
+                    <div className="relative">
+                      <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <h3 className="text-xl font-semibold text-gray-900">{highlight.title}</h3>
+                      <p className="mt-2 text-sm font-semibold uppercase tracking-[0.3em] text-primary/70">
+                        {highlight.subtitle}
+                      </p>
+                      <ul className="mt-4 space-y-3 text-gray-600">
+                        {highlight.bullets.map((bullet) => (
+                          <li key={bullet} className="flex items-start gap-3">
+                            <span className="mt-1 inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary/10">
+                              <Check className="w-3.5 h-3.5 text-primary" />
+                            </span>
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
           </div>
         </div>
       </motion.section>
@@ -506,6 +730,90 @@ export default function Landing() {
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+        </div>
+      </motion.section>
+
+      {/* Assurance Section */}
+      <motion.section
+        className="bg-slate-950 text-white py-20"
+        initial="hidden"
+        whileInView="visible"
+        viewport={{ once: true, amount: 0.3 }}
+        variants={fadeIn(0.1)}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid gap-12 lg:grid-cols-[1.05fr_0.95fr] items-center">
+            <div>
+              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.4em]">
+                The BH Assurance
+              </span>
+              <h2 className="mt-6 text-3xl md:text-4xl font-bold leading-tight">
+                Confidence from Your First Quote to Your Final Repair
+              </h2>
+              <p className="mt-4 text-lg text-blue-100/90 leading-relaxed">
+                We pair technology with human experts so every claim is handled with urgency, empathy, and total transparency. Join the 100K+ drivers who rely on BH Auto Protect for uninterrupted mobility.
+              </p>
+              <div className="mt-10 grid gap-6 sm:grid-cols-3">
+                {assurancePoints.map((point) => {
+                  const Icon = point.icon;
+                  return (
+                    <div
+                      key={point.title}
+                      className="rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur"
+                    >
+                      <div className="mb-4 inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <h3 className="text-lg font-semibold">{point.title}</h3>
+                      <p className="mt-2 text-sm text-blue-100/80 leading-relaxed">{point.description}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="relative overflow-hidden rounded-3xl border border-white/15 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-10 backdrop-blur-xl">
+              <div className="absolute -top-10 -right-10 h-40 w-40 rounded-full bg-primary/20 blur-3xl" aria-hidden />
+              <div className="relative">
+                <p className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.4em] text-blue-100">
+                  Seamless Onboarding
+                </p>
+                <h3 className="mt-6 text-2xl font-bold">Get Your Personalized Coverage Blueprint</h3>
+                <p className="mt-3 text-blue-100/90 leading-relaxed">
+                  Share a few details about your vehicle and driving habits—we'll deliver tailored plan options and connect you with a specialist in minutes.
+                </p>
+                <ul className="mt-6 space-y-3 text-sm text-blue-100">
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
+                      <Check className="w-4 h-4 text-white" />
+                    </span>
+                    <span>Customized pricing breakdown plus bonus incentives you qualify for.</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
+                      <Check className="w-4 h-4 text-white" />
+                    </span>
+                    <span>Side-by-side comparison of plan tiers with recommended deductibles.</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-primary/20">
+                      <Check className="w-4 h-4 text-white" />
+                    </span>
+                    <span>Direct line to a concierge agent ready to finalize coverage when you are.</span>
+                  </li>
+                </ul>
+                <Button
+                  size="lg"
+                  className="mt-8 bg-white text-primary hover:bg-blue-50 w-full"
+                  onClick={openQuoteModal}
+                >
+                  Start My Coverage Blueprint
+                </Button>
+                <p className="mt-4 text-xs uppercase tracking-[0.3em] text-blue-100/70">
+                  Prefer to speak now? Call (800) 555-0148
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </motion.section>
 
