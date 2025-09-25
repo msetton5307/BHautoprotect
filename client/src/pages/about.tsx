@@ -149,7 +149,7 @@ export default function About() {
             <div className="space-y-3 text-sm text-slate-600">
               <p className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 p-4">
                 <MapPin className="h-5 w-5 text-primary" />
-                <span>5501 Horizon Park Blvd, Suite 420, Austin, TX 78727</span>
+                <span>BH Auto Protect, 800 N King St, Suite 304-2390, Wilmington, DE 19801</span>
               </p>
               <p className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 p-4">
                 <Phone className="h-5 w-5 text-primary" />
