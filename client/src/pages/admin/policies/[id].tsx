@@ -24,7 +24,6 @@ import { fetchWithAuth, getAuthHeaders, clearCredentials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import PolicyDocumentRequests from "@/components/admin-policy-document-requests";
-import { useBranding } from "@/hooks/use-branding";
 import { ArrowLeft, ChevronDown, Eye, Mail, Paperclip, PencilLine, Sparkles, ExternalLink } from "lucide-react";
 
 const CUSTOM_TEMPLATE_ID = "custom";
@@ -156,28 +155,8 @@ const escapeHtml = (value: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const FALLBACK_EMAIL_BRAND_LOGO =
+const EMAIL_BRAND_LOGO =
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMTIwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNjAlIiBzdG9wLWNvbG9yPSIjMWQ0ZWQ4IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZykiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0yMCA3MGMyOC0yOCA4OC00OCAxNDAtNDhzMTEyIDIwIDE0MCA0OCIvPgogICAgPHBhdGggZD0iTTI4IDU4YzE4LTIyIDc4LTQwIDEzMi00MHMxMTQgMTggMTMyIDQwIiBvcGFjaXR5PSIwLjU1Ii8+CiAgPC9nPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIxMCA0OCkiPgogICAgPHBhdGggZD0iTTM2IDQgMTgtNCAwIDR2MzJjMCAxOCA4IDM0IDE4IDQyIDEwLTggMTgtMjQgMTgtNDJWNFoiIGZpbGw9IiMwZjE3MmEiIG9wYWNpdHk9IjAuMTIiLz4KICAgIDxwYXRoIGQ9Ik0zNiAwIDE4LTggMCAwdjMyYzAgMTggOCAzNCAxOCA0MiAxMC04IDE4LTI0IDE4LTQyVjBaIiBmaWxsPSIjMGIxZjRlIi8+CiAgICA8cGF0aCBkPSJNOSAxOCAxOCAyOGwxNS0xOCIgc3Ryb2tlPSIjZTBmMmZlIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwvZz4KPC9zdmc+";
-
-const DEFAULT_EMAIL_LOGO_PATH = "/email/bh-auto-protect-logo.svg";
-
-const resolveEmailLogoSrc = (logoUrl: string | null | undefined): string => {
-  const candidate = logoUrl ?? DEFAULT_EMAIL_LOGO_PATH;
-  if (/^https?:\/\//i.test(candidate)) {
-    return candidate;
-  }
-  if (candidate.startsWith("data:")) {
-    return candidate;
-  }
-  if (typeof window !== "undefined") {
-    try {
-      return new URL(candidate, window.location.origin).toString();
-    } catch (error) {
-      console.warn("Unable to resolve logo URL for email templates:", error);
-    }
-  }
-  return FALLBACK_EMAIL_BRAND_LOGO;
-};
 
 const convertPlainTextToHtml = (value: string): string => {
   const paragraphs = value
@@ -341,13 +320,11 @@ const buildEmailLayout = ({
   heroTitle,
   heroSubtitle,
   bodyContent,
-  logoSrc = FALLBACK_EMAIL_BRAND_LOGO,
 }: {
   subject: string;
   heroTitle: string;
   heroSubtitle: string;
   bodyContent: string;
-  logoSrc?: string;
 }): string => `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -364,7 +341,7 @@ const buildEmailLayout = ({
             <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
               <div style="display:flex;align-items:center;gap:18px;">
                 <img
-                  src="${escapeHtml(logoSrc)}"
+                  src="${EMAIL_BRAND_LOGO}"
                   alt="BHAutoProtect logo"
                   style="width:96px;height:auto;display:block;filter:drop-shadow(0 8px 18px rgba(15,23,42,0.35));"
                 />
@@ -397,12 +374,10 @@ const buildBrandedEmailFromPlainText = ({
   subject,
   message,
   policy,
-  logoSrc,
 }: {
   subject: string;
   message: string;
   policy: any;
-  logoSrc: string;
 }): string => {
   const policyPackage = formatPolicyName(policy?.package) || "Vehicle Protection";
   const heroTitle = `${policyPackage} Update`;
@@ -416,11 +391,10 @@ const buildBrandedEmailFromPlainText = ({
     heroTitle,
     heroSubtitle,
     bodyContent: finalBody,
-    logoSrc,
   });
 };
 
-const buildDefaultEmailTemplates = (policy: any, logoSrc: string): EmailTemplateRecord[] => {
+const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
   const name = getPolicyHolderName(policy);
   const displayName = name || "there";
   const policyPackage = formatPolicyName(policy?.package) || "Vehicle Protection";
@@ -507,7 +481,6 @@ const buildDefaultEmailTemplates = (policy: any, logoSrc: string): EmailTemplate
       heroTitle: `${policyPackage} Coverage Activated`,
       heroSubtitle,
       bodyContent: policyActivatedBody,
-      logoSrc,
     }),
   });
 
@@ -543,7 +516,6 @@ const buildDefaultEmailTemplates = (policy: any, logoSrc: string): EmailTemplate
       heroTitle: "Account Past Due Notice",
       heroSubtitle,
       bodyContent: pastDueBody,
-      logoSrc,
     }),
   });
 
@@ -574,7 +546,6 @@ const buildDefaultEmailTemplates = (policy: any, logoSrc: string): EmailTemplate
       heroTitle: "Rim & Tire Voucher Available",
       heroSubtitle,
       bodyContent: rimTireBody,
-      logoSrc,
     }),
   });
 
@@ -605,7 +576,6 @@ const buildDefaultEmailTemplates = (policy: any, logoSrc: string): EmailTemplate
       heroTitle: "Maintenance Voucher Ready",
       heroSubtitle,
       bodyContent: maintenanceBody,
-      logoSrc,
     }),
   });
 
@@ -664,9 +634,6 @@ export default function AdminPolicyDetail() {
     enabled: policyQueriesEnabled,
   });
 
-  const brandingQuery = useBranding();
-  const emailLogoSrc = useMemo(() => resolveEmailLogoSrc(brandingQuery.data?.data?.logoUrl ?? null), [brandingQuery.data?.data?.logoUrl]);
-
   const {
     data: templatesResponse,
     isFetching: isFetchingTemplates,
@@ -702,7 +669,7 @@ export default function AdminPolicyDetail() {
   }, [chargesResponse]);
 
   const policyHolderName = getPolicyHolderName(policy);
-  const defaultTemplates = useMemo(() => buildDefaultEmailTemplates(policy, emailLogoSrc), [policy, emailLogoSrc]);
+  const defaultTemplates = useMemo(() => buildDefaultEmailTemplates(policy), [policy]);
   const savedTemplates = templatesResponse?.data ?? [];
 
   const primaryPaymentProfile = paymentProfiles[0] ?? null;
@@ -769,7 +736,7 @@ export default function AdminPolicyDetail() {
   }, [policy]);
 
   const buildCustomEmail = (message: string, subjectOverride?: string) =>
-    buildBrandedEmailFromPlainText({ subject: subjectOverride ?? emailSubject, message, policy, logoSrc: emailLogoSrc });
+    buildBrandedEmailFromPlainText({ subject: subjectOverride ?? emailSubject, message, policy });
 
   const syncPlainMessageFromHtml = (html: string) => {
     const stripped = stripHtmlToPlainText(html);
