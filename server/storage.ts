@@ -57,6 +57,7 @@ import {
 import { db } from "./db";
 import { eq, desc, sql, and, inArray } from "drizzle-orm";
 import { hashPassword } from "./password";
+import { renderEmailLogo } from "./emailBranding";
 
 const generateLeadId = () => Math.floor(10000000 + Math.random() * 90000000).toString();
 const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -103,7 +104,7 @@ const DEFAULT_EMAIL_TEMPLATES: { name: string; subject: string; bodyHtml: string
         <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);">
           <tr>
             <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
-              <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
+              ${renderEmailLogo({ textColor: '#ffffff' })}
               <div style="font-size:24px;font-weight:700;margin-top:10px;">Fuel Voucher Added to Your Coverage</div>
               <div style="margin-top:12px;font-size:14px;opacity:0.85;">We're celebrating you with extra miles on us.</div>
             </td>
