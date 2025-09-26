@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">BH Auto Protect favicon</title>
+  <desc id="desc">Stylized car shield emblem with the BH Auto Protect name</desc>
+  <defs>
+    <linearGradient id="emblemGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A" />
+      <stop offset="50%" stop-color="#1D4ED8" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1D4ED8" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="#F8FAFC" />
+  <g transform="translate(20 64)">
+    <g fill="none" stroke="url(#emblemGradient)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M8 88c32-32 96-56 160-56s128 24 168 56" opacity="0.9" />
+      <path d="M18 70c22-26 86-48 150-48s128 22 160 48" opacity="0.55" />
+    </g>
+  </g>
+  <g transform="translate(72 68)">
+    <path d="M112 20 88 10 64 20v60c0 32 14 58 24 70 10-12 24-38 24-70V20Z" fill="#0F172A" opacity="0.1" />
+    <path d="M144 30 112 16 80 30v64c0 34 16 62 32 76 16-14 32-42 32-76V30Z" fill="#0B1F4E" />
+    <path d="M98 82 112 96l30-34" fill="none" stroke="#E0F2FE" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+  </g>
+  <text x="128" y="220" text-anchor="middle" font-family="'Montserrat', 'Segoe UI', sans-serif" font-weight="700" font-size="42" fill="url(#textGradient)">
+    BH AUTO PROTECT
+  </text>
+</svg>
