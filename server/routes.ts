@@ -31,6 +31,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { calculateQuote } from "../client/src/lib/pricing";
 import { verifyPassword, hashPassword } from "./password";
+import { renderEmailLogo } from "./emailBranding";
 
 type LeadMeta = {
   tags: string[];
@@ -666,7 +667,7 @@ const buildContractInviteEmail = ({
           <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.1);">
             <tr>
               <td style="background:linear-gradient(135deg,#0f172a,#2563eb);padding:32px;color:#e2e8f0;">
-                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BH AUTO PROTECT</div>
+                ${renderEmailLogo({ textColor: '#e2e8f0' })}
                 <div style="font-size:24px;font-weight:700;margin-top:12px;">Your ${escapeHtml(planName)} contract is ready</div>
                 <div style="margin-top:8px;font-size:14px;opacity:0.85;">Quote ${escapeHtml(quote.id)} • ${escapeHtml(monthly)}</div>
               </td>
@@ -732,6 +733,7 @@ const buildContractSignedNotificationEmail = ({
           <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#111827;border-radius:18px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.35);">
             <tr>
               <td style="padding:30px 32px;background:linear-gradient(135deg,#1e293b,#0f172a);">
+                ${renderEmailLogo({ textColor: '#64748b' })}
                 <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#64748b;">Contract Signed</div>
                 <div style="font-size:24px;font-weight:700;margin-top:12px;color:#e2e8f0;">${escapeHtml(customerName)} locked in coverage</div>
                 <div style="margin-top:6px;font-size:13px;color:#94a3b8;">${escapeHtml(planName)} • Lead ${escapeHtml(lead.id)}</div>
@@ -825,7 +827,7 @@ const buildDocumentRequestEmail = ({
           <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 24px 48px rgba(15,23,42,0.08);">
             <tr>
               <td style="padding:28px 32px;background:linear-gradient(135deg,#111827,#1d4ed8);color:#ffffff;">
-                <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
+                ${renderEmailLogo({ textColor: '#ffffff' })}
                 <div style="margin-top:10px;font-size:22px;font-weight:600;">We need ${escapeHtml(requestLabel)}</div>
                 <div style="margin-top:6px;font-size:13px;opacity:0.8;">Policy ${escapeHtml(policyId)}</div>
               </td>
@@ -967,7 +969,7 @@ const buildQuoteEmail = ({
         <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);">
           <tr>
             <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
-              <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
+              ${renderEmailLogo({ textColor: '#ffffff' })}
               <div style="font-size:24px;font-weight:700;margin-top:10px;">Your ${escapeHtml(planName)} Quote is Ready</div>
               <div style="margin-top:12px;font-size:14px;opacity:0.85;">Quote • ${escapeHtml(quoteId)}</div>
             </td>
