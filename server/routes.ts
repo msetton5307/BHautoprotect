@@ -955,19 +955,35 @@ const sendPolicyActivationEmail = async ({
   lead,
   policy,
   vehicle,
+  recipients,
 }: {
   lead: Lead;
   policy: Policy;
   vehicle: Vehicle | null | undefined;
+  recipients?: (string | null | undefined)[];
 }) => {
-  const recipient = normalizeEmail(lead.email);
-  if (!recipient) {
+  const recipientSet = new Set<string>();
+  const candidateEmails = [...(recipients ?? []), lead.email];
+
+  for (const candidate of candidateEmails) {
+    const normalized = normalizeEmail(candidate);
+    if (normalized) {
+      recipientSet.add(normalized);
+    }
+  }
+
+  if (recipientSet.size === 0) {
+    console.warn('No valid email recipient found for policy activation email', {
+      leadId: lead.id,
+    });
     return;
   }
+
+  const recipientList = Array.from(recipientSet);
   const message = buildPolicyActivationEmail({ lead, policy, vehicle });
   try {
     await sendMail({
-      to: recipient,
+      to: recipientList,
       subject: message.subject,
       html: message.html,
       text: message.text,
@@ -1780,7 +1796,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     if (!policyPreviouslyExisted && policy) {
-      await sendPolicyActivationEmail({ lead, policy, vehicle });
+      await sendPolicyActivationEmail({
+        lead,
+        policy,
+        vehicle,
+        recipients: [signatureEmail, account?.email],
+      });
     }
 
     return { contract: updatedContract, policy };
@@ -3432,10 +3453,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const data = schema.parse(req.body);
       const vehicle = await storage.getVehicleByLeadId(leadId);
+      const contracts = await storage.getLeadContracts(leadId);
+      const contractEmails = contracts
+        .filter((contract) => contract.status === 'signed')
+        .map((contract) => contract.signatureEmail)
+        .filter((email): email is string => typeof email === 'string' && email.length > 0);
       const policy = await storage.createPolicy({ leadId, ...data });
       const current = getLeadMeta(leadId);
       leadMeta[leadId] = { ...current, status: 'sold' };
-      await sendPolicyActivationEmail({ lead, policy, vehicle });
+      await sendPolicyActivationEmail({
+        lead,
+        policy,
+        vehicle,
+        recipients: contractEmails,
+      });
       res.json({ data: policy, message: 'Policy created successfully' });
     } catch (error) {
       console.error('Error converting lead:', error);
