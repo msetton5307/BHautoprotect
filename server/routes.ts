@@ -3295,6 +3295,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/admin/leads/:id', async (req, res) => {
+    try {
+      const lead = await loadLeadFromRequest(req, res);
+      if (!lead) {
+        return;
+      }
+
+      await storage.deleteLead(lead.id);
+      delete leadMeta[lead.id];
+
+      res.json({ data: lead, message: 'Lead deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting lead:', error);
+      res.status(500).json({ message: 'Failed to delete lead' });
+    }
+  });
+
   // Public claim submission endpoint
   app.post('/api/claims', async (req, res) => {
     try {

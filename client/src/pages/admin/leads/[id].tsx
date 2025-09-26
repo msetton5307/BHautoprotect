@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { ArrowLeft, User, Car, Activity, Phone, Mail, DollarSign } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
@@ -92,6 +103,7 @@ const parseDollarInput = (value: string): number | null => {
 
 export default function AdminLeadDetail() {
   const { id } = useParams();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
@@ -120,6 +132,7 @@ export default function AdminLeadDetail() {
   const [vehicleForm, setVehicleForm] = useState<any>({});
   const [newNote, setNewNote] = useState('');
   const [leadForm, setLeadForm] = useState<any>({});
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const createQuoteSectionRef = useRef<HTMLDivElement | null>(null);
 
   const { data: leadData, isLoading } = useQuery({
@@ -166,6 +179,39 @@ export default function AdminLeadDetail() {
         title: "Error",
         description: "Failed to update lead",
         variant: "destructive",
+      });
+    },
+  });
+
+  const deleteLeadMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetchWithAuth(`/api/admin/leads/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error('Unauthorized');
+      }
+      if (!res.ok) throw new Error('Failed to delete lead');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['/api/admin/leads', id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/leads'] });
+      toast({
+        title: 'Success',
+        description: 'Lead deleted successfully',
+      });
+      setDeleteDialogOpen(false);
+      setLocation('/admin/leads');
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete lead',
+        variant: 'destructive',
       });
     },
   });
@@ -609,6 +655,40 @@ export default function AdminLeadDetail() {
               >
                 {convertButtonLabel}
               </Button>
+              <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={deleteLeadMutation.isPending}
+                  >
+                    Delete Lead
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this lead?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. Deleting the lead will permanently
+                      remove its related quotes, notes, and vehicle information.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={deleteLeadMutation.isPending}>
+                      Cancel
+                    </AlertDialogCancel>
+                    <AlertDialogAction asChild>
+                      <Button
+                        variant="destructive"
+                        onClick={() => deleteLeadMutation.mutate()}
+                        disabled={deleteLeadMutation.isPending}
+                      >
+                        {deleteLeadMutation.isPending ? 'Deleting...' : 'Delete'}
+                      </Button>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         </div>

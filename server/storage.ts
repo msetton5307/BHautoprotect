@@ -172,6 +172,7 @@ export interface IStorage {
   getLead(id: string): Promise<Lead | undefined>;
   createLead(lead: InsertLead & { id?: string; createdAt?: Date }): Promise<Lead>;
   updateLead(id: string, updates: Partial<InsertLead>): Promise<Lead>;
+  deleteLead(id: string): Promise<Lead | undefined>;
   
   // Vehicle operations
   getVehicleByLeadId(leadId: string): Promise<Vehicle | undefined>;
@@ -345,6 +346,11 @@ export class DatabaseStorage implements IStorage {
       .set(updates)
       .where(eq(leads.id, id))
       .returning();
+    return lead;
+  }
+
+  async deleteLead(id: string): Promise<Lead | undefined> {
+    const [lead] = await db.delete(leads).where(eq(leads.id, id)).returning();
     return lead;
   }
 
