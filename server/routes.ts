@@ -160,6 +160,10 @@ const portalContractsBaseUrl = trimmedPortalBaseUrl
   ? `${trimmedPortalBaseUrl}/portal/contracts`
   : `${defaultPortalBaseUrl}/portal/contracts`;
 
+const portalLoginBaseUrl = trimmedPortalBaseUrl
+  ? `${trimmedPortalBaseUrl}/portal`
+  : `${defaultPortalBaseUrl}/portal`;
+
 const MAX_CONTRACT_FILE_BYTES = 5 * 1024 * 1024;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -503,6 +507,45 @@ const formatPlanName = (plan: string | null | undefined): string => {
   return `${plan.charAt(0).toUpperCase()}${plan.slice(1)}`;
 };
 
+const formatCurrencyCentsOrFallback = (value: number | null | undefined, fallback: string): string => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return fallback;
+  }
+  return formatCurrencyFromCents(value);
+};
+
+const formatCurrencyDollarsOrFallback = (value: number | null | undefined, fallback: string): string => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return fallback;
+  }
+  return formatCurrencyFromDollars(value);
+};
+
+const formatPolicyDateDisplay = (
+  value: Date | string | null | undefined,
+  fallback: string,
+): string => {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.valueOf())) {
+    return fallback;
+  }
+  return parsed.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+};
+
+const formatPolicyMileageLimit = (value: number | null | undefined, fallback: string): string => {
+  if (value === null || value === undefined || Number.isNaN(value)) {
+    return fallback;
+  }
+  return `${value.toLocaleString()} miles`;
+};
+
 const getPlaceholderContractFile = () => {
   if (!placeholderContractBase64) {
     throw new Error('No contract template is available. Please upload a contract PDF.');
@@ -759,6 +802,179 @@ const buildContractSignedNotificationEmail = ({
 </html>`;
   const text = `Contract signed for ${customerName}\nVehicle: ${vehicleSummary}\nPlan: ${planName}${quote ? ` • $${(quote.priceMonthly / 100).toFixed(2)}/mo` : ''}\nSigned: ${contract.signedAt ? new Date(contract.signedAt).toLocaleString() : 'Pending timestamp'}\n\nPolicy has been created automatically.`;
   return { subject, html, text };
+};
+
+const buildPolicyActivationEmail = ({
+  lead,
+  policy,
+  vehicle,
+}: {
+  lead: Lead;
+  policy: Policy;
+  vehicle: Vehicle | null | undefined;
+}) => {
+  const customerName = getLeadDisplayName(lead);
+  const vehicleSummary = getVehicleSummary(vehicle);
+  const planName = formatPlanName(policy.package);
+  const policyNumber = policy.id;
+  const loginEmail = typeof lead.email === 'string' ? lead.email.trim() : '';
+  const loginEmailInstruction = loginEmail ? loginEmail : 'the email on your policy';
+  const startDateDisplay = formatPolicyDateDisplay(
+    policy.policyStartDate,
+    'We will confirm your start date together',
+  );
+  const expirationDateDisplay = formatPolicyDateDisplay(
+    policy.expirationDate,
+    'See your contract for the expiration date',
+  );
+  const mileageLimitDisplay = formatPolicyMileageLimit(
+    policy.expirationMiles,
+    'See your contract for mileage limits',
+  );
+  const deductibleDisplay = formatCurrencyDollarsOrFallback(
+    policy.deductible,
+    'As listed on your contract',
+  );
+  const downPaymentDisplay = formatCurrencyCentsOrFallback(
+    policy.downPayment,
+    'To be confirmed with your advisor',
+  );
+  const monthlyPaymentDisplay = formatCurrencyCentsOrFallback(
+    policy.monthlyPayment,
+    'To be confirmed with your advisor',
+  );
+  const totalPremiumDisplay = formatCurrencyCentsOrFallback(
+    policy.totalPremium,
+    'See your contract for the full amount',
+  );
+  const contractBalanceDisplay =
+    policy.totalPayments !== null && policy.totalPayments !== undefined && !Number.isNaN(policy.totalPayments)
+      ? formatCurrencyFromCents(policy.totalPayments)
+      : totalPremiumDisplay;
+
+  const subject = `Welcome to BH Auto Protect • Policy ${policyNumber}`;
+  const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.12);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:32px;color:#e2e8f0;">
+                ${renderEmailLogo({ textColor: '#e2e8f0' })}
+                <div style="font-size:24px;font-weight:700;margin-top:12px;">Your coverage is active</div>
+                <div style="margin-top:8px;font-size:13px;opacity:0.85;">Policy ${escapeHtml(policyNumber)} • ${escapeHtml(planName)}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(customerName)},</p>
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.7;">
+                  Welcome to BH Auto Protect! Your protection plan for ${escapeHtml(vehicleSummary)} is now active. Save this message for your records—we've highlighted the details you need most often below.
+                </p>
+                <div style="background:#f8fafc;border-radius:16px;padding:24px;border:1px solid #e2e8f0;margin-bottom:24px;">
+                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:12px;">Policy snapshot</div>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.6;color:#1f2937;">
+                    <tr>
+                      <td style="padding:6px 0;color:#64748b;">Policy number</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(policyNumber)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;color:#64748b;">Plan</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(planName)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;color:#64748b;">Vehicle</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(vehicleSummary)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;color:#64748b;">Effective start</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(startDateDisplay)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;color:#64748b;">Coverage through</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(expirationDateDisplay)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;color:#64748b;">Mileage limit</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(mileageLimitDisplay)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:6px 0;color:#64748b;">Deductible</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(deductibleDisplay)}</td>
+                    </tr>
+                  </table>
+                </div>
+                <div style="background:#0f172a;border-radius:16px;padding:24px;color:#e2e8f0;margin-bottom:26px;">
+                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;">Payment schedule</div>
+                  <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#e2e8f0;">
+                    <li style="margin-bottom:8px;">Down payment: <strong>${escapeHtml(downPaymentDisplay)}</strong></li>
+                    <li style="margin-bottom:8px;">Monthly payment: <strong>${escapeHtml(monthlyPaymentDisplay)}</strong></li>
+                    <li>Contract balance: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
+                  </ul>
+                  <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;">We'll send reminders before each charge. Reach out if you'd like to adjust billing dates or methods.</p>
+                </div>
+                <div style="background:#f8fafc;border-radius:16px;padding:24px;border:1px solid #e2e8f0;margin-bottom:28px;">
+                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:12px;">Access your customer portal</div>
+                  <p style="margin:0 0 14px;font-size:15px;line-height:1.7;">
+                    Download your documents, update payments, or file a claim anytime in the BH Auto Protect portal.
+                  </p>
+                  <ol style="margin:0 0 16px;padding-left:20px;font-size:15px;line-height:1.8;color:#1f2937;">
+                    <li>Visit the portal using the button below.</li>
+                    <li>Sign in with ${escapeHtml(loginEmailInstruction)} and your policy ID ${escapeHtml(policyNumber)}.</li>
+                    <li>Bookmark the page so it's handy when you need us.</li>
+                  </ol>
+                  <div style="text-align:center;margin-top:18px;">
+                    <a href="${escapeHtml(portalLoginBaseUrl)}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 28px;border-radius:9999px;background:#2563eb;color:#ffffff;font-weight:600;text-decoration:none;">Open Customer Portal</a>
+                  </div>
+                </div>
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.7;">
+                  Need help or have questions? Call <a href="tel:18882001234" style="color:#2563eb;text-decoration:none;font-weight:600;">1 (888) 200-1234</a> or reply to this email. Our concierge team is ready to help with claims, maintenance advice, or billing adjustments.
+                </p>
+                <p style="margin:0;font-size:15px;line-height:1.7;">Warmly,<br/><strong>The BH Auto Protect Team</strong></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = `Hi ${customerName},\n\nWelcome to BH Auto Protect! Your ${planName} protection for ${vehicleSummary} is now active.\n\nPolicy number: ${policyNumber}\nEffective start: ${startDateDisplay}\nCoverage through: ${expirationDateDisplay}\nMileage limit: ${mileageLimitDisplay}\nDeductible: ${deductibleDisplay}\n\nPayment schedule\n- Down payment: ${downPaymentDisplay}\n- Monthly payment: ${monthlyPaymentDisplay}\n- Contract balance: ${contractBalanceDisplay}\n\nAccess your portal: ${portalLoginBaseUrl}\nSign in with ${loginEmailInstruction} and your policy ID ${policyNumber}.\n\nNeed help? Call 1 (888) 200-1234 or reply to this email.\n\nThe BH Auto Protect Team`;
+
+  return { subject, html, text };
+};
+
+const sendPolicyActivationEmail = async ({
+  lead,
+  policy,
+  vehicle,
+}: {
+  lead: Lead;
+  policy: Policy;
+  vehicle: Vehicle | null | undefined;
+}) => {
+  const recipient = normalizeEmail(lead.email);
+  if (!recipient) {
+    return;
+  }
+  const message = buildPolicyActivationEmail({ lead, policy, vehicle });
+  try {
+    await sendMail({
+      to: recipient,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+    });
+  } catch (error) {
+    console.error('Error sending policy activation email:', error);
+  }
 };
 
 const documentDueDateFormatter = new Intl.DateTimeFormat('en-US', {
@@ -1521,6 +1737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     let policy = await storage.getPolicyByLeadId(contract.leadId);
+    const policyPreviouslyExisted = Boolean(policy);
     if (policy) {
       await storage.updatePolicy(contract.leadId, policyData);
       policy = await storage.getPolicyByLeadId(contract.leadId);
@@ -1560,6 +1777,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (error) {
         console.error('Error sending contract signed notification:', error);
       }
+    }
+
+    if (!policyPreviouslyExisted && policy) {
+      await sendPolicyActivationEmail({ lead, policy, vehicle });
     }
 
     return { contract: updatedContract, policy };
@@ -3210,9 +3431,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       const data = schema.parse(req.body);
+      const vehicle = await storage.getVehicleByLeadId(leadId);
       const policy = await storage.createPolicy({ leadId, ...data });
       const current = getLeadMeta(leadId);
       leadMeta[leadId] = { ...current, status: 'sold' };
+      await sendPolicyActivationEmail({ lead, policy, vehicle });
       res.json({ data: policy, message: 'Policy created successfully' });
     } catch (error) {
       console.error('Error converting lead:', error);
