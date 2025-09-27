@@ -1,6 +1,6 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Image as ImageIcon } from "lucide-react";
+import { Image as ImageIcon, FileText, Mail as MailIcon } from "lucide-react";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
@@ -10,10 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Textarea } from "@/components/ui/textarea";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
 const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/pjpeg", "image/png", "image/x-png"];
 const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png"];
+const MAX_CONTRACT_FILE_SIZE = 5 * 1024 * 1024;
+const ACCEPTED_CONTRACT_ACCEPT = ".pdf,application/pdf";
+const DEFAULT_INSTRUCTIONS_FALLBACK =
+  "Ready to move forward? Click the contract button in your quote to review, complete your details, and sign to activate coverage.";
 
 type BrandingResponse = {
   data?: {
@@ -22,6 +27,19 @@ type BrandingResponse = {
 };
 
 type BrandingUploadResponse = BrandingResponse;
+
+type QuotePreferencesResponse = {
+  data?: {
+    defaultContract: {
+      fileName: string;
+      fileType: string | null;
+      fileSize: number | null;
+      updatedAt: string | null;
+    } | null;
+    emailInstructions: string;
+    emailInstructionsUpdatedAt?: string | null;
+  };
+};
 
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -51,9 +69,30 @@ export default function AdminSettings() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const contractInputRef = useRef<HTMLInputElement | null>(null);
+  const [contractFile, setContractFile] = useState<File | null>(null);
+  const [contractValidationError, setContractValidationError] = useState<string | null>(null);
+  const [contractUploadError, setContractUploadError] = useState<string | null>(null);
+  const [contractSuccessMessage, setContractSuccessMessage] = useState<string | null>(null);
+  const [quoteInstructions, setQuoteInstructions] = useState<string>(DEFAULT_INSTRUCTIONS_FALLBACK);
+  const [instructionsError, setInstructionsError] = useState<string | null>(null);
+  const [instructionsSuccess, setInstructionsSuccess] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const queriesEnabled = authenticated && !checking;
+
+  const formatFileSize = (size: number | null | undefined) => {
+    if (!size || size <= 0) {
+      return null;
+    }
+    if (size >= 1024 * 1024) {
+      return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+    }
+    if (size >= 1024) {
+      return `${(size / 1024).toFixed(1)} KB`;
+    }
+    return `${size} bytes`;
+  };
 
   useEffect(() => {
     return () => {
@@ -62,6 +101,13 @@ export default function AdminSettings() {
       }
     };
   }, [previewUrl]);
+
+  useEffect(() => {
+    const value = quotePreferencesQuery.data?.data?.emailInstructions;
+    if (typeof value === "string") {
+      setQuoteInstructions(value);
+    }
+  }, [quotePreferencesQuery.data?.data?.emailInstructions]);
 
   const brandingQuery = useQuery<BrandingResponse>({
     queryKey: ["/api/admin/branding"],
@@ -74,6 +120,24 @@ export default function AdminSettings() {
       }
       if (!response.ok) {
         throw new Error("Failed to load branding");
+      }
+      return response.json();
+    },
+    enabled: queriesEnabled,
+    staleTime: 0,
+  });
+
+  const quotePreferencesQuery = useQuery<QuotePreferencesResponse>({
+    queryKey: ["/api/admin/quote-preferences"],
+    queryFn: async () => {
+      const response = await fetchWithAuth("/api/admin/quote-preferences");
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+      if (!response.ok) {
+        throw new Error("Failed to load quote preferences");
       }
       return response.json();
     },
@@ -143,12 +207,126 @@ export default function AdminSettings() {
     },
   });
 
+  const uploadDefaultContractMutation = useMutation<QuotePreferencesResponse, Error, File>({
+    mutationFn: async (file: File) => {
+      let base64: string;
+      try {
+        base64 = await fileToBase64(file);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to read file.";
+        throw new Error(message);
+      }
+
+      const response = await fetchWithAuth("/api/admin/quote-preferences/default-contract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type,
+          fileData: base64,
+        }),
+      });
+
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message = typeof payload?.message === "string" ? payload.message : "Failed to save default contract";
+        throw new Error(message);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/quote-preferences"] });
+      setContractSuccessMessage("Default contract updated successfully.");
+      setContractUploadError(null);
+      setContractValidationError(null);
+      setContractFile(null);
+      if (contractInputRef.current) {
+        contractInputRef.current.value = "";
+      }
+    },
+    onError: (error) => {
+      setContractUploadError(error.message);
+      setContractSuccessMessage(null);
+    },
+  });
+
+  const saveInstructionsMutation = useMutation<QuotePreferencesResponse, Error, string>({
+    mutationFn: async (instructions: string) => {
+      const response = await fetchWithAuth("/api/admin/quote-preferences/email-instructions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ instructions }),
+      });
+
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message = typeof payload?.message === "string" ? payload.message : "Failed to update email instructions";
+        throw new Error(message);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/quote-preferences"] });
+      setInstructionsSuccess("Quote email instructions updated.");
+      setInstructionsError(null);
+    },
+    onError: (error) => {
+      setInstructionsError(error.message);
+      setInstructionsSuccess(null);
+    },
+  });
+
   const currentLogoUrl = useMemo(() => {
     const value = brandingQuery.data?.data?.logoUrl;
     return typeof value === "string" && value.trim().length > 0 ? value : null;
   }, [brandingQuery.data]);
 
   const displayedPreview = previewUrl ?? currentLogoUrl ?? null;
+
+  const contractMetadata = quotePreferencesQuery.data?.data?.defaultContract ?? null;
+  const contractSizeLabel = contractMetadata ? formatFileSize(contractMetadata.fileSize) : null;
+  const contractUpdatedAt = useMemo(() => {
+    if (!contractMetadata?.updatedAt) {
+      return null;
+    }
+    const date = new Date(contractMetadata.updatedAt);
+    if (Number.isNaN(date.valueOf())) {
+      return null;
+    }
+    return date.toLocaleString();
+  }, [contractMetadata?.updatedAt]);
+
+  const instructionsUpdatedAt = useMemo(() => {
+    const raw = quotePreferencesQuery.data?.data?.emailInstructionsUpdatedAt;
+    if (!raw) {
+      return null;
+    }
+    const date = new Date(raw);
+    if (Number.isNaN(date.valueOf())) {
+      return null;
+    }
+    return date.toLocaleString();
+  }, [quotePreferencesQuery.data?.data?.emailInstructionsUpdatedAt]);
+
+  const quotePreferencesErrorMessage = quotePreferencesQuery.isError
+    ? quotePreferencesQuery.error instanceof Error
+      ? quotePreferencesQuery.error.message
+      : 'Failed to load quote preferences'
+    : null;
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -186,6 +364,63 @@ export default function AdminSettings() {
     setValidationError(null);
     setSelectedFile(file);
     setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleContractFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setContractSuccessMessage(null);
+    setContractUploadError(null);
+
+    if (!file) {
+      setContractFile(null);
+      setContractValidationError(null);
+      return;
+    }
+
+    if (file.type && !file.type.toLowerCase().includes('pdf')) {
+      setContractFile(null);
+      setContractValidationError('Please upload a PDF contract file.');
+      return;
+    }
+
+    if (file.size > MAX_CONTRACT_FILE_SIZE) {
+      setContractFile(null);
+      setContractValidationError('Contract files must be 5MB or smaller.');
+      return;
+    }
+
+    setContractValidationError(null);
+    setContractFile(file);
+  };
+
+  const handleContractUpload = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!contractFile) {
+      setContractValidationError('Please select a PDF contract before saving.');
+      return;
+    }
+
+    setContractValidationError(null);
+    setContractUploadError(null);
+    uploadDefaultContractMutation.mutate(contractFile);
+  };
+
+  const handleClearContractSelection = () => {
+    if (contractInputRef.current) {
+      contractInputRef.current.value = '';
+    }
+    setContractFile(null);
+    setContractValidationError(null);
+    setContractUploadError(null);
+    setContractSuccessMessage(null);
+  };
+
+  const handleInstructionsSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setInstructionsError(null);
+    setInstructionsSuccess(null);
+    saveInstructionsMutation.mutate(quoteInstructions);
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -236,89 +471,251 @@ export default function AdminSettings() {
     <div className="min-h-screen bg-gray-50">
       <AdminNav />
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-primary" />
-              Site Branding
-            </CardTitle>
-            <CardDescription>
-              Upload a JPG or PNG logo to replace the default illustration shown across the public site.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
-              <div className="space-y-4">
-                <div className="flex flex-col items-center gap-3">
-                  <div className="w-full max-w-[220px] aspect-square rounded-lg border bg-white flex items-center justify-center overflow-hidden p-4">
-                    {displayedPreview ? (
-                      <img
-                        src={displayedPreview}
-                        alt="Current logo preview"
-                        className="max-h-full w-full object-contain"
-                      />
-                    ) : (
-                      <div className="text-center text-sm text-muted-foreground">No logo uploaded yet</div>
+        <div className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" />
+                Site Branding
+              </CardTitle>
+              <CardDescription>
+                Upload a JPG or PNG logo to replace the default illustration shown across the public site.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-8 lg:grid-cols-[240px_1fr]">
+                <div className="space-y-4">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-full max-w-[220px] aspect-square rounded-lg border bg-white flex items-center justify-center overflow-hidden p-4">
+                      {displayedPreview ? (
+                        <img
+                          src={displayedPreview}
+                          alt="Current logo preview"
+                          className="max-h-full w-full object-contain"
+                        />
+                      ) : (
+                        <div className="text-center text-sm text-muted-foreground">No logo uploaded yet</div>
+                      )}
+                    </div>
+                    {currentLogoUrl && (
+                      <p className="text-xs text-muted-foreground break-words text-center">
+                        Live file: {currentLogoUrl}
+                      </p>
                     )}
                   </div>
-                  {currentLogoUrl && (
-                    <p className="text-xs text-muted-foreground break-words text-center">
-                      Live file: {currentLogoUrl}
+                </div>
+                <form className="space-y-6" onSubmit={handleSubmit}>
+                  <div className="space-y-2">
+                    <Label htmlFor="logo">Logo image</Label>
+                    <Input
+                      id="logo"
+                      type="file"
+                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      onChange={handleFileChange}
+                      disabled={uploadMutation.isPending}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Upload a high-resolution JPG or PNG (max 2MB). We recommend at least 320×120 pixels with transparent or solid background.
                     </p>
+                  </div>
+
+                  {validationError && (
+                    <Alert variant="destructive">
+                      <AlertTitle>Unable to use this file</AlertTitle>
+                      <AlertDescription>{validationError}</AlertDescription>
+                    </Alert>
                   )}
-                </div>
-              </div>
-              <form className="space-y-6" onSubmit={handleSubmit}>
-                <div className="space-y-2">
-                  <Label htmlFor="logo">Logo image</Label>
-                  <Input
-                    id="logo"
-                    type="file"
-                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
-                    onChange={handleFileChange}
-                    disabled={uploadMutation.isPending}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Upload a high-resolution JPG or PNG (max 2MB). We recommend at least 320×120 pixels with transparent or solid
-                    background.
-                  </p>
-                </div>
 
-                {validationError && (
-                  <Alert variant="destructive">
-                    <AlertTitle>Unable to use this file</AlertTitle>
-                    <AlertDescription>{validationError}</AlertDescription>
-                  </Alert>
-                )}
+                  {uploadError && (
+                    <Alert variant="destructive">
+                      <AlertTitle>Upload failed</AlertTitle>
+                      <AlertDescription>{uploadError}</AlertDescription>
+                    </Alert>
+                  )}
 
-                {uploadError && (
-                  <Alert variant="destructive">
-                    <AlertTitle>Upload failed</AlertTitle>
-                    <AlertDescription>{uploadError}</AlertDescription>
-                  </Alert>
-                )}
+                  {successMessage && (
+                    <Alert>
+                      <AlertTitle>Logo updated</AlertTitle>
+                      <AlertDescription>{successMessage}</AlertDescription>
+                    </Alert>
+                  )}
 
-                {successMessage && (
-                  <Alert>
-                    <AlertTitle>Logo updated</AlertTitle>
-                    <AlertDescription>{successMessage}</AlertDescription>
-                  </Alert>
-                )}
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button type="submit" disabled={uploadMutation.isPending}>
-                    {uploadMutation.isPending ? "Uploading…" : "Save logo"}
-                  </Button>
-                  {selectedFile && (
-                    <Button type="button" variant="outline" onClick={handleClearSelection} disabled={uploadMutation.isPending}>
-                      Cancel selection
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button type="submit" disabled={uploadMutation.isPending}>
+                      {uploadMutation.isPending ? "Uploading…" : "Save logo"}
                     </Button>
-                  )}
+                    {selectedFile && (
+                      <Button type="button" variant="outline" onClick={handleClearSelection} disabled={uploadMutation.isPending}>
+                        Cancel selection
+                      </Button>
+                    )}
+                  </div>
+                </form>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Default Contract
+              </CardTitle>
+              <CardDescription>Upload a PDF contract that will be attached to every quote email.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {quotePreferencesErrorMessage && (
+                <Alert variant="destructive">
+                  <AlertTitle>Unable to load current settings</AlertTitle>
+                  <AlertDescription>{quotePreferencesErrorMessage}</AlertDescription>
+                </Alert>
+              )}
+              {quotePreferencesQuery.isLoading && !quotePreferencesQuery.data ? (
+                <div className="flex justify-center py-6">
+                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
                 </div>
-              </form>
-            </div>
-          </CardContent>
-        </Card>
+              ) : (
+                <>
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Current default</h3>
+                    {contractMetadata ? (
+                      <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                        <li>
+                          <span className="font-medium text-foreground">File:</span> {contractMetadata.fileName}
+                        </li>
+                        {contractSizeLabel && (
+                          <li>
+                            <span className="font-medium text-foreground">Size:</span> {contractSizeLabel}
+                          </li>
+                        )}
+                        {contractUpdatedAt && (
+                          <li>
+                            <span className="font-medium text-foreground">Updated:</span> {contractUpdatedAt}
+                          </li>
+                        )}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No custom default contract uploaded. The placeholder contract will be used until you provide one.
+                      </p>
+                    )}
+                  </div>
+                  <form className="space-y-4" onSubmit={handleContractUpload}>
+                    <div className="space-y-2">
+                      <Label htmlFor="default-contract">Upload new contract</Label>
+                      <Input
+                        id="default-contract"
+                        type="file"
+                        accept={ACCEPTED_CONTRACT_ACCEPT}
+                        ref={contractInputRef}
+                        onChange={handleContractFileChange}
+                        disabled={uploadDefaultContractMutation.isPending}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Upload a PDF (max 5MB). We’ll include this contract automatically with every quote unless you attach a different file.
+                      </p>
+                    </div>
+
+                    {contractValidationError && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Unable to use this file</AlertTitle>
+                        <AlertDescription>{contractValidationError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {contractUploadError && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Upload failed</AlertTitle>
+                        <AlertDescription>{contractUploadError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {contractSuccessMessage && (
+                      <Alert>
+                        <AlertTitle>Default contract updated</AlertTitle>
+                        <AlertDescription>{contractSuccessMessage}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button type="submit" disabled={uploadDefaultContractMutation.isPending}>
+                        {uploadDefaultContractMutation.isPending ? "Saving…" : "Save default contract"}
+                      </Button>
+                      {contractFile && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleClearContractSelection}
+                          disabled={uploadDefaultContractMutation.isPending}
+                        >
+                          Cancel selection
+                        </Button>
+                      )}
+                    </div>
+                  </form>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MailIcon className="h-5 w-5 text-primary" />
+                Quote Email Instructions
+              </CardTitle>
+              <CardDescription>Customize the message customers see above the quote details.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {quotePreferencesQuery.isLoading && !quotePreferencesQuery.data ? (
+                <div className="flex justify-center py-6">
+                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : (
+                <form className="space-y-4" onSubmit={handleInstructionsSubmit}>
+                  <div className="space-y-2">
+                    <Label htmlFor="quote-instructions">Email message</Label>
+                    <Textarea
+                      id="quote-instructions"
+                      value={quoteInstructions}
+                      onChange={(event) => {
+                        setQuoteInstructions(event.target.value);
+                        setInstructionsError(null);
+                        setInstructionsSuccess(null);
+                      }}
+                      rows={6}
+                      disabled={saveInstructionsMutation.isPending}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      This message appears in every quote email to encourage customers to review and sign their contract.
+                    </p>
+                    {instructionsUpdatedAt && (
+                      <p className="text-xs text-muted-foreground">Last updated {instructionsUpdatedAt}.</p>
+                    )}
+                  </div>
+
+                  {instructionsError && (
+                    <Alert variant="destructive">
+                      <AlertTitle>Save failed</AlertTitle>
+                      <AlertDescription>{instructionsError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {instructionsSuccess && (
+                    <Alert>
+                      <AlertTitle>Instructions updated</AlertTitle>
+                      <AlertDescription>{instructionsSuccess}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <Button type="submit" disabled={saveInstructionsMutation.isPending}>
+                    {saveInstructionsMutation.isPending ? "Saving…" : "Save instructions"}
+                  </Button>
+                </form>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );

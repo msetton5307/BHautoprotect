@@ -55,6 +55,24 @@ type PolicyFormState = {
   totalPayments: string;
 };
 
+type QuoteFormState = {
+  plan: "basic" | "silver" | "gold";
+  deductible: number | null;
+  termMonths: number | null;
+  priceTotal: number | null;
+  priceMonthly: number | null;
+  expirationMiles: number | null;
+};
+
+type CreateQuotePayload = {
+  plan: QuoteFormState['plan'];
+  deductible: number;
+  termMonths: number;
+  priceTotal: number;
+  priceMonthly: number;
+  expirationMiles?: number | null;
+};
+
 const formatCurrencyInput = (value: number | null | undefined): string => {
   if (value === null || value === undefined) {
     return '';
@@ -109,12 +127,13 @@ export default function AdminLeadDetail() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [isCreatingQuote, setIsCreatingQuote] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'activity'>('overview');
-  const [quoteForm, setQuoteForm] = useState({
-    plan: 'gold',
+  const [quoteForm, setQuoteForm] = useState<QuoteFormState>({
+    plan: "gold",
     deductible: 500,
     termMonths: 36,
-    priceTotal: 299900, // $2999.00
-    priceMonthly: 8331, // $83.31
+    priceTotal: 299900,
+    priceMonthly: 8331,
+    expirationMiles: null,
   });
   const [lastEditedPriceField, setLastEditedPriceField] = useState<'total' | 'monthly'>('total');
   const [contractUploads, setContractUploads] = useState<Record<string, { fileName: string; fileType: string; fileData: string }>>({});
@@ -150,7 +169,7 @@ export default function AdminLeadDetail() {
   const parseCurrencyToCents = (input: string): number | null => {
     const normalized = input.replace(/[$,]/g, '').trim();
     if (normalized.length === 0) {
-      return 0;
+      return null;
     }
     const parsed = Number.parseFloat(normalized);
     if (Number.isNaN(parsed)) {
@@ -161,12 +180,15 @@ export default function AdminLeadDetail() {
 
   const handleTotalPriceChange = (value: string) => {
     setQuoteForm((prev) => {
+      if (value.trim().length === 0) {
+        return { ...prev, priceTotal: null };
+      }
       const cents = parseCurrencyToCents(value);
       if (cents === null) {
         return prev;
       }
       const next = { ...prev, priceTotal: cents };
-      if (prev.termMonths > 0) {
+      if (prev.termMonths && prev.termMonths > 0) {
         next.priceMonthly = Math.round(cents / prev.termMonths);
       }
       return next;
@@ -176,12 +198,15 @@ export default function AdminLeadDetail() {
 
   const handleMonthlyPriceChange = (value: string) => {
     setQuoteForm((prev) => {
+      if (value.trim().length === 0) {
+        return { ...prev, priceMonthly: null };
+      }
       const cents = parseCurrencyToCents(value);
       if (cents === null) {
         return prev;
       }
       const next = { ...prev, priceMonthly: cents };
-      if (prev.termMonths > 0) {
+      if (prev.termMonths && prev.termMonths > 0) {
         next.priceTotal = cents * prev.termMonths;
       }
       return next;
@@ -192,7 +217,7 @@ export default function AdminLeadDetail() {
   const handleTermMonthsChange = (value: string) => {
     setQuoteForm((prev) => {
       if (value.trim().length === 0) {
-        return prev;
+        return { ...prev, termMonths: null };
       }
       const parsed = Number.parseInt(value, 10);
       if (Number.isNaN(parsed)) {
@@ -202,10 +227,16 @@ export default function AdminLeadDetail() {
       const next = { ...prev, termMonths: term };
       if (term > 0) {
         if (lastEditedPriceField === 'monthly') {
-          next.priceTotal = prev.priceMonthly * term;
-        } else {
+          if (prev.priceMonthly !== null) {
+            next.priceTotal = prev.priceMonthly * term;
+          }
+        } else if (prev.priceTotal !== null) {
           next.priceMonthly = Math.round(prev.priceTotal / term);
         }
+      } else if (lastEditedPriceField === 'monthly') {
+        next.priceTotal = null;
+      } else {
+        next.priceMonthly = null;
       }
       return next;
     });
@@ -214,7 +245,7 @@ export default function AdminLeadDetail() {
   const handleDeductibleChange = (value: string) => {
     setQuoteForm((prev) => {
       if (value.trim().length === 0) {
-        return prev;
+        return { ...prev, deductible: null };
       }
       const parsed = Number.parseInt(value, 10);
       if (Number.isNaN(parsed)) {
@@ -224,8 +255,23 @@ export default function AdminLeadDetail() {
     });
   };
 
+  const handleExpirationMilesChange = (value: string) => {
+    setQuoteForm((prev) => {
+      if (value.trim().length === 0) {
+        return { ...prev, expirationMiles: null };
+      }
+      const parsed = Number.parseInt(value, 10);
+      if (Number.isNaN(parsed)) {
+        return prev;
+      }
+      return { ...prev, expirationMiles: Math.max(parsed, 0) };
+    });
+  };
+
   const currentMilesDisplay = formatMilesDisplay(vehicleForm?.odometer);
-  const expirationMilesDisplay = formatMilesDisplay(policyForm.expirationMiles);
+  const expirationMilesDisplay = formatMilesDisplay(
+    quoteForm.expirationMiles ?? policyForm.expirationMiles,
+  );
 
   const { data: leadData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads', id],
@@ -309,16 +355,22 @@ export default function AdminLeadDetail() {
   });
 
   const createQuoteMutation = useMutation({
-    mutationFn: async (quoteData: any) => {
+    mutationFn: async (quoteData: CreateQuotePayload) => {
+      const payload: Record<string, unknown> = {
+        plan: quoteData.plan,
+        deductible: quoteData.deductible,
+        termMonths: quoteData.termMonths,
+        priceMonthly: quoteData.priceMonthly / 100,
+      };
+
+      if (quoteData.expirationMiles !== undefined && quoteData.expirationMiles !== null) {
+        payload.expirationMiles = quoteData.expirationMiles;
+      }
+
       const res = await fetch(`/api/leads/${id}/coverage`, {
         method: 'POST',
         headers: authJsonHeaders(),
-        body: JSON.stringify({
-          plan: quoteData.plan,
-          deductible: quoteData.deductible,
-          termMonths: quoteData.termMonths,
-          priceMonthly: quoteData.priceMonthly / 100,
-        }),
+        body: JSON.stringify(payload),
       });
       if (res.status === 401) {
         clearCredentials();
@@ -337,6 +389,7 @@ export default function AdminLeadDetail() {
         termMonths: 36,
         priceTotal: 299900,
         priceMonthly: 8331,
+        expirationMiles: null,
       });
       setLastEditedPriceField('total');
       toast({
@@ -632,7 +685,29 @@ export default function AdminLeadDetail() {
   };
 
   const handleCreateQuote = () => {
-    createQuoteMutation.mutate(quoteForm);
+    if (
+      quoteForm.deductible === null ||
+      quoteForm.termMonths === null ||
+      quoteForm.termMonths <= 0 ||
+      quoteForm.priceMonthly === null ||
+      quoteForm.priceTotal === null
+    ) {
+      toast({
+        title: 'Missing information',
+        description: 'Please complete all required quote fields before sending.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    createQuoteMutation.mutate({
+      plan: quoteForm.plan,
+      deductible: quoteForm.deductible,
+      termMonths: quoteForm.termMonths,
+      priceTotal: quoteForm.priceTotal,
+      priceMonthly: quoteForm.priceMonthly,
+      expirationMiles: quoteForm.expirationMiles ?? undefined,
+    });
   };
 
   const handleContractFileChange = (quoteId: string, file?: File | null) => {
@@ -1306,12 +1381,17 @@ export default function AdminLeadDetail() {
               </CardHeader>
               {isCreatingQuote && (
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <Label>Plan Type</Label>
                       <Select
                         value={quoteForm.plan}
-                        onValueChange={(value) => setQuoteForm({...quoteForm, plan: value})}
+                        onValueChange={(value) =>
+                          setQuoteForm((prev) => ({
+                            ...prev,
+                            plan: value as QuoteFormState['plan'],
+                          }))
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -1326,21 +1406,31 @@ export default function AdminLeadDetail() {
                     <div>
                       <Label>Deductible ($)</Label>
                       <Input
-                        type="number"
-                        min={0}
-                        step={50}
-                        value={quoteForm.deductible}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={quoteForm.deductible ?? ''}
                         onChange={(event) => handleDeductibleChange(event.target.value)}
                       />
                     </div>
                     <div>
                       <Label>Term (Months)</Label>
                       <Input
-                        type="number"
-                        min={1}
-                        step={1}
-                        value={quoteForm.termMonths}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={quoteForm.termMonths ?? ''}
                         onChange={(event) => handleTermMonthsChange(event.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Expiration Miles</Label>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={quoteForm.expirationMiles ?? ''}
+                        onChange={(event) => handleExpirationMilesChange(event.target.value)}
                       />
                     </div>
                   </div>
@@ -1363,19 +1453,21 @@ export default function AdminLeadDetail() {
                     <div>
                       <Label>Total Price ($)</Label>
                       <Input
-                        type="number"
-                        value={quoteForm.priceTotal / 100}
+                        type="text"
+                        inputMode="decimal"
+                        value={quoteForm.priceTotal !== null ? quoteForm.priceTotal / 100 : ''}
                         onChange={(e) => handleTotalPriceChange(e.target.value)}
-                        step="0.01"
+                        placeholder="0.00"
                       />
                     </div>
                     <div>
                       <Label>Monthly Price ($)</Label>
                       <Input
-                        type="number"
-                        value={quoteForm.priceMonthly / 100}
+                        type="text"
+                        inputMode="decimal"
+                        value={quoteForm.priceMonthly !== null ? quoteForm.priceMonthly / 100 : ''}
                         onChange={(e) => handleMonthlyPriceChange(e.target.value)}
-                        step="0.01"
+                        placeholder="0.00"
                       />
                     </div>
                   </div>
@@ -1400,8 +1492,23 @@ export default function AdminLeadDetail() {
               <CardContent>
                 {quotes && quotes.length > 0 ? (
                   <div className="space-y-4">
-                    {quotes.map((quote: any) => (
-                      <div key={quote.id} className="border rounded-lg p-4">
+                    {quotes.map((quote: any) => {
+                      const breakdown = (quote.breakdown ?? null) as Record<string, unknown> | null;
+                      let expirationMilesValue: number | null = null;
+                      if (breakdown && Object.prototype.hasOwnProperty.call(breakdown, 'expirationMiles')) {
+                        const raw = (breakdown as Record<string, unknown>).expirationMiles;
+                        if (typeof raw === 'number' && Number.isFinite(raw)) {
+                          expirationMilesValue = raw;
+                        } else if (typeof raw === 'string') {
+                          const parsed = Number(raw);
+                          if (Number.isFinite(parsed)) {
+                            expirationMilesValue = parsed;
+                          }
+                        }
+                      }
+
+                      return (
+                        <div key={quote.id} className="border rounded-lg p-4">
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <h4 className="font-medium capitalize">{quote.plan} Plan</h4>
@@ -1424,6 +1531,11 @@ export default function AdminLeadDetail() {
                           <div>
                             <span className="font-medium">Term:</span> {quote.termMonths} months
                           </div>
+                          {expirationMilesValue !== null ? (
+                            <div>
+                              <span className="font-medium">Expiration Miles:</span> {expirationMilesValue.toLocaleString()}
+                            </div>
+                          ) : null}
                         </div>
                         <div className="mt-4 space-y-3 border-t pt-4">
                           <div className="flex items-center justify-between">
@@ -1480,12 +1592,13 @@ export default function AdminLeadDetail() {
                                 : 'Send contract'}
                             </Button>
                             <p className="text-xs text-muted-foreground">
-                              We’ll use the standard placeholder contract if no PDF is uploaded.
+                              We’ll use the default contract if no PDF is uploaded.
                             </p>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">

@@ -58,6 +58,11 @@ const leadMeta: Record<string, LeadMeta> = {};
 
 const leadWebhookSecret = process.env.LEAD_WEBHOOK_SECRET;
 
+const QUOTE_DEFAULT_CONTRACT_SETTING_KEY = 'quote_default_contract';
+const QUOTE_EMAIL_INSTRUCTIONS_SETTING_KEY = 'quote_email_instructions';
+const DEFAULT_QUOTE_EMAIL_INSTRUCTIONS =
+  'Ready to move forward? Click the contract button in your quote to review, complete your details, and sign to activate coverage.';
+
 if (!leadWebhookSecret) {
   console.warn("LEAD_WEBHOOK_SECRET is not set. Lead webhook requests will be rejected.");
 }
@@ -544,6 +549,185 @@ const formatPolicyMileageLimit = (value: number | null | undefined, fallback: st
     return fallback;
   }
   return `${value.toLocaleString()} miles`;
+};
+
+type StoredContractSetting = {
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+  fileData?: string;
+};
+
+const parseStoredContractSetting = (
+  value: string | null | undefined,
+): StoredContractSetting | null => {
+  if (!value) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (parsed && typeof parsed === 'object') {
+      return parsed as StoredContractSetting;
+    }
+  } catch (error) {
+    console.warn('Unable to parse stored contract setting:', error);
+  }
+  return null;
+};
+
+type ContractTemplateFile = {
+  base64: string;
+  size: number;
+  fileName: string;
+  fileType: string;
+};
+
+const getStoredDefaultContractTemplate = async (): Promise<ContractTemplateFile | null> => {
+  const setting = await storage.getSiteSetting(QUOTE_DEFAULT_CONTRACT_SETTING_KEY);
+  if (!setting) {
+    return null;
+  }
+
+  const parsed = parseStoredContractSetting(setting.value);
+  if (!parsed || typeof parsed.fileData !== 'string') {
+    return null;
+  }
+
+  const base64 = parsed.fileData.trim();
+  if (!base64) {
+    return null;
+  }
+
+  let size =
+    typeof parsed.fileSize === 'number' && Number.isFinite(parsed.fileSize) ? parsed.fileSize : undefined;
+  if (!size || size <= 0) {
+    try {
+      size = Buffer.from(base64, 'base64').length;
+    } catch (error) {
+      console.warn('Unable to calculate default contract size:', error);
+      size = undefined;
+    }
+  }
+
+  if (!size || size <= 0) {
+    return null;
+  }
+
+  const fileName =
+    typeof parsed.fileName === 'string' && parsed.fileName.trim().length > 0
+      ? parsed.fileName.trim()
+      : 'BH-Auto-Protect-Contract.pdf';
+  const fileType =
+    typeof parsed.fileType === 'string' && parsed.fileType.trim().length > 0
+      ? parsed.fileType.trim()
+      : 'application/pdf';
+
+  return { base64, size, fileName, fileType };
+};
+
+const buildDefaultContractMetadata = async (): Promise<
+  | {
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+      updatedAt: string | null;
+    }
+  | null
+> => {
+  const setting = await storage.getSiteSetting(QUOTE_DEFAULT_CONTRACT_SETTING_KEY);
+  if (!setting) {
+    return null;
+  }
+
+  const parsed = parseStoredContractSetting(setting.value);
+  if (!parsed || typeof parsed.fileData !== 'string') {
+    return null;
+  }
+
+  const base64 = parsed.fileData.trim();
+  if (!base64) {
+    return null;
+  }
+
+  let size =
+    typeof parsed.fileSize === 'number' && Number.isFinite(parsed.fileSize) ? parsed.fileSize : undefined;
+  if (!size || size <= 0) {
+    try {
+      size = Buffer.from(base64, 'base64').length;
+    } catch (error) {
+      console.warn('Unable to calculate default contract size:', error);
+      size = undefined;
+    }
+  }
+
+  if (!size || size <= 0) {
+    return null;
+  }
+
+  const fileName =
+    typeof parsed.fileName === 'string' && parsed.fileName.trim().length > 0
+      ? parsed.fileName.trim()
+      : 'BH-Auto-Protect-Contract.pdf';
+  const fileType =
+    typeof parsed.fileType === 'string' && parsed.fileType.trim().length > 0
+      ? parsed.fileType.trim()
+      : 'application/pdf';
+
+  return {
+    fileName,
+    fileType,
+    fileSize: size,
+    updatedAt: toIsoString(setting.updatedAt ?? null),
+  };
+};
+
+const loadQuoteEmailInstructionsSetting = async (): Promise<{
+  value: string;
+  updatedAt: string | null;
+}> => {
+  const setting = await storage.getSiteSetting(QUOTE_EMAIL_INSTRUCTIONS_SETTING_KEY);
+  if (!setting) {
+    return { value: DEFAULT_QUOTE_EMAIL_INSTRUCTIONS, updatedAt: null };
+  }
+
+  const rawValue = typeof setting.value === 'string' ? setting.value.trim() : '';
+  const value = rawValue.length > 0 ? rawValue : DEFAULT_QUOTE_EMAIL_INSTRUCTIONS;
+  return {
+    value,
+    updatedAt: toIsoString(setting.updatedAt ?? null),
+  };
+};
+
+const resolveQuoteEmailInstructions = async (): Promise<string> => {
+  const setting = await loadQuoteEmailInstructionsSetting();
+  return setting.value;
+};
+
+const renderQuoteInstructionsBlock = (instructions: string | null | undefined): string => {
+  if (!instructions) {
+    return '';
+  }
+
+  const trimmed = instructions.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  const paragraphs = trimmed
+    .split(/\r?\n\r?\n/g)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0);
+
+  if (paragraphs.length === 0) {
+    return '';
+  }
+
+  return paragraphs
+    .map((paragraph) => {
+      const html = escapeHtml(paragraph).replace(/\r?\n/g, '<br />');
+      return `<p style="margin:0 0 18px;font-size:15px;line-height:1.7;">${html}</p>`;
+    })
+    .join('');
 };
 
 const getPlaceholderContractFile = () => {
@@ -1143,11 +1327,15 @@ const buildQuoteEmail = ({
   vehicle,
   quote,
   policy,
+  expirationMilesOverride,
+  instructions,
 }: {
   lead: Lead;
   vehicle: Vehicle | null | undefined;
   quote: Quote;
   policy?: Policy | null;
+  expirationMilesOverride?: number | null;
+  instructions?: string | null;
 }): { subject: string; html: string } => {
   const planName = formatPlanName(quote.plan);
   const subject = `Your ${planName} Coverage Quote is Ready`;
@@ -1160,9 +1348,14 @@ const buildQuoteEmail = ({
   const term = formatTerm(quote.termMonths);
   const validUntil = formatQuoteValidUntil(quote.validUntil ?? undefined);
   const currentMiles = formatOdometer(vehicle?.odometer);
+  const expirationMilesValue =
+    expirationMilesOverride ?? (policy?.expirationMiles ?? null);
   const expirationMiles = formatPolicyMileageLimit(
-    policy?.expirationMiles,
+    expirationMilesValue,
     'We\'ll confirm mileage limits together',
+  );
+  const instructionsBlock = renderQuoteInstructionsBlock(
+    instructions ?? DEFAULT_QUOTE_EMAIL_INSTRUCTIONS,
   );
 
   const summaryRows = [
@@ -1184,7 +1377,10 @@ const buildQuoteEmail = ({
   ];
 
   const supportRows = [
-    { label: "Next Step", value: "Reply with a good time to activate your coverage." },
+    {
+      label: "Next Step",
+      value: "Click the contract button whenever you're ready to activate your coverage.",
+    },
     {
       label: "Concierge Support",
       value: "We’ll walk you through the final paperwork in minutes.",
@@ -1230,6 +1426,7 @@ const buildQuoteEmail = ({
                   ${renderDetailRows(summaryRows)}
                 </tbody>
               </table>
+              ${instructionsBlock}
               <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
                   <tbody>
@@ -2782,6 +2979,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/quote-preferences', async (_req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const [contractMetadata, instructionsSetting] = await Promise.all([
+        buildDefaultContractMetadata(),
+        loadQuoteEmailInstructionsSetting(),
+      ]);
+
+      res.json({
+        data: {
+          defaultContract: contractMetadata,
+          emailInstructions: instructionsSetting.value,
+          emailInstructionsUpdatedAt: instructionsSetting.updatedAt,
+        },
+        message: 'Quote preferences retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error loading quote preferences:', error);
+      res.status(500).json({ message: 'Failed to load quote preferences' });
+    }
+  });
+
+  app.post('/api/admin/quote-preferences/default-contract', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    const payloadSchema = z.object({
+      fileName: z.string().trim().min(1, 'Contract file name is required'),
+      fileType: z.string().trim().optional(),
+      fileData: z.string().min(1, 'Contract data is required'),
+    });
+
+    try {
+      const payload = payloadSchema.parse(req.body ?? {});
+      const base64Content = extractBase64Data(payload.fileData);
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(base64Content, 'base64');
+      } catch {
+        res.status(400).json({ message: 'We could not read that file. Please upload a valid PDF.' });
+        return;
+      }
+
+      if (buffer.length === 0) {
+        res.status(400).json({ message: 'The uploaded file is empty.' });
+        return;
+      }
+
+      if (buffer.length > MAX_CONTRACT_FILE_BYTES) {
+        res.status(400).json({ message: 'Contract files must be 5MB or smaller.' });
+        return;
+      }
+
+      const normalizedType = (payload.fileType ?? 'application/pdf').trim().toLowerCase() || 'application/pdf';
+      if (!normalizedType.includes('pdf')) {
+        res.status(400).json({ message: 'Default contracts must be uploaded as PDF files.' });
+        return;
+      }
+
+      const fileName = payload.fileName.trim();
+      const saved = await storage.upsertSiteSetting({
+        key: QUOTE_DEFAULT_CONTRACT_SETTING_KEY,
+        value: JSON.stringify({
+          fileName,
+          fileType: normalizedType,
+          fileSize: buffer.length,
+          fileData: base64Content,
+        }),
+      });
+
+      res.json({
+        data: {
+          defaultContract: {
+            fileName,
+            fileType: normalizedType,
+            fileSize: buffer.length,
+            updatedAt: toIsoString(saved.updatedAt ?? null),
+          },
+        },
+        message: 'Default contract updated successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid contract payload';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error saving default contract:', error);
+      res.status(500).json({ message: 'Failed to save default contract' });
+    }
+  });
+
+  app.post('/api/admin/quote-preferences/email-instructions', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    const payloadSchema = z.object({
+      instructions: z
+        .string()
+        .max(5000, 'Instructions must be 5,000 characters or fewer')
+        .optional()
+        .nullable(),
+    });
+
+    try {
+      const payload = payloadSchema.parse(req.body ?? {});
+      const trimmed = payload.instructions?.trim() ?? '';
+      const saved = await storage.upsertSiteSetting({
+        key: QUOTE_EMAIL_INSTRUCTIONS_SETTING_KEY,
+        value: trimmed,
+      });
+
+      const resolved = trimmed.length > 0 ? trimmed : DEFAULT_QUOTE_EMAIL_INSTRUCTIONS;
+      res.json({
+        data: {
+          emailInstructions: resolved,
+          emailInstructionsUpdatedAt: toIsoString(saved.updatedAt ?? null),
+        },
+        message: 'Quote email instructions updated successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid instructions payload';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error updating quote email instructions:', error);
+      res.status(500).json({ message: 'Failed to update quote email instructions' });
+    }
+  });
+
   // Public quote estimation endpoint
   app.post('/api/quote/estimate', async (req, res) => {
     try {
@@ -3025,6 +3358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       deductible: z.coerce.number(),
       termMonths: z.coerce.number().default(36),
       priceMonthly: z.coerce.number(),
+      expirationMiles: z.coerce.number().nonnegative().optional(),
     });
 
     try {
@@ -3042,12 +3376,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const vehicle = await storage.getVehicleByLeadId(leadId);
-      const policy = await storage.getPolicyByLeadId(leadId).catch(() => undefined);
+      const policyPromise = storage.getPolicyByLeadId(leadId).catch(() => undefined);
+      const instructionsPromise = resolveQuoteEmailInstructions();
 
       const priceMonthlyCents = Math.round(data.priceMonthly * 100);
       const priceTotalCents = priceMonthlyCents * data.termMonths;
       const createdAt = getEasternDate();
       const validUntil = new Date(createdAt.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+      const breakdown =
+        typeof data.expirationMiles === 'number' && Number.isFinite(data.expirationMiles)
+          ? { expirationMiles: data.expirationMiles }
+          : undefined;
 
       const quote = await storage.createQuote({
         leadId,
@@ -3058,12 +3398,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priceTotal: priceTotalCents,
         status: 'sent',
         validUntil,
+        breakdown,
       });
 
       const currentMeta = getLeadMeta(leadId);
       leadMeta[leadId] = { ...currentMeta, status: 'quoted' };
 
-      const { subject, html } = buildQuoteEmail({ lead, vehicle, quote, policy });
+      const [policy, instructions] = await Promise.all([policyPromise, instructionsPromise]);
+
+      const { subject, html } = buildQuoteEmail({
+        lead,
+        vehicle,
+        quote,
+        policy,
+        expirationMilesOverride: data.expirationMiles ?? null,
+        instructions,
+      });
       const text = htmlToPlainText(html) || subject;
 
       await sendMail({
@@ -3140,15 +3490,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         fileType = fileType || 'application/pdf';
         fileName = fileName || `${lead.id}-contract.pdf`;
       } else {
-        if (!placeholderContractBase64) {
-          res.status(400).json({ message: 'Please upload a PDF of the contract to continue.' });
-          return;
+        let template: ContractTemplateFile | null = null;
+        try {
+          template = await getStoredDefaultContractTemplate();
+        } catch (error) {
+          console.warn('Unable to load default contract template:', error);
         }
-        const placeholder = getPlaceholderContractFile();
-        base64Data = placeholder.base64;
-        fileSize = placeholder.size;
-        fileType = fileType || placeholder.fileType;
-        fileName = fileName || placeholder.fileName;
+
+        if (!template) {
+          try {
+            const placeholder = getPlaceholderContractFile();
+            template = placeholder;
+          } catch (error) {
+            console.error('No contract template available:', error);
+            res.status(400).json({ message: 'Please upload a PDF of the contract to continue.' });
+            return;
+          }
+        }
+
+        base64Data = template.base64;
+        fileSize = template.size;
+        fileType = fileType || template.fileType;
+        fileName = fileName || template.fileName;
       }
 
       if (!fileType || !fileType.includes('pdf')) {
