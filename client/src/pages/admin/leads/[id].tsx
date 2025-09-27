@@ -116,6 +116,7 @@ export default function AdminLeadDetail() {
     priceTotal: 299900, // $2999.00
     priceMonthly: 8331, // $83.31
   });
+  const [lastEditedPriceField, setLastEditedPriceField] = useState<'total' | 'monthly'>('total');
   const [contractUploads, setContractUploads] = useState<Record<string, { fileName: string; fileType: string; fileData: string }>>({});
   const [contractSendingQuote, setContractSendingQuote] = useState<string | null>(null);
   const [policyForm, setPolicyForm] = useState<PolicyFormState>({
@@ -134,6 +135,97 @@ export default function AdminLeadDetail() {
   const [leadForm, setLeadForm] = useState<any>({});
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const createQuoteSectionRef = useRef<HTMLDivElement | null>(null);
+
+  const formatMilesDisplay = (value: string | number | null | undefined): string => {
+    if (value === null || value === undefined) {
+      return 'Not set';
+    }
+    const numeric = typeof value === 'string' ? Number(value) : value;
+    if (Number.isNaN(numeric)) {
+      return 'Not set';
+    }
+    return `${Math.round(numeric).toLocaleString()} miles`;
+  };
+
+  const parseCurrencyToCents = (input: string): number | null => {
+    const normalized = input.replace(/[$,]/g, '').trim();
+    if (normalized.length === 0) {
+      return 0;
+    }
+    const parsed = Number.parseFloat(normalized);
+    if (Number.isNaN(parsed)) {
+      return null;
+    }
+    return Math.round(parsed * 100);
+  };
+
+  const handleTotalPriceChange = (value: string) => {
+    setQuoteForm((prev) => {
+      const cents = parseCurrencyToCents(value);
+      if (cents === null) {
+        return prev;
+      }
+      const next = { ...prev, priceTotal: cents };
+      if (prev.termMonths > 0) {
+        next.priceMonthly = Math.round(cents / prev.termMonths);
+      }
+      return next;
+    });
+    setLastEditedPriceField('total');
+  };
+
+  const handleMonthlyPriceChange = (value: string) => {
+    setQuoteForm((prev) => {
+      const cents = parseCurrencyToCents(value);
+      if (cents === null) {
+        return prev;
+      }
+      const next = { ...prev, priceMonthly: cents };
+      if (prev.termMonths > 0) {
+        next.priceTotal = cents * prev.termMonths;
+      }
+      return next;
+    });
+    setLastEditedPriceField('monthly');
+  };
+
+  const handleTermMonthsChange = (value: string) => {
+    setQuoteForm((prev) => {
+      if (value.trim().length === 0) {
+        return prev;
+      }
+      const parsed = Number.parseInt(value, 10);
+      if (Number.isNaN(parsed)) {
+        return prev;
+      }
+      const term = Math.max(parsed, 0);
+      const next = { ...prev, termMonths: term };
+      if (term > 0) {
+        if (lastEditedPriceField === 'monthly') {
+          next.priceTotal = prev.priceMonthly * term;
+        } else {
+          next.priceMonthly = Math.round(prev.priceTotal / term);
+        }
+      }
+      return next;
+    });
+  };
+
+  const handleDeductibleChange = (value: string) => {
+    setQuoteForm((prev) => {
+      if (value.trim().length === 0) {
+        return prev;
+      }
+      const parsed = Number.parseInt(value, 10);
+      if (Number.isNaN(parsed)) {
+        return prev;
+      }
+      return { ...prev, deductible: parsed };
+    });
+  };
+
+  const currentMilesDisplay = formatMilesDisplay(vehicleForm?.odometer);
+  const expirationMilesDisplay = formatMilesDisplay(policyForm.expirationMiles);
 
   const { data: leadData, isLoading } = useQuery({
     queryKey: ['/api/admin/leads', id],
@@ -246,6 +338,7 @@ export default function AdminLeadDetail() {
         priceTotal: 299900,
         priceMonthly: 8331,
       });
+      setLastEditedPriceField('total');
       toast({
         title: "Success",
         description: "Quote created successfully",
@@ -1231,36 +1324,39 @@ export default function AdminLeadDetail() {
                       </Select>
                     </div>
                     <div>
-                      <Label>Deductible</Label>
-                      <Select
-                        value={quoteForm.deductible.toString()}
-                        onValueChange={(value) => setQuoteForm({...quoteForm, deductible: parseInt(value)})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="250">$250</SelectItem>
-                          <SelectItem value="500">$500</SelectItem>
-                          <SelectItem value="1000">$1,000</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Label>Deductible ($)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={50}
+                        value={quoteForm.deductible}
+                        onChange={(event) => handleDeductibleChange(event.target.value)}
+                      />
                     </div>
                     <div>
                       <Label>Term (Months)</Label>
-                      <Select
-                        value={quoteForm.termMonths.toString()}
-                        onValueChange={(value) => setQuoteForm({...quoteForm, termMonths: parseInt(value)})}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="24">24 months</SelectItem>
-                          <SelectItem value="36">36 months</SelectItem>
-                          <SelectItem value="48">48 months</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={quoteForm.termMonths}
+                        onChange={(event) => handleTermMonthsChange(event.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Mileage Overview
+                    </h4>
+                    <div className="mt-3 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                      <div>
+                        <p className="text-slate-500">Current Miles</p>
+                        <p className="font-medium text-slate-900">{currentMilesDisplay}</p>
+                      </div>
+                      <div>
+                        <p className="text-slate-500">Expiration Miles</p>
+                        <p className="font-medium text-slate-900">{expirationMilesDisplay}</p>
+                      </div>
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1269,7 +1365,7 @@ export default function AdminLeadDetail() {
                       <Input
                         type="number"
                         value={quoteForm.priceTotal / 100}
-                        onChange={(e) => setQuoteForm({...quoteForm, priceTotal: Math.round(parseFloat(e.target.value) * 100)})}
+                        onChange={(e) => handleTotalPriceChange(e.target.value)}
                         step="0.01"
                       />
                     </div>
@@ -1278,7 +1374,7 @@ export default function AdminLeadDetail() {
                       <Input
                         type="number"
                         value={quoteForm.priceMonthly / 100}
-                        onChange={(e) => setQuoteForm({...quoteForm, priceMonthly: Math.round(parseFloat(e.target.value) * 100)})}
+                        onChange={(e) => handleMonthlyPriceChange(e.target.value)}
                         step="0.01"
                       />
                     </div>

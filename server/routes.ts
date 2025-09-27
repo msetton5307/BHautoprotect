@@ -1142,10 +1142,12 @@ const buildQuoteEmail = ({
   lead,
   vehicle,
   quote,
+  policy,
 }: {
   lead: Lead;
   vehicle: Vehicle | null | undefined;
   quote: Quote;
+  policy?: Policy | null;
 }): { subject: string; html: string } => {
   const planName = formatPlanName(quote.plan);
   const subject = `Your ${planName} Coverage Quote is Ready`;
@@ -1157,6 +1159,11 @@ const buildQuoteEmail = ({
   const deductible = formatCurrencyFromDollars(quote.deductible);
   const term = formatTerm(quote.termMonths);
   const validUntil = formatQuoteValidUntil(quote.validUntil ?? undefined);
+  const currentMiles = formatOdometer(vehicle?.odometer);
+  const expirationMiles = formatPolicyMileageLimit(
+    policy?.expirationMiles,
+    'We\'ll confirm mileage limits together',
+  );
 
   const summaryRows = [
     { label: "Quote ID", value: quoteId },
@@ -1171,7 +1178,8 @@ const buildQuoteEmail = ({
   const vehicleRows = [
     { label: "Vehicle", value: vehicleSummary },
     { label: "VIN", value: vehicle?.vin ? vehicle.vin : "On file" },
-    { label: "Odometer", value: formatOdometer(vehicle?.odometer) },
+    { label: "Current Miles", value: currentMiles },
+    { label: "Expiration Miles", value: expirationMiles },
     { label: "Location", value: formatLocation(lead) },
   ];
 
@@ -3034,6 +3042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const vehicle = await storage.getVehicleByLeadId(leadId);
+      const policy = await storage.getPolicyByLeadId(leadId).catch(() => undefined);
 
       const priceMonthlyCents = Math.round(data.priceMonthly * 100);
       const priceTotalCents = priceMonthlyCents * data.termMonths;
@@ -3054,7 +3063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const currentMeta = getLeadMeta(leadId);
       leadMeta[leadId] = { ...currentMeta, status: 'quoted' };
 
-      const { subject, html } = buildQuoteEmail({ lead, vehicle, quote });
+      const { subject, html } = buildQuoteEmail({ lead, vehicle, quote, policy });
       const text = htmlToPlainText(html) || subject;
 
       await sendMail({
