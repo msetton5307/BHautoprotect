@@ -1354,32 +1354,35 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
       (feature) => `
         <li
           style="
-            display:flex;
-            align-items:flex-start;
-            gap:12px;
-            padding:14px 16px;
-            border-radius:12px;
-            background-color:#ffffff;
-            border:1px solid #e2e8f0;
-            box-shadow:0 6px 16px rgba(15,23,42,0.04);
-            font-size:14px;
-            line-height:1.6;
-            color:#1f2937;
+            position:relative;
+            padding:18px 20px 18px 62px;
+            border-radius:16px;
+            background:linear-gradient(145deg,rgba(226,232,240,0.55),rgba(239,246,255,0.92));
+            border:1px solid rgba(99,102,241,0.2);
+            box-shadow:0 14px 32px rgba(15,23,42,0.12);
+            font-size:15px;
+            line-height:1.65;
+            color:#1e293b;
+            font-weight:600;
           "
         >
           <span
             style="
-              flex-shrink:0;
+              position:absolute;
+              left:20px;
+              top:50%;
+              transform:translateY(-50%);
               display:inline-flex;
               align-items:center;
               justify-content:center;
-              width:22px;
-              height:22px;
-              border-radius:9999px;
-              background:linear-gradient(135deg,#1d4ed8,#0ea5e9);
+              width:30px;
+              height:30px;
+              border-radius:12px;
+              background:linear-gradient(135deg,#1d4ed8,#6366f1);
               color:#ffffff;
-              font-size:12px;
-              font-weight:600;
+              font-size:14px;
+              font-weight:700;
+              box-shadow:0 10px 20px rgba(79,70,229,0.35);
             "
           >
             ✓
