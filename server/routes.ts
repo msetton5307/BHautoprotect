@@ -26,6 +26,10 @@ import {
   documentRequestStatusEnum,
   type LeadContract,
 } from "@shared/schema";
+import {
+  getCoveragePlanDefinition,
+  type CoveragePlanDefinition,
+} from "@shared/coverage-plans";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -432,6 +436,20 @@ const escapeHtml = (value: string): string =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+
+const toIsoString = (value: Date | string | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.valueOf())) {
+    return null;
+  }
+  return parsed.toISOString();
+};
 
 const formatCurrencyFromCents = (value: number | null | undefined): string => {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -1322,6 +1340,40 @@ const renderCompactRows = (rows: { label: string; value: string }[]): string =>
     })
     .join("");
 
+const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string => {
+  if (!plan || plan.features.length === 0) {
+    return "";
+  }
+
+  const descriptionHtml = plan.description
+    ? `<p style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#475569;">${escapeHtml(plan.description)}</p>`
+    : "";
+
+  const featureItems = plan.features
+    .map(
+      (feature) => `
+        <li style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:#1f2937;">
+          <span style="margin-top:6px;display:inline-block;width:6px;height:6px;border-radius:9999px;background-color:#2563eb;"></span>
+          <span>${escapeHtml(feature)}</span>
+        </li>
+      `,
+    )
+    .join("");
+
+  return `
+    <div style="margin-bottom:28px;padding:24px;border-radius:16px;background-color:#f1f5f9;border:1px solid #e2e8f0;">
+      <div style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#2563eb;margin-bottom:8px;">
+        What's Covered
+      </div>
+      <div style="font-size:20px;font-weight:700;color:#0f172a;margin-bottom:10px;">${escapeHtml(plan.name)} Plan Highlights</div>
+      ${descriptionHtml}
+      <ul style="margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+        ${featureItems}
+      </ul>
+    </div>
+  `;
+};
+
 const buildQuoteEmail = ({
   lead,
   vehicle,
@@ -1357,6 +1409,8 @@ const buildQuoteEmail = ({
   const instructionsBlock = renderQuoteInstructionsBlock(
     instructions ?? DEFAULT_QUOTE_EMAIL_INSTRUCTIONS,
   );
+  const coveragePlan = getCoveragePlanDefinition(quote.plan);
+  const coverageBlock = renderPlanCoverageBlock(coveragePlan);
 
   const summaryRows = [
     { label: "Quote ID", value: quoteId },
@@ -1427,6 +1481,7 @@ const buildQuoteEmail = ({
                 </tbody>
               </table>
               ${instructionsBlock}
+              ${coverageBlock}
               <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
                   <tbody>
@@ -1478,20 +1533,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const MAX_LOGO_BYTES = 2 * 1024 * 1024;
   const MAX_DOCUMENT_UPLOAD_BYTES = 5 * 1024 * 1024;
-
-  const toIsoString = (value: Date | string | null | undefined): string | null => {
-    if (!value) {
-      return null;
-    }
-    if (value instanceof Date) {
-      return value.toISOString();
-    }
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.valueOf())) {
-      return null;
-    }
-    return parsed.toISOString();
-  };
 
   const mapUploadMetadata = (upload: any) => ({
     id: upload.id,
