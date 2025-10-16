@@ -1346,7 +1346,7 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
   }
 
   const descriptionHtml = plan.description
-    ? `<p style="margin:0 0 18px;font-size:14px;line-height:1.6;color:#475569;">${escapeHtml(plan.description)}</p>`
+    ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569;">${escapeHtml(plan.description)}</p>`
     : "";
 
   const featureItems = plan.features
@@ -1361,13 +1361,13 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
     .join("");
 
   return `
-    <div style="margin-bottom:28px;padding:24px;border-radius:16px;background-color:#f1f5f9;border:1px solid #e2e8f0;">
-      <div style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#2563eb;margin-bottom:8px;">
-        What's Covered
+    <div style="margin-bottom:24px;padding:20px;border-radius:12px;border:1px solid #e2e8f0;background-color:#f8fafc;">
+      <div style="font-size:13px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;margin-bottom:6px;">
+        Coverage Highlights
       </div>
-      <div style="font-size:20px;font-weight:700;color:#0f172a;margin-bottom:10px;">${escapeHtml(plan.name)} Plan Highlights</div>
+      <div style="font-size:18px;font-weight:600;color:#0f172a;margin-bottom:6px;">${escapeHtml(plan.name)} protection</div>
       ${descriptionHtml}
-      <ul style="margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+      <ul style="margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px;">
         ${featureItems}
       </ul>
     </div>
@@ -1412,14 +1412,39 @@ const buildQuoteEmail = ({
   const coveragePlan = getCoveragePlanDefinition(quote.plan);
   const coverageBlock = renderPlanCoverageBlock(coveragePlan);
 
+  const breakdown = (quote.breakdown ?? null) as Record<string, unknown> | null;
+  const paymentOptionRaw =
+    breakdown && Object.prototype.hasOwnProperty.call(breakdown, 'paymentOption')
+      ? (breakdown as Record<string, unknown>).paymentOption
+      : null;
+  const paymentPreference: 'monthly' | 'one-time' =
+    paymentOptionRaw === 'monthly' ? 'monthly' : 'one-time';
+
+  const highlightLabel = paymentPreference === 'monthly' ? 'Monthly Investment' : 'Pay-in-Full Investment';
+  const highlightValue = paymentPreference === 'monthly' ? monthly : total;
+  const highlightSupporting =
+    paymentPreference === 'monthly'
+      ? `Total of ${total} across ${term}.`
+      : `${term} of protection with a single payment.`;
+
+  const paymentRows =
+    paymentPreference === 'monthly'
+      ? [
+          { label: 'Monthly Investment', value: monthly },
+          { label: 'One-Time Total', value: total },
+        ]
+      : [
+          { label: 'Pay-in-Full Investment', value: total },
+          ...(quote.priceMonthly > 0 ? [{ label: 'Monthly Option', value: monthly }] : []),
+        ];
+
   const summaryRows = [
-    { label: "Quote ID", value: quoteId },
-    { label: "Coverage Plan", value: planName },
-    { label: "Monthly Investment", value: monthly },
-    { label: "Total Coverage Amount", value: total },
-    { label: "Deductible", value: deductible },
-    { label: "Coverage Term", value: term },
-    { label: "Quote Valid Through", value: validUntil },
+    { label: 'Quote ID', value: quoteId },
+    ...paymentRows,
+    { label: 'Coverage Plan', value: planName },
+    { label: 'Coverage Term', value: term },
+    { label: 'Deductible', value: deductible },
+    { label: 'Quote Valid Through', value: validUntil },
   ];
 
   const vehicleRows = [
@@ -1432,16 +1457,19 @@ const buildQuoteEmail = ({
 
   const supportRows = [
     {
-      label: "Next Step",
-      value: "Click the contract button whenever you're ready to activate your coverage.",
+      label: 'Next Step',
+      value:
+        paymentPreference === 'monthly'
+          ? 'Reply with your preferred start date and we’ll finalize the monthly arrangement together.'
+          : 'Reply to confirm and we’ll send a quick checkout link to activate your coverage.',
     },
     {
-      label: "Concierge Support",
-      value: "We’ll walk you through the final paperwork in minutes.",
+      label: 'Need adjustments?',
+      value: 'Want to compare monthly versus pay-in-full? Let us know and we’ll tailor it for you.',
     },
     {
-      label: "Need adjustments?",
-      value: "Let us know and we’ll tailor the plan to fit your driving.",
+      label: 'Concierge Support',
+      value: 'We’ll walk you through the final paperwork in minutes.',
     },
   ];
 
@@ -1468,12 +1496,12 @@ const buildQuoteEmail = ({
             <td style="padding:32px;">
               <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
               <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
-                Thanks for connecting with <strong>BHAutoProtect</strong>. Here’s the personalized coverage quote we created for ${escapeHtml(vehicleSummary)}.
+                Thanks for connecting with <strong>BHAutoProtect</strong>. Here’s the personalized coverage quote we created for ${escapeHtml(vehicleSummary)}. Choose the payment approach that fits best and we’ll handle the rest.
               </p>
-              <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;padding:22px;border-radius:16px;margin-bottom:28px;text-align:center;">
-                <div style="font-size:13px;letter-spacing:0.2em;text-transform:uppercase;opacity:0.8;">Monthly Investment</div>
-                <div style="font-size:32px;font-weight:700;margin-top:6px;">${escapeHtml(monthly)}</div>
-                <div style="font-size:14px;margin-top:6px;opacity:0.9;">${escapeHtml(planName)} coverage for ${escapeHtml(term)}</div>
+              <div style="padding:20px;border-radius:12px;border:1px solid #bfdbfe;background-color:#f8fafc;margin-bottom:28px;">
+                <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#2563eb;margin-bottom:6px;">${escapeHtml(highlightLabel)}</div>
+                <div style="font-size:30px;font-weight:700;color:#0f172a;">${escapeHtml(highlightValue)}</div>
+                <div style="margin-top:6px;font-size:14px;color:#475569;">${escapeHtml(highlightSupporting)}</div>
               </div>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background-color:#f9fafb;border:1px solid #e5e7eb;margin-bottom:28px;">
                 <tbody>
@@ -1497,8 +1525,8 @@ const buildQuoteEmail = ({
               <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
                 Ready to lock in this rate or curious about coverage details? Reply to this email and our concierge team will take care of everything for you.
               </p>
-              <div style="background:linear-gradient(135deg,#2563eb,#3b82f6);color:#ffffff;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
-                <strong>Pro tip:</strong> We’ll hold this quote through ${escapeHtml(validUntil)}. Let us know if you need any tweaks—adjusting mileage, deductible, or payment options is easy.
+              <div style="background-color:#eff6ff;color:#1e3a8a;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+                <strong>Reminder:</strong> We’ll hold this quote through ${escapeHtml(validUntil)}. Ready sooner or want to adjust the payment structure? Reply and we’ll update it together.
               </div>
               <p style="margin:0;font-size:15px;line-height:1.7;">With gratitude,<br /><strong>The BHAutoProtect Team</strong></p>
             </td>
@@ -3400,6 +3428,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       termMonths: z.coerce.number().default(36),
       priceMonthly: z.coerce.number(),
       expirationMiles: z.coerce.number().nonnegative().optional(),
+      paymentOption: z.enum(['monthly', 'one-time']).optional(),
     });
 
     try {
@@ -3425,10 +3454,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const createdAt = getEasternDate();
       const validUntil = new Date(createdAt.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-      const breakdown =
-        typeof data.expirationMiles === 'number' && Number.isFinite(data.expirationMiles)
-          ? { expirationMiles: data.expirationMiles }
-          : undefined;
+      const breakdown: Record<string, unknown> = {};
+      if (typeof data.expirationMiles === 'number' && Number.isFinite(data.expirationMiles)) {
+        breakdown.expirationMiles = data.expirationMiles;
+      }
+      if (data.paymentOption) {
+        breakdown.paymentOption = data.paymentOption;
+      }
+      const breakdownPayload = Object.keys(breakdown).length > 0 ? breakdown : undefined;
 
       const quote = await storage.createQuote({
         leadId,
@@ -3439,7 +3472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         priceTotal: priceTotalCents,
         status: 'sent',
         validUntil,
-        breakdown,
+        breakdown: breakdownPayload,
       });
 
       const currentMeta = getLeadMeta(leadId);
