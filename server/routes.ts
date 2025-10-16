@@ -3981,7 +3981,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ])
           .optional(),
         vehicle: insertVehicleSchema.partial().optional(),
-        policy: insertPolicySchema.partial().optional(),
+        policy: insertPolicySchema
+          .extend({
+            policyStartDate: z.coerce.date().optional().nullable(),
+            expirationDate: z.coerce.date().optional().nullable(),
+          })
+          .partial()
+          .optional(),
       });
     try {
       const data = leadSchema.parse(req.body);
