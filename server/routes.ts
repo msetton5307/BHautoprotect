@@ -1349,69 +1349,49 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
     ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569;">${escapeHtml(plan.description)}</p>`
     : "";
 
-  const featureItems = plan.features
-    .map(
-      (feature) => `
-        <li
-          style="
-            position:relative;
-            padding:18px 20px 18px 62px;
-            border-radius:16px;
-            background:linear-gradient(145deg,rgba(226,232,240,0.55),rgba(239,246,255,0.92));
-            border:1px solid rgba(99,102,241,0.2);
-            box-shadow:0 14px 32px rgba(15,23,42,0.12);
-            font-size:15px;
-            line-height:1.65;
-            color:#1e293b;
-            font-weight:600;
-          "
-        >
-          <span
-            style="
-              position:absolute;
-              left:20px;
-              top:50%;
-              transform:translateY(-50%);
-              display:inline-flex;
-              align-items:center;
-              justify-content:center;
-              width:30px;
-              height:30px;
-              border-radius:12px;
-              background:linear-gradient(135deg,#1d4ed8,#6366f1);
-              color:#ffffff;
-              font-size:14px;
-              font-weight:700;
-              box-shadow:0 10px 20px rgba(79,70,229,0.35);
-            "
-          >
-            ✓
-          </span>
-          <span>${escapeHtml(feature)}</span>
-        </li>
-      `,
-    )
+  const featureRows = plan.features
+    .map((feature, index) => {
+      const isLast = index === plan.features.length - 1;
+      const border = isLast ? "" : "border-bottom:1px solid #e2e8f0;";
+      return `
+        <tr>
+          <td style="padding:10px 0 10px 4px;width:32px;vertical-align:top;${border}">
+            <span
+              style="
+                display:inline-block;
+                width:22px;
+                height:22px;
+                border-radius:9999px;
+                background:linear-gradient(135deg,#1d4ed8,#2563eb);
+                color:#ffffff;
+                font-size:12px;
+                line-height:22px;
+                text-align:center;
+                font-weight:700;
+                box-shadow:0 6px 14px rgba(37,99,235,0.25);
+              "
+            >
+              ✓
+            </span>
+          </td>
+          <td style="padding:10px 0;font-size:14px;line-height:1.6;color:#1f2937;font-weight:500;${border}">
+            ${escapeHtml(feature)}
+          </td>
+        </tr>
+      `;
+    })
     .join("");
 
   return `
-    <div style="margin-bottom:24px;padding:20px;border-radius:12px;border:1px solid #e2e8f0;background-color:#f8fafc;">
-      <div style="font-size:13px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#64748b;margin-bottom:6px;">
-        Coverage Highlights
+    <div style="margin-bottom:24px;padding:22px;border-radius:16px;border:1px solid #e0e7ff;background:linear-gradient(180deg,#eef2ff 0%,#ffffff 100%);">
+      <div style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#6366f1;margin-bottom:8px;">
+        Coverage highlights
       </div>
-      <div style="font-size:18px;font-weight:600;color:#0f172a;margin-bottom:6px;">${escapeHtml(plan.name)} protection</div>
+      <div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:10px;">${escapeHtml(plan.name)} protection at a glance</div>
       ${descriptionHtml}
-      <ul
-        style="
-          margin:0;
-          padding:0;
-          list-style:none;
-          display:grid;
-          grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
-          gap:16px;
-        "
-      >
-        ${featureItems}
-      </ul>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;margin:0;padding:0;">
+        ${featureRows}
+      </table>
     </div>
   `;
 };
@@ -1567,6 +1547,9 @@ const buildQuoteEmail = ({
               <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
                 Ready to lock in this rate or curious about coverage details? Reply to this email and our concierge team will take care of everything for you.
               </p>
+              <div style="background-color:#0f172a;color:#f8fafc;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+                <strong>Our Promise:</strong> Enjoy our 30-Day Price Match Promise and 30-Day full money-back guarantee. If you find a better qualifying rate or change your mind within 30 days, we’ll make it right—no risk, no hassle.
+              </div>
               <div style="background-color:#eff6ff;color:#1e3a8a;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
                 <strong>Reminder:</strong> We’ll hold this quote through ${escapeHtml(validUntil)}. Ready sooner or want to adjust the payment structure? Reply and we’ll update it together.
               </div>
