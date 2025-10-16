@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Footer from "@/components/footer";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import AdvertisingLanding from "@/pages/advertising";
 import Quote from "@/pages/quote";
 import PrivacyPage from "@/pages/legal/privacy";
 import AdminDashboard from "@/pages/admin/dashboard";
@@ -39,6 +40,7 @@ function Router() {
       <Route path="/plans" component={Plans} />
       <Route path="/contact" component={Contact} />
       <Route path="/thank-you" component={ThankYou} />
+      <Route path="/campaign" component={AdvertisingLanding} />
       <Route path="/legal/privacy" component={PrivacyPage} />
       <Route path="/admin/leads/new" component={AdminLeadNew} />
       <Route path="/admin/leads/:id" component={AdminLeadDetail} />
