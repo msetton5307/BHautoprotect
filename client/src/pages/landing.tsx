@@ -142,20 +142,20 @@ export default function Landing() {
         />
         <div className="absolute -top-20 -right-32 h-72 w-72 rounded-full bg-blue-400/40 blur-3xl" aria-hidden />
         <div className="absolute bottom-0 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-cyan-400/40 blur-3xl" aria-hidden />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
           <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-16 items-center">
             <motion.div initial="hidden" animate="visible" variants={fadeIn(0.1)} className="text-white">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium uppercase tracking-[0.3em] text-blue-100 backdrop-blur">
                 <Sparkle className="w-4 h-4" /> Premium Protection Plans
               </div>
-              <h1 className="mt-6 text-4xl md:text-5xl lg:text-[56px] font-black leading-tight tracking-tight">
+              <h1 className="mt-4 text-4xl md:text-5xl lg:text-[56px] font-black leading-tight tracking-tight">
                 Elevate Your Driving Confidence with Extended Warranty Coverage
               </h1>
-              <p className="mt-6 text-lg md:text-xl text-blue-100 max-w-2xl">
+              <p className="mt-5 text-lg md:text-xl text-blue-100 max-w-2xl">
                 Tailored protection, lightning-fast claims, and concierge-level care. Over 100,000 drivers trust BH Auto Protect
                 to keep them moving with zero surprises.
               </p>
-              <div className="mt-10 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-4">
                 <Button
                   size="lg"
                   className="px-9 py-6 text-lg font-semibold bg-white text-primary hover:bg-blue-50 shadow-lg shadow-blue-900/20"
