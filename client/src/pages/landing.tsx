@@ -123,14 +123,26 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-100 via-white to-slate-100">
+      <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-red-600 text-white">
+        <p className="mx-auto max-w-6xl px-4 py-3 text-center text-base font-semibold tracking-wide sm:text-lg md:text-xl">
+          FLASH SALE: $700 off all plans with a $0 deductible
+        </p>
+      </div>
       <Navigation onGetQuote={openQuoteModal} />
 
       {/* Hero Section */}
-      <section className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-secondary to-slate-900 opacity-90" aria-hidden />
+      <section
+        className="relative overflow-hidden bg-cover bg-center"
+        style={{ backgroundImage: "url('https://cdn.mos.cms.futurecdn.net/xCJhXa8uGzbwrhJP95BoRM.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-slate-950/70" aria-hidden />
+        <div
+          className="absolute inset-0 bg-gradient-to-br from-primary/80 via-secondary/70 to-slate-900/80 mix-blend-multiply"
+          aria-hidden
+        />
         <div className="absolute -top-20 -right-32 h-72 w-72 rounded-full bg-blue-400/40 blur-3xl" aria-hidden />
         <div className="absolute bottom-0 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-cyan-400/40 blur-3xl" aria-hidden />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
           <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-16 items-center">
             <motion.div initial="hidden" animate="visible" variants={fadeIn(0.1)} className="text-white">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium uppercase tracking-[0.3em] text-blue-100 backdrop-blur">
@@ -179,26 +191,25 @@ export default function Landing() {
               transition={{ duration: 0.9, ease: [0.19, 1, 0.22, 1] }}
               className="relative"
             >
-              <div className="absolute -inset-6 rounded-[32px] bg-gradient-to-br from-white/20 via-white/5 to-transparent blur-xl" aria-hidden />
-              <div className="relative rounded-[28px] border border-white/20 bg-white/10 backdrop-blur-lg shadow-2xl shadow-blue-900/20 overflow-hidden">
-                <img
-                  src="https://cdn.mos.cms.futurecdn.net/xCJhXa8uGzbwrhJP95BoRM.jpg"
-                  alt="Modern car dashboard"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <div className="mt-6 grid gap-4 text-sm text-white">
-                <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                  <span className="flex items-center gap-2 font-semibold">
-                    <Gauge className="w-4 h-4" /> 24/7 Roadside Assistance
-                  </span>
-                  <span className="text-blue-100">Included</span>
-                </div>
-                <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
-                  <span className="flex items-center gap-2 font-semibold">
-                    <Wrench className="w-4 h-4" /> Repairs Paid Directly
-                  </span>
-                  <span className="text-blue-100">Nationwide</span>
+              <div className="absolute -inset-6 rounded-[32px] bg-white/10 blur-2xl" aria-hidden />
+              <div className="relative rounded-[28px] border border-white/20 bg-white/10 backdrop-blur-lg shadow-2xl shadow-blue-900/20 px-8 py-10">
+                <h3 className="text-2xl font-semibold text-white">Concierge-Level Coverage Extras</h3>
+                <p className="mt-2 text-blue-100">
+                  Every plan includes nationwide perks designed to keep you moving without surprises.
+                </p>
+                <div className="mt-8 grid gap-4 text-sm text-white sm:text-base">
+                  <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <Gauge className="w-4 h-4" /> 24/7 Roadside Assistance
+                    </span>
+                    <span className="text-blue-100">Included</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-2xl bg-white/10 px-4 py-3 backdrop-blur">
+                    <span className="flex items-center gap-2 font-semibold">
+                      <Wrench className="w-4 h-4" /> Repairs Paid Directly
+                    </span>
+                    <span className="text-blue-100">Nationwide</span>
+                  </div>
                 </div>
               </div>
             </motion.div>
