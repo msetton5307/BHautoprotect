@@ -23,9 +23,9 @@ export default function AdvertisingLanding() {
 
       <main className="mx-auto flex w-full max-w-5xl flex-col gap-16 px-4 py-16">
         <section className="space-y-6 text-center">
-          <h1 className="text-4xl font-bold sm:text-5xl">A simple offer for your campaign traffic</h1>
+          <h1 className="text-4xl font-bold sm:text-5xl">Protection plans drivers can trust</h1>
           <p className="mx-auto max-w-2xl text-lg text-blue-100">
-            Share this page with drivers from your ads or emails. They&apos;ll learn what BH Auto Protect covers and can request a personalized quote in minutes.
+            Introduce customers to BH Auto Protect&apos;s coverage options and help them request a personalized quote in just a few minutes.
           </p>
           <div className="grid gap-4 text-left text-sm text-blue-100 sm:grid-cols-3">
             {benefits.map((item) => (
