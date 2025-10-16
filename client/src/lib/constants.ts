@@ -24,6 +24,12 @@ export const VEHICLE_MODELS = {
   nissan: ['Altima', 'Sentra', 'Rogue', 'Pathfinder', 'Titan', 'Armada'],
 };
 
+export { COVERAGE_PLANS } from '@shared/coverage-plans';
+export type {
+  CoveragePlanDefinition,
+  CoveragePlanId,
+} from '@shared/coverage-plans';
+
 export const CURRENT_YEAR = new Date().getFullYear();
 export const VEHICLE_YEARS = Array.from(
   { length: 25 }, 
@@ -82,79 +88,6 @@ export const US_STATES = [
   { value: 'WI', label: 'Wisconsin' },
   { value: 'WY', label: 'Wyoming' },
 ];
-
-const CORE_PLAN_FEATURES = [
-  'Engine',
-  'Transmission',
-  'Cooling System',
-  'Brake System',
-  'Electrical System',
-  'Drive Axle',
-  'Trip Interruption',
-  'Gas Refill',
-  'Roadside Assistance',
-  'Rental Car',
-] as const;
-
-export const COVERAGE_PLANS = {
-  basic: {
-    name: 'Basic',
-    features: CORE_PLAN_FEATURES,
-  },
-  gold: {
-    name: 'Gold',
-    description: 'Most Comprehensive!',
-    features: [
-      'Engine',
-      'Transmission',
-      'Seals & Gaskets',
-      'Cooling System',
-      'Brake System',
-      'Electrical System',
-      'Drive Axle',
-      'Trip Interruption',
-      'Gas Refill',
-      'Roadside Assistance',
-      'Rental Car',
-      'Lock Out',
-      'Steering System',
-      'ABS Brakes',
-      'AC System',
-      'Heating System',
-      'Fuel System',
-      'Turbo/Supercharger',
-      'Hi-Tech',
-      'Front Suspension',
-      'Back Suspension',
-      'AWD 4x4',
-      'Hybrid & EV Components',
-    ],
-  },
-  silver: {
-    name: 'Silver',
-    features: [
-      'Engine',
-      'Transmission',
-      'Cooling System',
-      'Brake System',
-      'Electrical System',
-      'Drive Axle',
-      'Trip Interruption',
-      'Gas Refill',
-      'Roadside Assistance',
-      'Rental Car',
-      'Lock Out',
-      'Steering System',
-    ],
-  },
-} satisfies Record<
-  'basic' | 'gold' | 'silver',
-  {
-    name: string;
-    features: readonly string[];
-    description?: string;
-  }
->;
 
 export const DEDUCTIBLE_OPTIONS = [
   { value: 100, label: '$100', description: 'Higher premium' },
