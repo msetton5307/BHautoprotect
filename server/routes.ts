@@ -1352,8 +1352,38 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
   const featureItems = plan.features
     .map(
       (feature) => `
-        <li style="display:flex;align-items:flex-start;gap:10px;font-size:14px;color:#1f2937;">
-          <span style="margin-top:6px;display:inline-block;width:6px;height:6px;border-radius:9999px;background-color:#2563eb;"></span>
+        <li
+          style="
+            display:flex;
+            align-items:flex-start;
+            gap:12px;
+            padding:14px 16px;
+            border-radius:12px;
+            background-color:#ffffff;
+            border:1px solid #e2e8f0;
+            box-shadow:0 6px 16px rgba(15,23,42,0.04);
+            font-size:14px;
+            line-height:1.6;
+            color:#1f2937;
+          "
+        >
+          <span
+            style="
+              flex-shrink:0;
+              display:inline-flex;
+              align-items:center;
+              justify-content:center;
+              width:22px;
+              height:22px;
+              border-radius:9999px;
+              background:linear-gradient(135deg,#1d4ed8,#0ea5e9);
+              color:#ffffff;
+              font-size:12px;
+              font-weight:600;
+            "
+          >
+            ✓
+          </span>
           <span>${escapeHtml(feature)}</span>
         </li>
       `,
@@ -1367,7 +1397,16 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
       </div>
       <div style="font-size:18px;font-weight:600;color:#0f172a;margin-bottom:6px;">${escapeHtml(plan.name)} protection</div>
       ${descriptionHtml}
-      <ul style="margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px;">
+      <ul
+        style="
+          margin:0;
+          padding:0;
+          list-style:none;
+          display:grid;
+          grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+          gap:16px;
+        "
+      >
         ${featureItems}
       </ul>
     </div>
