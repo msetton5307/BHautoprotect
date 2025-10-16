@@ -62,6 +62,7 @@ type QuoteFormState = {
   priceTotal: number | null;
   priceMonthly: number | null;
   expirationMiles: number | null;
+  paymentOption: "monthly" | "one-time";
 };
 
 type CreateQuotePayload = {
@@ -71,7 +72,21 @@ type CreateQuotePayload = {
   priceTotal: number;
   priceMonthly: number;
   expirationMiles?: number | null;
+  paymentOption: QuoteFormState['paymentOption'];
 };
+
+const DEFAULT_QUOTE_FORM: QuoteFormState = {
+  plan: "gold",
+  deductible: 500,
+  termMonths: 36,
+  priceTotal: 299900,
+  priceMonthly: 8331,
+  expirationMiles: null,
+  paymentOption: "one-time",
+};
+
+const normalizePaymentOption = (value: unknown): QuoteFormState['paymentOption'] =>
+  value === 'monthly' ? 'monthly' : 'one-time';
 
 const formatCurrencyInput = (value: number | null | undefined): string => {
   if (value === null || value === undefined) {
@@ -127,14 +142,8 @@ export default function AdminLeadDetail() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [isCreatingQuote, setIsCreatingQuote] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'activity'>('overview');
-  const [quoteForm, setQuoteForm] = useState<QuoteFormState>({
-    plan: "gold",
-    deductible: 500,
-    termMonths: 36,
-    priceTotal: 299900,
-    priceMonthly: 8331,
-    expirationMiles: null,
-  });
+  const [quoteForm, setQuoteForm] = useState<QuoteFormState>({ ...DEFAULT_QUOTE_FORM });
+  const [quoteFormInitialized, setQuoteFormInitialized] = useState(false);
   const [lastEditedPriceField, setLastEditedPriceField] = useState<'total' | 'monthly'>('total');
   const [contractUploads, setContractUploads] = useState<Record<string, { fileName: string; fileType: string; fileData: string }>>({});
   const [contractSendingQuote, setContractSendingQuote] = useState<string | null>(null);
@@ -307,6 +316,7 @@ export default function AdminLeadDetail() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
+      setQuoteFormInitialized(false);
       toast({
         title: "Success",
         description: "Lead updated successfully",
@@ -361,6 +371,7 @@ export default function AdminLeadDetail() {
         deductible: quoteData.deductible,
         termMonths: quoteData.termMonths,
         priceMonthly: quoteData.priceMonthly / 100,
+        paymentOption: quoteData.paymentOption,
       };
 
       if (quoteData.expirationMiles !== undefined && quoteData.expirationMiles !== null) {
@@ -383,14 +394,8 @@ export default function AdminLeadDetail() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
       setIsCreatingQuote(false);
-      setQuoteForm({
-        plan: 'gold',
-        deductible: 500,
-        termMonths: 36,
-        priceTotal: 299900,
-        priceMonthly: 8331,
-        expirationMiles: null,
-      });
+      setQuoteForm({ ...DEFAULT_QUOTE_FORM });
+      setQuoteFormInitialized(false);
       setLastEditedPriceField('total');
       toast({
         title: "Success",
@@ -618,7 +623,126 @@ export default function AdminLeadDetail() {
         totalPayments: formatCurrencyInput(p.totalPayments),
       });
     }
-  }, [leadPayload]);
+
+    if (quoteFormInitialized) {
+      return;
+    }
+
+    const quotesList = Array.isArray(leadPayload.quotes) ? leadPayload.quotes : [];
+    if (quotesList.length > 0) {
+      const latestQuote = quotesList[0];
+      const breakdown = (latestQuote.breakdown ?? null) as Record<string, unknown> | null;
+      let expirationMiles: number | null = null;
+      if (breakdown && Object.prototype.hasOwnProperty.call(breakdown, 'expirationMiles')) {
+        const raw = (breakdown as Record<string, unknown>).expirationMiles;
+        if (typeof raw === 'number' && Number.isFinite(raw)) {
+          expirationMiles = Math.round(raw);
+        }
+      }
+
+      setQuoteForm({
+        plan:
+          typeof latestQuote.plan === 'string'
+            ? (latestQuote.plan as QuoteFormState['plan'])
+            : DEFAULT_QUOTE_FORM.plan,
+        deductible:
+          typeof latestQuote.deductible === 'number' && Number.isFinite(latestQuote.deductible)
+            ? latestQuote.deductible
+            : DEFAULT_QUOTE_FORM.deductible,
+        termMonths:
+          typeof latestQuote.termMonths === 'number' && Number.isFinite(latestQuote.termMonths)
+            ? latestQuote.termMonths
+            : DEFAULT_QUOTE_FORM.termMonths,
+        priceTotal:
+          typeof latestQuote.priceTotal === 'number' && Number.isFinite(latestQuote.priceTotal)
+            ? latestQuote.priceTotal
+            : DEFAULT_QUOTE_FORM.priceTotal,
+        priceMonthly:
+          typeof latestQuote.priceMonthly === 'number' && Number.isFinite(latestQuote.priceMonthly)
+            ? latestQuote.priceMonthly
+            : DEFAULT_QUOTE_FORM.priceMonthly,
+        expirationMiles,
+        paymentOption: normalizePaymentOption(breakdown?.paymentOption),
+      });
+      setLastEditedPriceField('total');
+      setQuoteFormInitialized(true);
+      return;
+    }
+
+    const policy = leadPayload.policy;
+    if (policy) {
+      const planValue:
+        | QuoteFormState['plan']
+        | typeof DEFAULT_QUOTE_FORM.plan =
+        policy.package === 'basic' || policy.package === 'silver' || policy.package === 'gold'
+          ? policy.package
+          : DEFAULT_QUOTE_FORM.plan;
+
+      const deductibleValue =
+        typeof policy.deductible === 'number' && Number.isFinite(policy.deductible)
+          ? policy.deductible
+          : DEFAULT_QUOTE_FORM.deductible;
+
+      const expirationMilesValue =
+        typeof policy.expirationMiles === 'number' && Number.isFinite(policy.expirationMiles)
+          ? policy.expirationMiles
+          : null;
+
+      const totalPremium =
+        typeof policy.totalPremium === 'number' && Number.isFinite(policy.totalPremium)
+          ? policy.totalPremium
+          : null;
+      const totalPayments =
+        typeof policy.totalPayments === 'number' && Number.isFinite(policy.totalPayments)
+          ? policy.totalPayments
+          : null;
+      const monthlyValue =
+        typeof policy.monthlyPayment === 'number' && Number.isFinite(policy.monthlyPayment)
+          ? policy.monthlyPayment
+          : null;
+
+      let resolvedTotal = totalPremium ?? totalPayments ?? null;
+      let resolvedMonthly = monthlyValue;
+      let resolvedTerm: number | null = null;
+
+      if (resolvedMonthly && resolvedMonthly > 0) {
+        const basis = resolvedTotal ?? totalPayments ?? totalPremium;
+        if (typeof basis === 'number' && basis > 0) {
+          resolvedTerm = Math.max(1, Math.round(basis / resolvedMonthly));
+        }
+      }
+
+      if (!resolvedTerm || !Number.isFinite(resolvedTerm)) {
+        resolvedTerm = DEFAULT_QUOTE_FORM.termMonths;
+      }
+
+      if ((!resolvedMonthly || resolvedMonthly <= 0) && resolvedTotal && resolvedTerm) {
+        resolvedMonthly = Math.round(resolvedTotal / resolvedTerm);
+      }
+
+      if (!resolvedTotal && resolvedMonthly && resolvedTerm) {
+        resolvedTotal = resolvedMonthly * resolvedTerm;
+      }
+
+      const paymentOption: QuoteFormState['paymentOption'] =
+        resolvedMonthly && resolvedMonthly > 0 ? 'monthly' : 'one-time';
+
+      setQuoteForm({
+        plan: planValue,
+        deductible: deductibleValue,
+        termMonths: resolvedTerm,
+        priceTotal: resolvedTotal ?? DEFAULT_QUOTE_FORM.priceTotal,
+        priceMonthly: resolvedMonthly ?? DEFAULT_QUOTE_FORM.priceMonthly,
+        expirationMiles: expirationMilesValue,
+        paymentOption,
+      });
+      setLastEditedPriceField('total');
+      setQuoteFormInitialized(true);
+      return;
+    }
+
+    setQuoteFormInitialized(true);
+  }, [leadPayload, quoteFormInitialized]);
 
   const quotes = leadPayload?.quotes ?? [];
   const notes = leadPayload?.notes ?? [];
@@ -685,12 +809,29 @@ export default function AdminLeadDetail() {
   };
 
   const handleCreateQuote = () => {
+    if (quoteForm.deductible === null || quoteForm.termMonths === null || quoteForm.termMonths <= 0) {
+      toast({
+        title: 'Missing information',
+        description: 'Please complete all required quote fields before sending.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    let priceTotal = quoteForm.priceTotal;
+    let priceMonthly = quoteForm.priceMonthly;
+
+    if ((priceTotal === null || priceMonthly === null) && quoteForm.termMonths > 0) {
+      if (priceTotal === null && priceMonthly !== null) {
+        priceTotal = priceMonthly * quoteForm.termMonths;
+      } else if (priceMonthly === null && priceTotal !== null) {
+        priceMonthly = Math.round(priceTotal / quoteForm.termMonths);
+      }
+    }
+
     if (
-      quoteForm.deductible === null ||
-      quoteForm.termMonths === null ||
-      quoteForm.termMonths <= 0 ||
-      quoteForm.priceMonthly === null ||
-      quoteForm.priceTotal === null
+      priceMonthly === null ||
+      priceTotal === null
     ) {
       toast({
         title: 'Missing information',
@@ -700,12 +841,21 @@ export default function AdminLeadDetail() {
       return;
     }
 
+    if (priceMonthly !== quoteForm.priceMonthly || priceTotal !== quoteForm.priceTotal) {
+      setQuoteForm((prev) => ({
+        ...prev,
+        priceMonthly,
+        priceTotal,
+      }));
+    }
+
     createQuoteMutation.mutate({
       plan: quoteForm.plan,
       deductible: quoteForm.deductible,
       termMonths: quoteForm.termMonths,
-      priceTotal: quoteForm.priceTotal,
-      priceMonthly: quoteForm.priceMonthly,
+      priceTotal,
+      priceMonthly,
+      paymentOption: quoteForm.paymentOption,
       expirationMiles: quoteForm.expirationMiles ?? undefined,
     });
   };
@@ -1434,6 +1584,44 @@ export default function AdminLeadDetail() {
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label>Payment Presentation</Label>
+                      <Select
+                        value={quoteForm.paymentOption}
+                        onValueChange={(value) =>
+                          setQuoteForm((prev) => {
+                            const nextOption = value as QuoteFormState['paymentOption'];
+                            if (
+                              nextOption === 'monthly' &&
+                              (prev.priceMonthly === null || prev.priceMonthly === 0) &&
+                              prev.priceTotal !== null &&
+                              prev.termMonths &&
+                              prev.termMonths > 0
+                            ) {
+                              return {
+                                ...prev,
+                                paymentOption: nextOption,
+                                priceMonthly: Math.round(prev.priceTotal / prev.termMonths),
+                              };
+                            }
+                            return { ...prev, paymentOption: nextOption };
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="one-time">Pay in Full (default)</SelectItem>
+                          <SelectItem value="monthly">Monthly Installments</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Choose how pricing is emphasized in the customer email.
+                      </p>
+                    </div>
+                  </div>
                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                       Mileage Overview
@@ -1468,7 +1656,13 @@ export default function AdminLeadDetail() {
                         value={quoteForm.priceMonthly !== null ? quoteForm.priceMonthly / 100 : ''}
                         onChange={(e) => handleMonthlyPriceChange(e.target.value)}
                         placeholder="0.00"
+                        disabled={quoteForm.paymentOption === 'one-time'}
                       />
+                      <p className="mt-1 text-xs text-slate-500">
+                        {quoteForm.paymentOption === 'one-time'
+                          ? 'Calculated automatically and hidden from the customer.'
+                          : 'Displayed in the customer email.'}
+                      </p>
                     </div>
                   </div>
                   <Button 
@@ -1507,95 +1701,119 @@ export default function AdminLeadDetail() {
                         }
                       }
 
+                      const paymentOptionRaw =
+                        breakdown && Object.prototype.hasOwnProperty.call(breakdown, 'paymentOption')
+                          ? (breakdown as Record<string, unknown>).paymentOption
+                          : null;
+                      const paymentPreference: QuoteFormState['paymentOption'] =
+                        paymentOptionRaw === 'monthly' ? 'monthly' : 'one-time';
+
+                      const formattedExpirationMiles =
+                        expirationMilesValue !== null
+                          ? Number(expirationMilesValue).toLocaleString()
+                          : null;
+
                       return (
                         <div key={quote.id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h4 className="font-medium capitalize">{quote.plan} Plan</h4>
-                            <p className="text-sm text-gray-500">
-                              Created {new Date(quote.createdAt).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Badge variant="outline">{quote.status}</Badge>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                          <div>
-                            <span className="font-medium">Total:</span> ${(quote.priceTotal / 100).toFixed(2)}
-                          </div>
-                          <div>
-                            <span className="font-medium">Monthly:</span> ${(quote.priceMonthly / 100).toFixed(2)}
-                          </div>
-                          <div>
-                            <span className="font-medium">Deductible:</span> ${quote.deductible}
-                          </div>
-                          <div>
-                            <span className="font-medium">Term:</span> {quote.termMonths} months
-                          </div>
-                          {expirationMilesValue !== null ? (
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                             <div>
-                              <span className="font-medium">Expiration Miles:</span> {expirationMilesValue.toLocaleString()}
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="font-medium capitalize">{quote.plan} Plan</h4>
+                                <Badge variant="secondary" className="capitalize">
+                                  {paymentPreference === 'monthly' ? 'Monthly focus' : 'Pay-in-full focus'}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-gray-500">
+                                Created {new Date(quote.createdAt).toLocaleDateString()}
+                              </p>
                             </div>
-                          ) : null}
-                        </div>
-                        <div className="mt-4 space-y-3 border-t pt-4">
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm font-medium">Contract workflow</p>
+                            <Badge variant="outline">{quote.status}</Badge>
+                          </div>
+                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="font-medium">Pay in full:</span> ${(quote.priceTotal / 100).toFixed(2)}
+                              </div>
+                              {quote.priceMonthly > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="font-medium">
+                                    {paymentPreference === 'monthly' ? 'Monthly plan:' : 'Monthly option:'}
+                                  </span>
+                                  ${(quote.priceMonthly / 100).toFixed(2)}
+                                </div>
+                              )}
+                              <div className="flex justify-between">
+                                <span className="font-medium">Deductible:</span> ${quote.deductible}
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="font-medium">Term:</span> {quote.termMonths} months
+                              </div>
+                              {formattedExpirationMiles ? (
+                                <div className="flex justify-between">
+                                  <span className="font-medium">Expiration Miles:</span> {formattedExpirationMiles}
+                                </div>
+                              ) : null}
+                            </div>
+                          </div>
+                          <div className="mt-4 space-y-3 border-t pt-4">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-medium">Contract workflow</p>
+                              {contractGroups[quote.id]?.length ? (
+                                <span className="text-xs text-muted-foreground uppercase">
+                                  {contractGroups[quote.id][0].status === 'signed' ? 'Signed' : 'Awaiting signature'}
+                                </span>
+                              ) : null}
+                            </div>
                             {contractGroups[quote.id]?.length ? (
-                              <span className="text-xs text-muted-foreground uppercase">
-                                {contractGroups[quote.id][0].status === 'signed' ? 'Signed' : 'Awaiting signature'}
-                              </span>
-                            ) : null}
+                              <ul className="space-y-1 text-sm text-slate-600">
+                                {contractGroups[quote.id].map((contract) => {
+                                  const statusLabel =
+                                    contract.status === 'signed'
+                                      ? 'Signed'
+                                      : contract.status === 'sent'
+                                        ? 'Awaiting signature'
+                                        : contract.status;
+                                  return (
+                                    <li key={contract.id} className="flex items-center justify-between">
+                                      <span className="capitalize">{statusLabel}</span>
+                                      {contract.signedAt ? (
+                                        <span className="text-xs text-muted-foreground">
+                                          {new Date(contract.signedAt).toLocaleString()}
+                                        </span>
+                                      ) : null}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                No contract sent yet for this quote.
+                              </p>
+                            )}
+                            <div className="space-y-2">
+                              <Input
+                                type="file"
+                                accept="application/pdf"
+                                onChange={(event) =>
+                                  handleContractFileChange(quote.id, event.target.files?.[0] || null)
+                                }
+                              />
+                              <Button
+                                variant="secondary"
+                                onClick={() => handleSendContract(quote.id)}
+                                disabled={
+                                  createContractMutation.isPending && contractSendingQuote === quote.id
+                                }
+                              >
+                                {createContractMutation.isPending && contractSendingQuote === quote.id
+                                  ? 'Sending...'
+                                  : 'Send contract'}
+                              </Button>
+                              <p className="text-xs text-muted-foreground">
+                                We’ll use the default contract if no PDF is uploaded.
+                              </p>
+                            </div>
                           </div>
-                          {contractGroups[quote.id]?.length ? (
-                            <ul className="space-y-1 text-sm text-slate-600">
-                              {contractGroups[quote.id].map((contract) => {
-                                const statusLabel =
-                                  contract.status === 'signed'
-                                    ? 'Signed'
-                                    : contract.status === 'sent'
-                                    ? 'Awaiting signature'
-                                    : contract.status;
-                                return (
-                                <li key={contract.id} className="flex items-center justify-between">
-                                  <span className="capitalize">{statusLabel}</span>
-                                  {contract.signedAt ? (
-                                    <span className="text-xs text-muted-foreground">
-                                      {new Date(contract.signedAt).toLocaleString()}
-                                    </span>
-                                  ) : null}
-                                </li>
-                                );
-                              })}
-                            </ul>
-                          ) : (
-                            <p className="text-sm text-muted-foreground">
-                              No contract sent yet for this quote.
-                            </p>
-                          )}
-                          <div className="space-y-2">
-                            <Input
-                              type="file"
-                              accept="application/pdf"
-                              onChange={(event) =>
-                                handleContractFileChange(quote.id, event.target.files?.[0] || null)
-                              }
-                            />
-                            <Button
-                              variant="secondary"
-                              onClick={() => handleSendContract(quote.id)}
-                              disabled={
-                                createContractMutation.isPending && contractSendingQuote === quote.id
-                              }
-                            >
-                              {createContractMutation.isPending && contractSendingQuote === quote.id
-                                ? 'Sending...'
-                                : 'Send contract'}
-                            </Button>
-                            <p className="text-xs text-muted-foreground">
-                              We’ll use the default contract if no PDF is uploaded.
-                            </p>
-                          </div>
-                        </div>
                         </div>
                       );
                     })}
