@@ -1,0 +1,425 @@
+import { FormEvent, forwardRef, useState } from "react";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useToast } from "@/hooks/use-toast";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { US_STATES } from "@/lib/constants";
+import { cn } from "@/lib/utils";
+
+interface QuoteFormProps {
+  className?: string;
+  title?: string;
+  description?: string;
+  submitLabel?: string;
+  onSubmitted?: () => void;
+}
+
+interface QuoteData {
+  vehicle: {
+    year: string;
+    make: string;
+    model: string;
+    trim: string;
+    odometer: string;
+    vin: string;
+    usage: string;
+  };
+  owner: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    zip: string;
+    state: string;
+  };
+  consent: {
+    tcpa: boolean;
+    terms: boolean;
+  };
+}
+
+export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
+  (
+    {
+      className,
+      title = "Get Your Free Quote",
+      description = "Provide a few quick details and we'll prepare a personalized quote for your vehicle warranty coverage.",
+      submitLabel = "Get my quote",
+      onSubmitted,
+    },
+    ref,
+  ) => {
+    const [quoteData, setQuoteData] = useState<QuoteData>({
+      vehicle: {
+        year: "",
+        make: "",
+        model: "",
+        trim: "",
+        odometer: "",
+        vin: "",
+        usage: "personal",
+      },
+      owner: {
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        zip: "",
+        state: "",
+      },
+      consent: {
+        tcpa: false,
+        terms: false,
+      },
+    });
+
+    const { toast } = useToast();
+    const [, navigate] = useLocation();
+
+    const submitQuoteMutation = useMutation({
+      mutationFn: async (data: QuoteData) => {
+        return apiRequest("POST", "/api/leads", {
+          lead: {
+            firstName: data.owner.firstName,
+            lastName: data.owner.lastName,
+            email: data.owner.email,
+            phone: data.owner.phone,
+            zip: data.owner.zip,
+            state: data.owner.state,
+            consentTCPA: data.consent.tcpa,
+            source: "web",
+          },
+          vehicle: {
+            year: parseInt(data.vehicle.year),
+            make: data.vehicle.make,
+            model: data.vehicle.model,
+            trim: data.vehicle.trim || null,
+            vin: data.vehicle.vin || null,
+            odometer: parseInt(data.vehicle.odometer),
+            usage: data.vehicle.usage,
+          },
+        });
+      },
+      onSuccess: () => {
+        navigate("/thank-you");
+        onSubmitted?.();
+        resetForm();
+      },
+      onError: (error: Error) => {
+        toast({
+          title: "Error Submitting Quote",
+          description: error.message,
+          variant: "destructive",
+        });
+      },
+    });
+
+    const resetForm = () => {
+      setQuoteData({
+        vehicle: {
+          year: "",
+          make: "",
+          model: "",
+          trim: "",
+          odometer: "",
+          vin: "",
+          usage: "personal",
+        },
+        owner: {
+          firstName: "",
+          lastName: "",
+          email: "",
+          phone: "",
+          zip: "",
+          state: "",
+        },
+        consent: {
+          tcpa: false,
+          terms: false,
+        },
+      });
+    };
+
+    const submitQuote = () => {
+      if (!quoteData.consent.tcpa || !quoteData.consent.terms) {
+        toast({
+          title: "Consent Required",
+          description: "Please accept all required consents to continue.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      submitQuoteMutation.mutate(quoteData);
+    };
+
+    const handleVehicleChange = (field: string, value: string) => {
+      setQuoteData((prev) => ({
+        ...prev,
+        vehicle: { ...prev.vehicle, [field]: value },
+      }));
+    };
+
+    const handleOwnerChange = (field: string, value: string) => {
+      setQuoteData((prev) => ({
+        ...prev,
+        owner: { ...prev.owner, [field]: value },
+      }));
+    };
+
+    const handleConsentChange = (field: string, value: boolean) => {
+      setQuoteData((prev) => ({
+        ...prev,
+        consent: { ...prev.consent, [field]: value },
+      }));
+    };
+
+    const validateRequiredFields = () => {
+      const { year, make, model, odometer } = quoteData.vehicle;
+      const { firstName, lastName, email, phone, zip, state } = quoteData.owner;
+
+      if (!year || !make || !model || !odometer) {
+        toast({
+          title: "Missing Vehicle Information",
+          description: "Please complete all required vehicle fields.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      if (!firstName || !lastName || !email || !phone || !zip || !state) {
+        toast({
+          title: "Missing Contact Information",
+          description: "Please complete all required contact fields.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      return true;
+    };
+
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!validateRequiredFields()) {
+        return;
+      }
+
+      submitQuote();
+    };
+
+    return (
+      <form ref={ref} onSubmit={handleSubmit} className={cn("space-y-8", className)}>
+        <div className="space-y-3">
+          <h2 className="text-3xl font-bold text-gray-900">{title}</h2>
+          <p className="text-gray-500">{description}</p>
+        </div>
+
+        <section className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Vehicle information</h3>
+              <p className="text-sm text-gray-500">Tell us about the car or truck you'd like to protect.</p>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="year">Year</Label>
+              <Input
+                id="year"
+                type="number"
+                placeholder="e.g., 2020"
+                value={quoteData.vehicle.year}
+                onChange={(e) => handleVehicleChange("year", e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="make">Make</Label>
+              <Input
+                id="make"
+                placeholder="e.g., Toyota"
+                value={quoteData.vehicle.make}
+                onChange={(e) => handleVehicleChange("make", e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="model">Model</Label>
+              <Input
+                id="model"
+                placeholder="e.g., Camry"
+                value={quoteData.vehicle.model}
+                onChange={(e) => handleVehicleChange("model", e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="trim">Trim (Optional)</Label>
+              <Input
+                id="trim"
+                placeholder="e.g., XLE"
+                value={quoteData.vehicle.trim}
+                onChange={(e) => handleVehicleChange("trim", e.target.value)}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="odometer">Odometer reading</Label>
+              <Input
+                id="odometer"
+                type="number"
+                placeholder="e.g., 45,000"
+                value={quoteData.vehicle.odometer}
+                onChange={(e) => handleVehicleChange("odometer", e.target.value)}
+                required
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="vin">VIN (optional)</Label>
+              <Input
+                id="vin"
+                type="text"
+                placeholder="17-character VIN"
+                value={quoteData.vehicle.vin}
+                onChange={(e) => handleVehicleChange("vin", e.target.value)}
+              />
+              <p className="text-sm text-gray-500 mt-1">Providing your VIN helps us give you a more accurate quote.</p>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900">Contact details</h3>
+              <p className="text-sm text-gray-500">We'll deliver your quote and follow up with any questions.</p>
+            </div>
+          </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="firstName">First name</Label>
+              <Input
+                id="firstName"
+                value={quoteData.owner.firstName}
+                onChange={(e) => handleOwnerChange("firstName", e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="lastName">Last name</Label>
+              <Input
+                id="lastName"
+                value={quoteData.owner.lastName}
+                onChange={(e) => handleOwnerChange("lastName", e.target.value)}
+                required
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={quoteData.owner.email}
+                onChange={(e) => handleOwnerChange("email", e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="phone">Phone</Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={quoteData.owner.phone}
+                onChange={(e) => handleOwnerChange("phone", e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="zip">ZIP code</Label>
+              <Input
+                id="zip"
+                value={quoteData.owner.zip}
+                onChange={(e) => handleOwnerChange("zip", e.target.value)}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="state">State</Label>
+              <Select value={quoteData.owner.state} onValueChange={(value) => handleOwnerChange("state", value)} required>
+                <SelectTrigger id="state">
+                  <SelectValue placeholder="Select state" />
+                </SelectTrigger>
+                <SelectContent>
+                  {US_STATES.map((state) => (
+                    <SelectItem key={state.value} value={state.value}>
+                      {state.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </section>
+
+        <section className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-4">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Consent &amp; terms</h3>
+            <p className="text-sm text-gray-500">
+              We respect your privacy and will only use your information to share quote details and coverage options.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-start">
+              <Checkbox
+                id="tcpa"
+                checked={quoteData.consent.tcpa}
+                onCheckedChange={(checked) => handleConsentChange("tcpa", !!checked)}
+                className="mt-1"
+              />
+              <Label htmlFor="tcpa" className="ml-3 text-sm space-y-2">
+                <span>
+                  By submitting this form I consent to BH Auto Protect contacting me about vehicle protection services using
+                  automated calls, prerecorded voice messages, SMS/text messages, or email at the information provided above.
+                  Message and data rates may apply. Messaging frequency may vary.
+                </span>
+                <span>
+                  Reply STOP to unsubscribe. Consent is not required to receive services and I may call BH Auto Protect
+                  directly at <a href="tel:18882001234" className="text-primary font-semibold">1 (888) 200-1234</a>. I
+                  consent to BH Auto Protect's <a href="/legal/terms" className="text-primary hover:underline">mobile terms
+                  and conditions</a> and <a href="/legal/privacy" className="text-primary hover:underline">privacy
+                  statement</a>.
+                </span>
+              </Label>
+            </div>
+            <div className="flex items-start">
+              <Checkbox
+                id="terms"
+                checked={quoteData.consent.terms}
+                onCheckedChange={(checked) => handleConsentChange("terms", !!checked)}
+                className="mt-1"
+              />
+              <Label htmlFor="terms" className="ml-3 text-sm">
+                I agree to the <a href="/legal/privacy" className="text-primary hover:underline">Privacy Policy</a> and
+                <a href="/legal/terms" className="text-primary hover:underline">Terms of Service</a>.
+              </Label>
+            </div>
+          </div>
+        </section>
+
+        <div className="flex justify-end pt-2">
+          <Button type="submit" disabled={submitQuoteMutation.isPending} className="bg-accent hover:bg-green-600 px-8">
+            {submitQuoteMutation.isPending ? "Submitting..." : submitLabel}
+          </Button>
+        </div>
+      </form>
+    );
+  },
+);
+
+QuoteForm.displayName = "QuoteForm";
+
