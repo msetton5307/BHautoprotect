@@ -372,8 +372,19 @@ export default function QuoteModal({ isOpen, onClose }: QuoteModalProps) {
                   onCheckedChange={(checked) => handleConsentChange("tcpa", !!checked)}
                   className="mt-1"
                 />
-                <Label htmlFor="tcpa" className="ml-3 text-sm">
-                  By clicking Continue, you agree to be contacted by phone, SMS, or email regarding your auto warranty options. Consent is not a condition of purchase. Msg &amp; data rates may apply.
+                <Label htmlFor="tcpa" className="ml-3 text-sm space-y-2">
+                  <span>
+                    By submitting this form I consent to BH Auto Protect contacting me about vehicle protection services using
+                    automated calls, prerecorded voice messages, SMS/text messages, or email at the information provided above.
+                    Message and data rates may apply. Messaging frequency may vary.
+                  </span>
+                  <span>
+                    Reply STOP to unsubscribe. Consent is not required to receive services and I may call BH Auto Protect
+                    directly at <a href="tel:18882001234" className="text-primary font-semibold">1 (888) 200-1234</a>. I
+                    consent to BH Auto Protect&apos;s <a href="/legal/terms" className="text-primary hover:underline">mobile
+                    terms and conditions</a> and <a href="/legal/privacy" className="text-primary hover:underline">privacy
+                    statement</a>.
+                  </span>
                 </Label>
               </div>
               <div className="flex items-start">

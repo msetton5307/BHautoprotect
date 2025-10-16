@@ -48,6 +48,18 @@ export default function PrivacyPage() {
             </section>
 
             <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">How We Collect Information</h2>
+              <p className="mb-4">
+                We collect personal information directly from you when you complete forms on our website, request a quote,
+                enroll in coverage, communicate with us by phone, text message, or email, or participate in surveys and
+                promotions. We may also receive information from partners who help us deliver coverage, as well as from
+                publicly available databases and consumer reporting agencies where permitted by law. Automatically collected
+                data is gathered through cookies, analytics tools, and similar technologies when you interact with our digital
+                properties.
+              </p>
+            </section>
+
+            <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">How We Use Your Information</h2>
               <p className="mb-4">We use your personal information for the following purposes:</p>
               <ul className="list-disc pl-6 space-y-2">
@@ -70,13 +82,17 @@ export default function PrivacyPage() {
                 <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
                 <li><strong>Consent:</strong> With your explicit consent for specific purposes</li>
               </ul>
-              <p className="mt-4">We do not sell your personal information to third parties for marketing purposes.</p>
+              <p className="mt-4">
+                We do not sell or share your personal information with third parties or affiliates for their marketing or
+                promotional purposes. No mobile information, text messaging originator opt-in data, or consent will be shared
+                with any third parties except as required to provide our services or comply with the law.
+              </p>
             </section>
 
             <section>
               <h2 className="text-2xl font-semibold text-gray-900 mb-4">Data Security</h2>
               <p>
-                We implement appropriate technical and organizational security measures to protect your personal information 
+                We implement appropriate technical and organizational security measures to protect your personal information
                 against unauthorized access, alteration, disclosure, or destruction. These measures include:
               </p>
               <ul className="list-disc pl-6 mt-4 space-y-1">
@@ -85,6 +101,11 @@ export default function PrivacyPage() {
                 <li>Access controls and employee training</li>
                 <li>Secure payment processing systems</li>
               </ul>
+              <p className="mt-4">
+                We restrict access to personal data to authorized personnel who need the information to perform their duties,
+                require confidentiality agreements, and maintain incident response procedures to address potential security
+                events promptly.
+              </p>
             </section>
 
             <section>
@@ -133,7 +154,7 @@ export default function PrivacyPage() {
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p><strong>BH Auto Protect</strong></p>
                 <p>Email: privacy@bhautoprotect.com</p>
-                <p>Phone: 1-800-555-0123</p>
+                <p>Phone: 1 (888) 200-1234</p>
                 <p>Address: 800 N King St, Suite 304-2390, Wilmington, DE 19801</p>
               </div>
             </section>
