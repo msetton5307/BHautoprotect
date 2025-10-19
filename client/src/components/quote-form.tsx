@@ -17,6 +17,7 @@ interface QuoteFormProps {
   description?: string;
   submitLabel?: string;
   onSubmitted?: () => void;
+  leadSource?: string;
 }
 
 interface QuoteData {
@@ -51,6 +52,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       description = "Provide a few quick details and we'll prepare a personalized quote for your vehicle warranty coverage.",
       submitLabel = "Get my quote",
       onSubmitted,
+      leadSource = "web",
     },
     ref,
   ) => {
@@ -92,7 +94,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             zip: data.owner.zip,
             state: data.owner.state,
             consentTCPA: data.consent.tcpa,
-            source: "landing-page",
+            source: leadSource,
           },
           vehicle: {
             year: parseInt(data.vehicle.year),
