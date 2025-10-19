@@ -935,7 +935,7 @@ const buildContractInviteEmail = ({
                   <a href="${escapeHtml(contractLink)}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 28px;border-radius:9999px;background:#2563eb;color:#ffffff;font-weight:600;text-decoration:none;">Review & Sign Contract</a>
                 </div>
                 <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
-                  Need adjustments? Reply to this email or call <a href="tel:18882001234" style="color:#2563eb;text-decoration:none;font-weight:600;">1 (888) 200-1234</a>. Our concierge team can update payment schedules, deductibles, and start dates instantly.
+                  Need adjustments? Reply to this email or call <a href="tel:+13024068053" style="color:#2563eb;text-decoration:none;font-weight:600;">(302) 406-8053</a>. Our concierge team can update payment schedules, deductibles, and start dates instantly.
                 </p>
                 <p style="margin:0;font-size:15px;line-height:1.7;">Warmly,<br/><strong>The BH Auto Protect Team</strong></p>
               </td>
@@ -946,7 +946,7 @@ const buildContractInviteEmail = ({
     </table>
   </body>
 </html>`;
-  const text = `Hi ${displayName},\n\nYour ${planName} contract for ${vehicleSummary} is ready. Review the PDF and provide your digital signature to activate coverage.\n\nSign the contract: ${contractLink}\nQuote: ${quote.id} (${monthly})\n\nNeed help? Call 1 (888) 200-1234 or reply to this email.\n\nThe BH Auto Protect Team`;
+  const text = `Hi ${displayName},\n\nYour ${planName} contract for ${vehicleSummary} is ready. Review the PDF and provide your digital signature to activate coverage.\n\nSign the contract: ${contractLink}\nQuote: ${quote.id} (${monthly})\n\nNeed help? Call (302) 406-8053 or reply to this email.\n\nThe BH Auto Protect Team`;
   return { subject, html, text };
 };
 
@@ -1136,7 +1136,7 @@ const buildPolicyActivationEmail = ({
                   </div>
                 </div>
                 <p style="margin:0 0 16px;font-size:15px;line-height:1.7;">
-                  Need help or have questions? Call <a href="tel:18882001234" style="color:#2563eb;text-decoration:none;font-weight:600;">1 (888) 200-1234</a> or reply to this email. Our concierge team is ready to help with claims, maintenance advice, or billing adjustments.
+                  Need help or have questions? Call <a href="tel:+13024068053" style="color:#2563eb;text-decoration:none;font-weight:600;">(302) 406-8053</a> or reply to this email. Our concierge team is ready to help with claims, maintenance advice, or billing adjustments.
                 </p>
                 <p style="margin:0;font-size:15px;line-height:1.7;">Warmly,<br/><strong>The BH Auto Protect Team</strong></p>
               </td>
@@ -1148,7 +1148,7 @@ const buildPolicyActivationEmail = ({
   </body>
 </html>`;
 
-  const text = `Hi ${customerName},\n\nWelcome to BH Auto Protect! Your ${planName} protection for ${vehicleSummary} is now active.\n\nPolicy number: ${policyNumber}\nEffective start: ${startDateDisplay}\nCoverage through: ${expirationDateDisplay}\nMileage limit: ${mileageLimitDisplay}\nDeductible: ${deductibleDisplay}\n\nPayment schedule\n- Down payment: ${downPaymentDisplay}\n- Monthly payment: ${monthlyPaymentDisplay}\n- Contract balance: ${contractBalanceDisplay}\n\nAccess your portal: ${portalLoginBaseUrl}\nSign in with ${loginEmailInstruction} and your policy ID ${policyNumber}.\n\nNeed help? Call 1 (888) 200-1234 or reply to this email.\n\nThe BH Auto Protect Team`;
+  const text = `Hi ${customerName},\n\nWelcome to BH Auto Protect! Your ${planName} protection for ${vehicleSummary} is now active.\n\nPolicy number: ${policyNumber}\nEffective start: ${startDateDisplay}\nCoverage through: ${expirationDateDisplay}\nMileage limit: ${mileageLimitDisplay}\nDeductible: ${deductibleDisplay}\n\nPayment schedule\n- Down payment: ${downPaymentDisplay}\n- Monthly payment: ${monthlyPaymentDisplay}\n- Contract balance: ${contractBalanceDisplay}\n\nAccess your portal: ${portalLoginBaseUrl}\nSign in with ${loginEmailInstruction} and your policy ID ${policyNumber}.\n\nNeed help? Call (302) 406-8053 or reply to this email.\n\nThe BH Auto Protect Team`;
 
   return { subject, html, text };
 };
@@ -1292,7 +1292,7 @@ const buildDocumentRequestEmail = ({
                   <span style="word-break:break-all;color:#2563eb;">${escapeHtml(requestLink)}</span>
                 </p>
                 <p style="margin:24px 0 0;font-size:14px;line-height:1.7;color:#475569;">
-                  Need a hand? Reply to this email or call <strong>1 (888) 200-1234</strong> and our team will help.
+                  Need a hand? Reply to this email or call <strong>(302) 406-8053</strong> and our team will help.
                 </p>
               </td>
             </tr>

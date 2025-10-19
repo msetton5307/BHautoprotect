@@ -38,8 +38,8 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
             </span>
           </div>
           <div className="flex items-center gap-6">
-            <a href="tel:18882001234" className="flex items-center gap-2 font-semibold hover:text-blue-100 transition-colors">
-              <Phone className="w-4 h-4" /> 1 (888) 200-1234
+            <a href="tel:+13024068053" className="flex items-center gap-2 font-semibold hover:text-blue-100 transition-colors">
+              <Phone className="w-4 h-4" /> (302) 406-8053
             </a>
             <a
               href="mailto:hello@bhautoprotect.com"
@@ -85,7 +85,7 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
               </Button>
             </div>
             <div className="md:hidden flex items-center gap-4">
-              <a href="tel:18882001234" className="hidden sm:flex items-center gap-2 text-sm font-semibold text-primary">
+              <a href="tel:+13024068053" className="hidden sm:flex items-center gap-2 text-sm font-semibold text-primary">
                 <Phone className="w-4 h-4" />
                 Call
               </a>
@@ -114,10 +114,10 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
               </div>
               <div className="px-4 flex flex-col gap-3">
                 <a
-                  href="tel:18882001234"
+                  href="tel:+13024068053"
                   className="flex items-center justify-center gap-2 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-primary"
                 >
-                  <Phone className="w-4 h-4" /> 1 (888) 200-1234
+                  <Phone className="w-4 h-4" /> (302) 406-8053
                 </a>
                 <a
                   href="mailto:hello@bhautoprotect.com"

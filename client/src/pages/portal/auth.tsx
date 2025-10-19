@@ -104,8 +104,8 @@ export default function CustomerPortalAuth({ onAuthenticated, variant = "portal"
                 <a className="inline-flex items-center gap-2 text-slate-200 transition hover:text-white" href="mailto:support@bhautoprotect.com">
                   <Mail className="h-4 w-4" /> support@bhautoprotect.com
                 </a>
-                <a className="inline-flex items-center gap-2 text-slate-200 transition hover:text-white" href="tel:18005550123">
-                  <Phone className="h-4 w-4" /> 1-800-555-0123
+                <a className="inline-flex items-center gap-2 text-slate-200 transition hover:text-white" href="tel:+13024068053">
+                  <Phone className="h-4 w-4" /> (302) 406-8053
                 </a>
               </div>
               <p className="text-xs text-slate-400">

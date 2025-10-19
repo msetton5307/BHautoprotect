@@ -126,7 +126,7 @@ const DEFAULT_EMAIL_TEMPLATES: { name: string; subject: string; bodyHtml: string
               </div>
               <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
                 Need to update your mailing details or have a question before you head to the pump?
-                Call us at <a href="tel:18005550123" style="color:#2563eb;text-decoration:none;font-weight:600;">1-800-555-0123</a> or reply to this email and our concierge team will take care of it right away.
+                Call us at <a href="tel:+13024068053" style="color:#2563eb;text-decoration:none;font-weight:600;">(302) 406-8053</a> or reply to this email and our concierge team will take care of it right away.
               </p>
               <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
                 Thanks again for being part of the BH Auto Protect family. Enjoy the extra savings on your next fill-up!

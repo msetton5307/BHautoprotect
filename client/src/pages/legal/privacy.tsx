@@ -4,158 +4,163 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Navigation onGetQuote={() => {}} />
-      
+
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="bg-white rounded-lg shadow-sm p-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-8">Privacy Policy</h1>
-          
+
           <div className="space-y-8 text-gray-700">
             <section>
-              <p className="text-sm text-gray-500 mb-4">Last updated: {new Date().toLocaleDateString()}</p>
+              <p className="text-sm text-gray-500 mb-4">Last Updated: October 19, 2025</p>
               <p className="text-lg leading-relaxed">
-                At BH Auto Protect, we are committed to protecting your privacy and ensuring the security of your personal information. 
-                This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website 
-                or use our services.
+                BH Auto Protect (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;) is committed to protecting your privacy. This
+                Privacy Policy describes how we collect, use, and protect your personal information when you visit
+                <a href="https://www.bhautoprotect.com" className="text-primary font-semibold ml-1">
+                  www.bhautoprotect.com
+                </a>
+                , contact us, or use our services.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Information We Collect</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">1. Information We Collect</h2>
+              <p className="mb-4">
+                We collect information that helps us provide our vehicle protection products and improve our customer
+                experience, including:
+              </p>
               <div className="space-y-4">
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Personal Information</h3>
-                  <p>We may collect the following personal information:</p>
-                  <ul className="list-disc pl-6 mt-2 space-y-1">
-                    <li>Name, email address, and phone number</li>
-                    <li>Mailing address and ZIP code</li>
-                    <li>Vehicle information (year, make, model, VIN, mileage)</li>
-                    <li>Payment information for processing transactions</li>
-                    <li>Communication preferences and history</li>
+                  <ul className="list-disc pl-6 space-y-1">
+                    <li>Name, phone number, email address, address, vehicle year/make/model/mileage, and ZIP code</li>
                   </ul>
                 </div>
-                
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Automatically Collected Information</h3>
-                  <p>When you visit our website, we may automatically collect:</p>
-                  <ul className="list-disc pl-6 mt-2 space-y-1">
-                    <li>IP address and browser information</li>
-                    <li>Device type and operating system</li>
-                    <li>Pages visited and time spent on our site</li>
-                    <li>Cookies and similar tracking technologies</li>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Communication Data</h3>
+                  <ul className="list-disc pl-6 space-y-1">
+                    <li>Details of inquiries submitted via forms, phone calls, text messages, or emails</li>
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Technical Data</h3>
+                  <ul className="list-disc pl-6 space-y-1">
+                    <li>IP address, browser type, operating system, and website usage analytics via cookies or similar technologies</li>
                   </ul>
                 </div>
               </div>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">How We Collect Information</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">2. How We Collect Data</h2>
+              <p>
+                We collect personal data through online quote forms or website submissions, SMS/text message interactions,
+                phone calls and emails, cookies and web analytics, and marketing partners and lead generation affiliates
+                (in compliance with TCPA consent standards).
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">3. How We Use Your Information</h2>
+              <p className="mb-4">We use your information to:</p>
+              <ul className="list-disc pl-6 space-y-2">
+                <li>Contact you with vehicle protection plan information and quotes</li>
+                <li>Provide customer service and process inquiries</li>
+                <li>Send service updates, reminders, and marketing communications (if opted in)</li>
+                <li>Improve website functionality and user experience</li>
+                <li>Comply with applicable laws and regulatory obligations</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">4. Text Messaging and Mobile Privacy</h2>
               <p className="mb-4">
-                We collect personal information directly from you when you complete forms on our website, request a quote,
-                enroll in coverage, communicate with us by phone, text message, or email, or participate in surveys and
-                promotions. We may also receive information from partners who help us deliver coverage, as well as from
-                publicly available databases and consumer reporting agencies where permitted by law. Automatically collected
-                data is gathered through cookies, analytics tools, and similar technologies when you interact with our digital
-                properties.
+                By providing your mobile number, you consent to receive recurring text messages from BH Auto Protect
+                regarding quotes, plan updates, and special offers.
               </p>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">How We Use Your Information</h2>
-              <p className="mb-4">We use your personal information for the following purposes:</p>
-              <ul className="list-disc pl-6 space-y-2">
-                <li>Processing and managing your warranty coverage applications</li>
-                <li>Communicating with you about our services and your account</li>
-                <li>Providing customer support and responding to inquiries</li>
-                <li>Processing payments and managing billing</li>
-                <li>Improving our website and services</li>
-                <li>Complying with legal obligations and industry regulations</li>
-                <li>Marketing our services (with your consent where required)</li>
+              <ul className="list-disc pl-6 space-y-2 mb-4">
+                <li>Message and data rates may apply. Message frequency may vary.</li>
+                <li>You may opt out at any time by replying STOP to any message. Reply HELP for help or call
+                  <a href="tel:+13024068053" className="text-primary font-semibold ml-1">(302) 406-8053</a>.
+                </li>
+                <li>No mobile information will be shared with third parties or affiliates for marketing or promotional purposes.</li>
+                <li>All the above categories exclude text messaging originator opt-in data and consent; this information will not be shared with any third parties.</li>
               </ul>
+              <p>This language fulfills the required CTIA &ldquo;SMS carve-out&rdquo; for compliance approval.</p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Information Sharing and Disclosure</h2>
-              <p className="mb-4">We may share your information in the following circumstances:</p>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">5. Data Sharing</h2>
+              <p className="mb-4">BH Auto Protect does not sell or share your personal information with unaffiliated third parties for marketing or promotional purposes.</p>
+              <p className="mb-4">We may share limited information only with:</p>
               <ul className="list-disc pl-6 space-y-2">
-                <li><strong>Service Providers:</strong> With third-party vendors who perform services on our behalf</li>
-                <li><strong>Legal Requirements:</strong> When required by law or to protect our legal rights</li>
-                <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets</li>
-                <li><strong>Consent:</strong> With your explicit consent for specific purposes</li>
+                <li>Administrators and underwriters to issue or service your vehicle protection plan</li>
+                <li>Vendors and service providers who operate our website or communication systems (under confidentiality agreements)</li>
+                <li>Government or regulatory authorities when required by law</li>
               </ul>
               <p className="mt-4">
-                We do not sell or share your personal information with third parties or affiliates for their marketing or
-                promotional purposes. No mobile information, text messaging originator opt-in data, or consent will be shared
-                with any third parties except as required to provide our services or comply with the law.
+                All third-party partners are contractually obligated to maintain data confidentiality and comply with security standards.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Data Security</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">6. Data Security</h2>
               <p>
-                We implement appropriate technical and organizational security measures to protect your personal information
-                against unauthorized access, alteration, disclosure, or destruction. These measures include:
+                We employ administrative, technical, and physical safeguards to protect your data from unauthorized access, use, or disclosure. This includes encryption, firewalls, and secure data storage practices.
               </p>
-              <ul className="list-disc pl-6 mt-4 space-y-1">
-                <li>Encryption of sensitive data in transit and at rest</li>
-                <li>Regular security assessments and monitoring</li>
-                <li>Access controls and employee training</li>
-                <li>Secure payment processing systems</li>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">7. Your Rights</h2>
+              <p className="mb-4">You may:</p>
+              <ul className="list-disc pl-6 space-y-2">
+                <li>Request access, correction, or deletion of your personal data</li>
+                <li>Withdraw consent to receive marketing communications</li>
+                <li>Request a copy of your stored data</li>
               </ul>
               <p className="mt-4">
-                We restrict access to personal data to authorized personnel who need the information to perform their duties,
-                require confidentiality agreements, and maintain incident response procedures to address potential security
-                events promptly.
+                To exercise your rights, contact us at <a href="mailto:privacy@bhautoprotect.com" className="text-primary font-semibold">privacy@bhautoprotect.com</a> or call
+                <a href="tel:+13024068053" className="text-primary font-semibold ml-1">(302) 406-8053</a>.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Your Rights and Choices</h2>
-              <p className="mb-4">Depending on your location, you may have the following rights regarding your personal information:</p>
-              <ul className="list-disc pl-6 space-y-2">
-                <li><strong>Access:</strong> Request a copy of your personal information</li>
-                <li><strong>Correction:</strong> Request correction of inaccurate information</li>
-                <li><strong>Deletion:</strong> Request deletion of your personal information</li>
-                <li><strong>Portability:</strong> Request transfer of your data to another service</li>
-                <li><strong>Objection:</strong> Object to certain processing of your information</li>
-                <li><strong>Opt-out:</strong> Unsubscribe from marketing communications</li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Cookies and Tracking Technologies</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">8. Cookies and Tracking</h2>
               <p>
-                We use cookies and similar technologies to enhance your browsing experience, analyze website traffic, 
-                and personalize content. You can control cookie settings through your browser preferences, though 
-                some features may not function properly if cookies are disabled.
+                We use cookies and analytics tools to measure traffic, optimize performance, and improve user experience. You can disable cookies in your browser settings at any time.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Children's Privacy</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">9. Data Retention</h2>
               <p>
-                Our services are not directed to individuals under the age of 18. We do not knowingly collect 
-                personal information from children under 18. If we become aware that we have collected such 
-                information, we will take steps to delete it promptly.
+                We retain your information only as long as necessary to fulfill the purposes stated above or as required by law.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Changes to This Privacy Policy</h2>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">10. Children&rsquo;s Privacy</h2>
               <p>
-                We may update this Privacy Policy from time to time to reflect changes in our practices or 
-                applicable laws. We will notify you of any material changes by posting the updated policy on 
-                our website and updating the effective date.
+                Our services are not directed toward children under 13 years old. We do not knowingly collect personal data from minors.
               </p>
             </section>
 
             <section>
-              <h2 className="text-2xl font-semibold text-gray-900 mb-4">Contact Us</h2>
-              <p className="mb-4">If you have questions about this Privacy Policy or our data practices, please contact us:</p>
-              <div className="bg-gray-50 p-4 rounded-lg">
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">11. Policy Updates</h2>
+              <p>
+                We may update this Privacy Policy from time to time. The most recent version will always be posted on our website with the updated effective date.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-2xl font-semibold text-gray-900 mb-4">12. Contact Us</h2>
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2">
                 <p><strong>BH Auto Protect</strong></p>
-                <p>Email: privacy@bhautoprotect.com</p>
-                <p>Phone: 1 (888) 200-1234</p>
-                <p>Address: 800 N King St, Suite 304-2390, Wilmington, DE 19801</p>
+                <p>📍 800 N King St, Suite 304-2390, Wilmington, DE 19801</p>
+                <p>
+                  📞 <a href="tel:+13024068053" className="text-primary font-semibold">(302) 406-8053</a>
+                </p>
+                <p>📧 privacy@bhautoprotect.com</p>
+                <p>🌐 www.bhautoprotect.com</p>
               </div>
             </section>
           </div>

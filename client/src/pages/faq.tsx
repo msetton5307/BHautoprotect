@@ -58,7 +58,7 @@ export default function FAQ() {
       icon: PhoneCall,
       label: "Talk with an advisor",
       description: "We'll connect you with a specialist",
-      href: "tel:18882001234",
+      href: "tel:+13024068053",
     },
   ];
 
@@ -198,12 +198,12 @@ export default function FAQ() {
                     </div>
                     <div className="space-y-3">
                       <a
-                        href="tel:18882001234"
+                        href="tel:+13024068053"
                         className="flex items-center justify-between gap-3 rounded-2xl bg-white/10 px-5 py-4 text-left text-base font-semibold text-white transition hover:bg-white/20"
                       >
                         <span className="flex items-center gap-3">
                           <PhoneCall className="h-5 w-5" aria-hidden />
-                          Call 1 (888) 200-1234
+                          Call (302) 406-8053
                         </span>
                         <ArrowUpRight className="h-4 w-4" aria-hidden />
                       </a>
