@@ -237,6 +237,19 @@ const parseCurrencyInput = (value: string): number | null => {
   return Math.round(numeric * 100);
 };
 
+const formatPaymentCount = (value: number | null | undefined): string => {
+  if (value === null || value === undefined) {
+    return "N/A";
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return "N/A";
+  }
+  const rounded = Math.round(numeric);
+  const label = rounded === 1 ? "payment" : "payments";
+  return `${rounded} ${label}`;
+};
+
 const createPolicyFormState = (policy: any) => ({
   package: policy?.package ?? "",
   policyStartDate: formatDateInputValue(policy?.policyStartDate),
@@ -249,7 +262,10 @@ const createPolicyFormState = (policy: any) => ({
   totalPremium: formatCurrencyInput(policy?.totalPremium),
   downPayment: formatCurrencyInput(policy?.downPayment),
   monthlyPayment: formatCurrencyInput(policy?.monthlyPayment),
-  totalPayments: formatCurrencyInput(policy?.totalPayments),
+  totalPayments:
+    policy?.totalPayments != null && !Number.isNaN(Number(policy.totalPayments))
+      ? String(policy.totalPayments)
+      : "",
   leadFirstName: policy?.lead?.firstName ?? "",
   leadLastName: policy?.lead?.lastName ?? "",
   leadEmail: policy?.lead?.email ?? "",
@@ -431,7 +447,10 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
   const paymentRows: DetailRow[] = [
     { label: "Down Payment", value: formatCurrencyFromCents(policy?.downPayment) },
     { label: "Monthly Payment", value: formatCurrencyFromCents(policy?.monthlyPayment) },
-    { label: "Total Payments", value: formatCurrencyFromCents(policy?.totalPayments) },
+    {
+      label: "Total Payments",
+      value: policy?.totalPayments != null ? formatPaymentCount(policy.totalPayments) : "N/A",
+    },
   ];
 
   const coverageTables = `
@@ -919,8 +938,16 @@ export default function AdminPolicyDetail() {
       totalPremium: parseCurrencyInput(policyForm.totalPremium),
       downPayment: parseCurrencyInput(policyForm.downPayment),
       monthlyPayment: parseCurrencyInput(policyForm.monthlyPayment),
-      totalPayments: parseCurrencyInput(policyForm.totalPayments),
+      totalPayments: null,
     };
+
+    const totalPaymentsValue = policyForm.totalPayments.trim();
+    if (totalPaymentsValue.length > 0) {
+      const parsed = Number.parseInt(totalPaymentsValue, 10);
+      if (!Number.isNaN(parsed)) {
+        payload.totalPayments = parsed;
+      }
+    }
 
     const emailValue = sanitizeNullableString(policyForm.leadEmail);
     const leadPayload: Record<string, string | null> = {
@@ -1417,7 +1444,7 @@ export default function AdminPolicyDetail() {
                   <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Total payments</dt>
                     <dd className="mt-2 text-sm font-semibold text-slate-900">
-                      {policy.totalPayments != null ? formatCurrencyFromCents(policy.totalPayments) : "N/A"}
+                      {policy.totalPayments != null ? formatPaymentCount(policy.totalPayments) : "N/A"}
                     </dd>
                   </div>
                   <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
@@ -2255,6 +2282,8 @@ export default function AdminPolicyDetail() {
                     id="edit-policy-total-payments"
                     type="number"
                     value={policyForm.totalPayments}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     onChange={event => handlePolicyFieldChange("totalPayments", event.target.value)}
                     placeholder="899900"
                   />

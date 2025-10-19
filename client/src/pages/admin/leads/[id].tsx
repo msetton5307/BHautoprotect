@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -495,13 +495,20 @@ export default function AdminLeadDetail() {
       'totalPremium',
       'downPayment',
       'monthlyPayment',
-      'totalPayments',
     ];
 
     for (const field of currencyFields) {
       const cents = parseCurrencyInput(form[field]);
       if (cents !== null) {
         payload[field] = cents;
+      }
+    }
+
+    const totalPaymentsValue = form.totalPayments.trim();
+    if (totalPaymentsValue.length > 0) {
+      const parsed = Number.parseInt(totalPaymentsValue, 10);
+      if (!Number.isNaN(parsed)) {
+        payload.totalPayments = parsed;
       }
     }
 
@@ -620,7 +627,10 @@ export default function AdminLeadDetail() {
         downPayment: formatCurrencyInput(p.downPayment),
         policyStartDate: p.policyStartDate ? p.policyStartDate.slice(0, 10) : '',
         monthlyPayment: formatCurrencyInput(p.monthlyPayment),
-        totalPayments: formatCurrencyInput(p.totalPayments),
+        totalPayments:
+          p.totalPayments !== null && p.totalPayments !== undefined
+            ? String(p.totalPayments)
+            : '',
       });
     }
 
@@ -692,7 +702,7 @@ export default function AdminLeadDetail() {
         typeof policy.totalPremium === 'number' && Number.isFinite(policy.totalPremium)
           ? policy.totalPremium
           : null;
-      const totalPayments =
+      const totalPaymentsCount =
         typeof policy.totalPayments === 'number' && Number.isFinite(policy.totalPayments)
           ? policy.totalPayments
           : null;
@@ -701,18 +711,15 @@ export default function AdminLeadDetail() {
           ? policy.monthlyPayment
           : null;
 
-      let resolvedTotal = totalPremium ?? totalPayments ?? null;
-      let resolvedMonthly = monthlyValue;
-      let resolvedTerm: number | null = null;
+      let resolvedTerm: number | null = totalPaymentsCount && totalPaymentsCount > 0 ? totalPaymentsCount : null;
+      let resolvedTotal = totalPremium ?? null;
+      let resolvedMonthly = monthlyValue ?? null;
 
-      if (resolvedMonthly && resolvedMonthly > 0) {
-        const basis = resolvedTotal ?? totalPayments ?? totalPremium;
-        if (typeof basis === 'number' && basis > 0) {
-          resolvedTerm = Math.max(1, Math.round(basis / resolvedMonthly));
-        }
+      if (!resolvedTerm && resolvedTotal && resolvedMonthly && resolvedMonthly > 0) {
+        resolvedTerm = Math.max(1, Math.round(resolvedTotal / resolvedMonthly));
       }
 
-      if (!resolvedTerm || !Number.isFinite(resolvedTerm)) {
+      if (!resolvedTerm || !Number.isFinite(resolvedTerm) || resolvedTerm <= 0) {
         resolvedTerm = DEFAULT_QUOTE_FORM.termMonths;
       }
 
@@ -720,7 +727,7 @@ export default function AdminLeadDetail() {
         resolvedMonthly = Math.round(resolvedTotal / resolvedTerm);
       }
 
-      if (!resolvedTotal && resolvedMonthly && resolvedTerm) {
+      if ((!resolvedTotal || resolvedTotal <= 0) && resolvedMonthly && resolvedTerm) {
         resolvedTotal = resolvedMonthly * resolvedTerm;
       }
 
@@ -743,6 +750,71 @@ export default function AdminLeadDetail() {
 
     setQuoteFormInitialized(true);
   }, [leadPayload, quoteFormInitialized]);
+
+  const prefillQuoteFormFromPolicy = useCallback(() => {
+    setQuoteForm((prev) => {
+      const next: QuoteFormState = { ...prev };
+
+      const deductible = parseDollarInput(policyForm.deductible);
+      if (deductible !== null) {
+        next.deductible = deductible;
+      }
+
+      const termInput = policyForm.totalPayments.trim();
+      if (termInput.length > 0) {
+        const parsedTerm = Number.parseInt(termInput, 10);
+        if (!Number.isNaN(parsedTerm) && parsedTerm > 0) {
+          next.termMonths = parsedTerm;
+        }
+      }
+
+      const expirationInput = policyForm.expirationMiles.trim();
+      if (expirationInput.length > 0) {
+        const parsedMiles = Number.parseInt(expirationInput, 10);
+        if (!Number.isNaN(parsedMiles) && parsedMiles >= 0) {
+          next.expirationMiles = parsedMiles;
+        }
+      }
+
+      const totalFromPolicy = parseCurrencyInput(policyForm.totalPremium);
+      const monthlyFromPolicy = parseCurrencyInput(policyForm.monthlyPayment);
+
+      if (totalFromPolicy !== null) {
+        next.priceTotal = totalFromPolicy;
+      }
+
+      if (monthlyFromPolicy !== null) {
+        next.priceMonthly = monthlyFromPolicy;
+      }
+
+      if (
+        totalFromPolicy !== null &&
+        monthlyFromPolicy === null &&
+        next.termMonths &&
+        next.termMonths > 0
+      ) {
+        next.priceMonthly = Math.round(totalFromPolicy / next.termMonths);
+      }
+
+      if (
+        monthlyFromPolicy !== null &&
+        totalFromPolicy === null &&
+        next.termMonths &&
+        next.termMonths > 0
+      ) {
+        next.priceTotal = monthlyFromPolicy * next.termMonths;
+      }
+
+      if (next.priceMonthly && next.priceMonthly > 0) {
+        next.paymentOption = 'monthly';
+      } else if (next.priceTotal && next.priceTotal > 0) {
+        next.paymentOption = 'one-time';
+      }
+
+      return next;
+    });
+    setLastEditedPriceField('total');
+  }, [policyForm]);
 
   const quotes = leadPayload?.quotes ?? [];
   const notes = leadPayload?.notes ?? [];
@@ -955,7 +1027,10 @@ export default function AdminLeadDetail() {
                 size="sm"
                 onClick={() => {
                   setActiveTab('quotes');
-                  setIsCreatingQuote(true);
+                  if (!isCreatingQuote) {
+                    prefillQuoteFormFromPolicy();
+                    setIsCreatingQuote(true);
+                  }
                   setTimeout(() => {
                     createQuoteSectionRef.current?.scrollIntoView({
                       behavior: 'smooth',
@@ -1406,6 +1481,8 @@ export default function AdminLeadDetail() {
                           <Label>Total Payments</Label>
                           <Input
                             value={policyForm.totalPayments}
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             onChange={(e) => setPolicyForm({ ...policyForm, totalPayments: e.target.value })}
                             placeholder="Total Payments"
                           />
@@ -1521,8 +1598,15 @@ export default function AdminLeadDetail() {
                     <DollarSign className="h-5 w-5 mr-2" />
                     Create New Quote
                   </span>
-                  <Button 
-                    onClick={() => setIsCreatingQuote(!isCreatingQuote)}
+                  <Button
+                    onClick={() => {
+                      if (!isCreatingQuote) {
+                        prefillQuoteFormFromPolicy();
+                        setIsCreatingQuote(true);
+                      } else {
+                        setIsCreatingQuote(false);
+                      }
+                    }}
                     variant={isCreatingQuote ? "outline" : "default"}
                   >
                     {isCreatingQuote ? 'Cancel' : 'New Quote'}

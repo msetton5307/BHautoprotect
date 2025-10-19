@@ -1049,10 +1049,11 @@ const buildPolicyActivationEmail = ({
     policy.totalPremium,
     'See your contract for the full amount',
   );
-  const contractBalanceDisplay =
-    policy.totalPayments !== null && policy.totalPayments !== undefined && !Number.isNaN(policy.totalPayments)
-      ? formatCurrencyFromCents(policy.totalPayments)
-      : totalPremiumDisplay;
+  const contractBalanceDisplay = totalPremiumDisplay;
+  const paymentCountDisplay =
+    typeof policy.totalPayments === 'number' && Number.isFinite(policy.totalPayments) && policy.totalPayments > 0
+      ? `${Math.round(policy.totalPayments)} ${Math.round(policy.totalPayments) === 1 ? 'payment' : 'payments'}`
+      : 'See your contract for payment count';
 
   const subject = `Welcome to BH Auto Protect • Policy ${policyNumber}`;
   const html = `<!DOCTYPE html>
@@ -1117,6 +1118,7 @@ const buildPolicyActivationEmail = ({
                   <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#e2e8f0;">
                     <li style="margin-bottom:8px;">Down payment: <strong>${escapeHtml(downPaymentDisplay)}</strong></li>
                     <li style="margin-bottom:8px;">Monthly payment: <strong>${escapeHtml(monthlyPaymentDisplay)}</strong></li>
+                    <li style="margin-bottom:8px;">Payments scheduled: <strong>${escapeHtml(paymentCountDisplay)}</strong></li>
                     <li>Contract balance: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
                   </ul>
                   <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;">We'll send reminders before each charge. Reach out if you'd like to adjust billing dates or methods.</p>
@@ -2047,7 +2049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       policyData.totalPremium = quote.priceTotal;
       policyData.monthlyPayment = quote.priceMonthly;
       const termMonths = quote.termMonths ?? 0;
-      policyData.totalPayments = quote.priceMonthly * termMonths;
+      policyData.totalPayments = termMonths > 0 ? termMonths : null;
       policyData.downPayment = quote.priceMonthly;
     }
 

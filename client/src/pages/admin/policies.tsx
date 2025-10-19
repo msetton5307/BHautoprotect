@@ -36,6 +36,18 @@ const formatDeductible = (value: number | null | undefined) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(numeric);
 };
 
+const formatPaymentCount = (value: number | null | undefined) => {
+  if (value === null || value === undefined) {
+    return '—';
+  }
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || Number.isNaN(numeric) || numeric <= 0) {
+    return '—';
+  }
+  const rounded = Math.round(numeric);
+  return `${rounded} ${rounded === 1 ? 'payment' : 'payments'}`;
+};
+
 const formatDate = (value: string | null | undefined) =>
   value
     ? new Date(value).toLocaleString('en-US', {
@@ -557,7 +569,7 @@ export default function AdminPolicies() {
                               <span>Total premium · {formatCurrency(policy.totalPremium)}</span>
                               <span>Down · {formatCurrency(policy.downPayment)}</span>
                               <span>Monthly · {formatCurrency(policy.monthlyPayment)}</span>
-                              <span>Total paid · {formatCurrency(policy.totalPayments)}</span>
+                              <span>Payments · {formatPaymentCount(policy.totalPayments)}</span>
                             </div>
                           </TableCell>
                           <TableCell className="px-4 py-3 align-top text-slate-600 whitespace-normal break-words">
