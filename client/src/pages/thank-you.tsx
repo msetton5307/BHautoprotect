@@ -4,10 +4,17 @@ import Navigation from "@/components/navigation";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
 
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
 export default function ThankYou() {
   const [, navigate] = useLocation();
   const [authorized, setAuthorized] = useState(false);
   const [leadSource, setLeadSource] = useState<string | null>(null);
+  const [conversionTracked, setConversionTracked] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -42,6 +49,19 @@ export default function ThankYou() {
       navigate("/");
     }
   }, [navigate]);
+
+  useEffect(() => {
+    if (!leadSource || conversionTracked) {
+      return;
+    }
+
+    if (leadSource === "landing-page" && typeof window !== "undefined") {
+      window.gtag?.("event", "conversion", {
+        send_to: "AW-17574702052/SJKBCLvojrAbEOTXorxB",
+      });
+      setConversionTracked(true);
+    }
+  }, [conversionTracked, leadSource]);
 
   if (!authorized) {
     return null;
