@@ -1,8 +1,52 @@
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 import Navigation from "@/components/navigation";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
 
 export default function ThankYou() {
+  const [, navigate] = useLocation();
+  const [authorized, setAuthorized] = useState(false);
+  const [leadSource, setLeadSource] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const source = params.get("source");
+    const submissionRaw = window.sessionStorage.getItem("lastLeadSubmission");
+
+    if (!source || !submissionRaw) {
+      navigate("/");
+      return;
+    }
+
+    try {
+      const submission = JSON.parse(submissionRaw) as {
+        source?: string;
+        submittedAt?: string;
+      };
+
+      const submittedAt = submission.submittedAt ? Date.parse(submission.submittedAt) : NaN;
+      const isRecentSubmission = Number.isFinite(submittedAt) && Date.now() - submittedAt < 15 * 60 * 1000;
+
+      if (submission.source !== source || !isRecentSubmission) {
+        navigate("/");
+        return;
+      }
+
+      setLeadSource(source);
+      setAuthorized(true);
+      window.sessionStorage.removeItem("lastLeadSubmission");
+    } catch (error) {
+      navigate("/");
+    }
+  }, [navigate]);
+
+  if (!authorized) {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex flex-col">
       <Navigation onGetQuote={() => {}} />
@@ -18,6 +62,11 @@ export default function ThankYou() {
               been successfully received, and our dedicated specialists are
               already reviewing your information.
             </p>
+            {leadSource && (
+              <p className="text-sm text-gray-500 mb-6">
+                Submission source: {leadSource}
+              </p>
+            )}
             <p className="text-lg text-gray-700 mb-8">
               A member of our team will be in touch within 24 hours to craft a
               personalized protection plan for your vehicle. We look forward to

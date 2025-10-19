@@ -108,7 +108,18 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         });
       },
       onSuccess: () => {
-        navigate("/thank-you");
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(
+            "lastLeadSubmission",
+            JSON.stringify({
+              source: leadSource,
+              submittedAt: new Date().toISOString(),
+            }),
+          );
+        }
+
+        const encodedSource = encodeURIComponent(leadSource);
+        navigate(`/thank-you?source=${encodedSource}`);
         onSubmitted?.();
         resetForm();
       },
