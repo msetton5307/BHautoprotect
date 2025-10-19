@@ -82,6 +82,7 @@ export const leads = pgTable("leads", {
   utmSource: varchar("utm_source"),
   utmMedium: varchar("utm_medium"),
   utmCampaign: varchar("utm_campaign"),
+  rawPayload: jsonb("raw_payload"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -373,6 +374,7 @@ export const policyFilesRelations = relations(policyFiles, ({ one }) => ({
 export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
   createdAt: true,
+  rawPayload: true,
 });
 
 export const insertVehicleSchema = createInsertSchema(vehicles).omit({

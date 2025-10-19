@@ -62,6 +62,34 @@ import { renderEmailLogo } from "./emailBranding";
 const generateLeadId = () => Math.floor(10000000 + Math.random() * 90000000).toString();
 const getEasternDate = () => new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
 
+const zapierHookUrl = process.env.ZAPIER_HOOK_URL?.trim() || null;
+
+const sendLeadToZapier = async (savedRow: Lead, originalPayload: unknown) => {
+  if (!zapierHookUrl) {
+    return;
+  }
+
+  try {
+    const response = await fetch(zapierHookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ savedRow, originalPayload }),
+    });
+
+    if (!response.ok) {
+      const responseText = await response.text().catch(() => '');
+      console.error(
+        `Failed to notify Zapier webhook (status ${response.status}):`,
+        responseText,
+      );
+    }
+  } catch (error) {
+    console.error('Error sending lead to Zapier:', error);
+  }
+};
+
 const resolveLeadIdCandidates = (value: string | null | undefined): string[] => {
   if (typeof value !== 'string') {
     return [];
@@ -171,7 +199,10 @@ export interface IStorage {
   // Lead operations
   getLeads(filters: any): Promise<Lead[]>;
   getLead(id: string): Promise<Lead | undefined>;
-  createLead(lead: InsertLead & { id?: string; createdAt?: Date }): Promise<Lead>;
+  createLead(
+    lead: InsertLead & { id?: string; createdAt?: Date },
+    options?: { originalPayload?: unknown },
+  ): Promise<Lead>;
   updateLead(id: string, updates: Partial<InsertLead>): Promise<Lead>;
   deleteLead(id: string): Promise<Lead | undefined>;
   
@@ -331,13 +362,21 @@ export class DatabaseStorage implements IStorage {
     return undefined;
   }
 
-  async createLead(leadData: InsertLead & { id?: string; createdAt?: Date }): Promise<Lead> {
+  async createLead(
+    leadData: InsertLead & { id?: string; createdAt?: Date },
+    options: { originalPayload?: unknown } = {},
+  ): Promise<Lead> {
     const id = leadData.id ?? generateLeadId();
     const createdAt = leadData.createdAt ?? getEasternDate();
+    const rawPayload =
+      options.originalPayload !== undefined
+        ? options.originalPayload
+        : (leadData as InsertLead & { rawPayload?: unknown }).rawPayload ?? null;
     const [lead] = await db
       .insert(leads)
-      .values({ ...leadData, id, createdAt })
+      .values({ ...leadData, id, createdAt, rawPayload })
       .returning();
+    await sendLeadToZapier(lead, options.originalPayload ?? rawPayload ?? leadData);
     return lead;
   }
 

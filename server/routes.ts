@@ -2761,7 +2761,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         source: 'customer-portal',
       };
 
-      const newLead = await storage.createLead(leadData);
+      const newLead = await storage.createLead(leadData, {
+        originalPayload: req.body,
+      });
 
       const vehicle = payload.vehicle;
       if (
@@ -3309,7 +3311,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } satisfies Partial<InsertLead>;
 
       const leadData = insertLeadSchema.parse(leadInput);
-      const lead = await storage.createLead(leadData);
+      const lead = await storage.createLead(leadData, {
+        originalPayload: req.body,
+      });
 
       leadMeta[lead.id] = leadMeta[lead.id] ?? DEFAULT_META;
 
@@ -3342,6 +3346,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...leadData,
         consentTimestamp: getEasternDate(),
         consentUserAgent: req.get('User-Agent') || '',
+      }, {
+        originalPayload: req.body,
       });
       
       // Create vehicle
@@ -3808,7 +3814,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .omit({ leadId: true })
         .parse(req.body.vehicle);
 
-      const lead = await storage.createLead(leadData);
+      const lead = await storage.createLead(leadData, {
+        originalPayload: req.body,
+      });
       const vehicle = await storage.createVehicle({
         ...vehicleData,
         leadId: lead.id,
