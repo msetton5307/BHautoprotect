@@ -532,18 +532,31 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updatePolicy(leadId: string, updates: Partial<InsertPolicy>): Promise<Policy> {
+    const sanitized = Object.fromEntries(
+      Object.entries(updates).filter(([, value]) => value !== undefined),
+    ) as Partial<InsertPolicy>;
+
     const existing = await this.getPolicyByLeadId(leadId);
     if (existing) {
+      if (Object.keys(sanitized).length === 0) {
+        return existing;
+      }
+
       const [policy] = await db
         .update(policies)
-        .set(updates)
+        .set(sanitized)
         .where(eq(policies.leadId, leadId))
         .returning();
       return policy;
     }
+
     const [policy] = await db
       .insert(policies)
-      .values({ ...updates, leadId })
+      .values({
+        ...sanitized,
+        id: sanitized.id ?? leadId,
+        leadId,
+      })
       .returning();
     return policy;
   }
