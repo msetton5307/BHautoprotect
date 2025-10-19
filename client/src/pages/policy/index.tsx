@@ -115,7 +115,7 @@ export default function PolicyOverview() {
                 ))}
               </ul>
               <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 text-sm text-primary">
-                Need help comparing coverage? Call <a className="font-semibold" href="tel:18882001234">1 (888) 200-1234</a> and our concierge team will walk through the policy with you.
+                Need help comparing coverage? Call <a className="font-semibold" href="tel:+13024068053">(302) 406-8053</a> and our concierge team will walk through the policy with you.
               </div>
             </CardContent>
           </Card>
@@ -222,7 +222,7 @@ export default function PolicyOverview() {
               Start my quote
             </Button>
             <a
-              href="tel:18882001234"
+              href="tel:+13024068053"
               className="inline-flex items-center justify-center rounded-lg border border-white/60 px-6 py-3 text-base font-semibold text-white hover:bg-white/10"
             >
               Speak with an advisor

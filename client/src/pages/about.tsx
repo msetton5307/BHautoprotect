@@ -153,7 +153,7 @@ export default function About() {
               </p>
               <p className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 p-4">
                 <Phone className="h-5 w-5 text-primary" />
-                <span>Service hotline: (855) 555-2746</span>
+                <span>Service hotline: (302) 406-8053</span>
               </p>
               <p className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 p-4">
                 <Mail className="h-5 w-5 text-primary" />
