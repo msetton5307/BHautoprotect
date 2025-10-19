@@ -9,6 +9,8 @@ import Landing from "@/pages/landing";
 import AdvertisingLanding from "@/pages/advertising";
 import Quote from "@/pages/quote";
 import PrivacyPage from "@/pages/legal/privacy";
+import TermsPage from "@/pages/legal/terms";
+import TCPAPage from "@/pages/legal/tcpa";
 import AdminDashboard from "@/pages/admin/dashboard";
 import AdminLeads from "@/pages/admin/leads";
 import AdminLeadDetail from "@/pages/admin/leads/[id]";
@@ -42,6 +44,8 @@ function Router() {
       <Route path="/thank-you" component={ThankYou} />
       <Route path="/campaign" component={AdvertisingLanding} />
       <Route path="/legal/privacy" component={PrivacyPage} />
+      <Route path="/legal/terms" component={TermsPage} />
+      <Route path="/legal/tcpa" component={TCPAPage} />
       <Route path="/admin/leads/new" component={AdminLeadNew} />
       <Route path="/admin/leads/:id" component={AdminLeadDetail} />
       <Route path="/admin/leads" component={AdminLeads} />
