@@ -542,7 +542,7 @@ export default function Landing() {
         </div>
       </motion.section>
 
-      <QuoteModal isOpen={isQuoteModalOpen} onClose={closeQuoteModal} />
+      <QuoteModal isOpen={isQuoteModalOpen} onClose={closeQuoteModal} leadSource="landing-page" />
     </div>
   );
 }
