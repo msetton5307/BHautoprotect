@@ -34,6 +34,7 @@ import AdminLogin from "@/components/admin-login";
 import { fetchWithAuth, getAuthHeaders, clearCredentials } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
+import { useBranding } from "@/hooks/use-branding";
 import PolicyDocumentRequests from "@/components/admin-policy-document-requests";
 import { ArrowLeft, ChevronDown, Eye, Mail, Paperclip, PencilLine, Sparkles, ExternalLink } from "lucide-react";
 
@@ -229,7 +230,7 @@ const escapeHtml = (value: string): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
-const EMAIL_BRAND_LOGO =
+const DEFAULT_EMAIL_BRAND_LOGO =
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMTIwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNjAlIiBzdG9wLWNvbG9yPSIjMWQ0ZWQ4IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZykiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0yMCA3MGMyOC0yOCA4OC00OCAxNDAtNDhzMTEyIDIwIDE0MCA0OCIvPgogICAgPHBhdGggZD0iTTI4IDU4YzE4LTIyIDc4LTQwIDEzMi00MHMxMTQgMTggMTMyIDQwIiBvcGFjaXR5PSIwLjU1Ii8+CiAgPC9nPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIxMCA0OCkiPgogICAgPHBhdGggZD0iTTM2IDQgMTgtNCAwIDR2MzJjMCAxOCA4IDM0IDE4IDQyIDEwLTggMTgtMjQgMTgtNDJWNFoiIGZpbGw9IiMwZjE3MmEiIG9wYWNpdHk9IjAuMTIiLz4KICAgIDxwYXRoIGQ9Ik0zNiAwIDE4LTggMCAwdjMyYzAgMTggOCAzNCAxOCA0MiAxMC04IDE4LTI0IDE4LTQyVjBaIiBmaWxsPSIjMGIxZjRlIi8+CiAgICA8cGF0aCBkPSJNOSAxOCAxOCAyOGwxNS0xOCIgc3Ryb2tlPSIjZTBmMmZlIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwvZz4KPC9zdmc+";
 const CUSTOMER_PORTAL_URL = "https://bhautoprotect.com/portal";
 
@@ -411,12 +412,24 @@ const buildEmailLayout = ({
   heroTitle,
   heroSubtitle,
   bodyContent,
+  brandingLogoUrl,
 }: {
   subject: string;
   heroTitle: string;
   heroSubtitle: string;
   bodyContent: string;
-}): string => `<!DOCTYPE html>
+  brandingLogoUrl?: string | null;
+}): string => {
+  const trimmedLogo = typeof brandingLogoUrl === "string" ? brandingLogoUrl.trim() : "";
+  const resolvedLogoUrl = trimmedLogo || DEFAULT_EMAIL_BRAND_LOGO;
+  const logoMarkup = resolvedLogoUrl
+    ? `<img src="${escapeHtml(resolvedLogoUrl)}" alt="BHAutoProtect logo" style="width:136px;max-width:160px;height:auto;display:block;margin:0 auto;filter:drop-shadow(0 12px 26px rgba(15,23,42,0.4));border-radius:14px;object-fit:contain;" />`
+    : `<div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;color:#ffffff;">BHAUTOPROTECT</div>`;
+  const heroSubtitleRow = heroSubtitle
+    ? `<tr><td align="center" style="padding:10px 0 0 0;font-size:14px;opacity:0.88;color:#ffffff;">${escapeHtml(heroSubtitle)}</td></tr>`
+    : "";
+
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charSet="UTF-8" />
@@ -426,22 +439,23 @@ const buildEmailLayout = ({
 <body style="margin:0;padding:0;background-color:#f5f7fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:32px 0;">
     <tr>
-      <td align="center">
-        <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);">
+      <td align="center" style="padding:0 16px;">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);margin:0 auto;">
           <tr>
-            <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
-              <div style="display:flex;align-items:center;gap:18px;">
-                <img
-                  src="${EMAIL_BRAND_LOGO}"
-                  alt="BHAutoProtect logo"
-                  style="width:96px;height:auto;display:block;filter:drop-shadow(0 8px 18px rgba(15,23,42,0.35));"
-                />
-                <div>
-                  <div style="font-size:12px;letter-spacing:0.28em;text-transform:uppercase;opacity:0.7;">BHAUTOPROTECT</div>
-                  <div style="font-size:24px;font-weight:700;margin-top:6px;">${escapeHtml(heroTitle)}</div>
-                </div>
-              </div>
-              <div style="margin-top:16px;font-size:14px;opacity:0.88;">${escapeHtml(heroSubtitle)}</div>
+            <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:32px 28px;color:#ffffff;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td align="center" style="padding:0 0 18px 0;">
+                    ${logoMarkup}
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="font-size:24px;font-weight:700;color:#ffffff;">
+                    ${escapeHtml(heroTitle)}
+                  </td>
+                </tr>
+                ${heroSubtitleRow}
+              </table>
             </td>
           </tr>
           <tr>
@@ -450,7 +464,7 @@ const buildEmailLayout = ({
             </td>
           </tr>
           <tr>
-            <td style="background-color:#f9fafb;padding:22px 32px;color:#6b7280;font-size:12px;line-height:1.6;">
+            <td style="background-color:#f9fafb;padding:22px 32px;color:#6b7280;font-size:12px;line-height:1.6;text-align:center;">
               You’re receiving this email because you are part of the BHAutoProtect family. If any detail looks off, reply to this message and we’ll make it right immediately.
             </td>
           </tr>
@@ -460,15 +474,18 @@ const buildEmailLayout = ({
   </table>
 </body>
 </html>`;
+};
 
 const buildBrandedEmailFromPlainText = ({
   subject,
   message,
   policy,
+  brandingLogoUrl,
 }: {
   subject: string;
   message: string;
   policy: any;
+  brandingLogoUrl?: string | null;
 }): string => {
   const policyPackage = formatPolicyName(policy?.package) || "Vehicle Protection";
   const heroTitle = `${policyPackage} Update`;
@@ -482,10 +499,11 @@ const buildBrandedEmailFromPlainText = ({
     heroTitle,
     heroSubtitle,
     bodyContent: finalBody,
+    brandingLogoUrl,
   });
 };
 
-const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
+const buildDefaultEmailTemplates = (policy: any, brandingLogoUrl?: string | null): EmailTemplateRecord[] => {
   const name = getPolicyHolderName(policy);
   const displayName = name || "there";
   const policyPackage = formatPolicyName(policy?.package) || "Vehicle Protection";
@@ -612,6 +630,7 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
       heroTitle: "Finish Activating Your Coverage",
       heroSubtitle,
       bodyContent: activationStepsBody,
+      brandingLogoUrl,
     }),
   });
 
@@ -640,6 +659,7 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
       heroTitle: `${policyPackage} Coverage Activated`,
       heroSubtitle,
       bodyContent: policyActivatedBody,
+      brandingLogoUrl,
     }),
   });
 
@@ -675,6 +695,7 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
       heroTitle: "Account Past Due Notice",
       heroSubtitle,
       bodyContent: pastDueBody,
+      brandingLogoUrl,
     }),
   });
 
@@ -705,6 +726,7 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
       heroTitle: "Rim & Tire Voucher Available",
       heroSubtitle,
       bodyContent: rimTireBody,
+      brandingLogoUrl,
     }),
   });
 
@@ -735,6 +757,7 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
       heroTitle: "Maintenance Voucher Ready",
       heroSubtitle,
       bodyContent: maintenanceBody,
+      brandingLogoUrl,
     }),
   });
 
@@ -809,6 +832,29 @@ export default function AdminPolicyDetail() {
     enabled: baseQueriesEnabled,
   });
 
+  const brandingQuery = useBranding();
+  const brandingLogoUrl = useMemo(() => {
+    const rawValue = brandingQuery.data?.data?.logoUrl;
+    if (typeof rawValue !== "string") {
+      return null;
+    }
+    const trimmed = rawValue.trim();
+    if (!trimmed) {
+      return null;
+    }
+    if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("data:")) {
+      return trimmed;
+    }
+    if (typeof window !== "undefined" && window.location?.origin) {
+      try {
+        return new URL(trimmed, window.location.origin).toString();
+      } catch {
+        return trimmed;
+      }
+    }
+    return trimmed;
+  }, [brandingQuery.data?.data?.logoUrl]);
+
   const policy = data?.data ?? null;
   const leadCardNumber = useMemo(() => {
     const raw = policy?.lead?.cardNumber;
@@ -850,7 +896,10 @@ export default function AdminPolicyDetail() {
   }, [chargesResponse]);
 
   const policyHolderName = getPolicyHolderName(policy);
-  const defaultTemplates = useMemo(() => buildDefaultEmailTemplates(policy), [policy]);
+  const defaultTemplates = useMemo(
+    () => buildDefaultEmailTemplates(policy, brandingLogoUrl),
+    [policy, brandingLogoUrl],
+  );
   const savedTemplates = templatesResponse?.data ?? [];
 
   const primaryPaymentProfile = paymentProfiles[0] ?? null;
@@ -919,7 +968,12 @@ export default function AdminPolicyDetail() {
   }, [policy]);
 
   const buildCustomEmail = (message: string, subjectOverride?: string) =>
-    buildBrandedEmailFromPlainText({ subject: subjectOverride ?? emailSubject, message, policy });
+    buildBrandedEmailFromPlainText({
+      subject: subjectOverride ?? emailSubject,
+      message,
+      policy,
+      brandingLogoUrl,
+    });
 
   const syncPlainMessageFromHtml = (html: string) => {
     const stripped = stripHtmlToPlainText(html);
