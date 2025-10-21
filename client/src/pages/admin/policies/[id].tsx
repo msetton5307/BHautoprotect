@@ -519,14 +519,45 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
     },
   ];
 
-  const paymentRows: DetailRow[] = [
-    { label: "Down Payment", value: formatCurrencyFromCents(policy?.downPayment) },
-    { label: "Monthly Payment", value: formatCurrencyFromCents(policy?.monthlyPayment) },
-    {
-      label: "Total Payments",
-      value: policy?.totalPayments != null ? formatPaymentCount(policy.totalPayments) : "N/A",
-    },
-  ];
+  const monthlyPaymentValue =
+    policy?.monthlyPayment != null && !Number.isNaN(Number(policy.monthlyPayment))
+      ? Number(policy.monthlyPayment)
+      : null;
+  const totalPaymentsCount =
+    policy?.totalPayments != null && !Number.isNaN(Number(policy.totalPayments))
+      ? Number(policy.totalPayments)
+      : null;
+  const isOneTimePaymentPlan =
+    (totalPaymentsCount != null && totalPaymentsCount <= 1) ||
+    monthlyPaymentValue == null ||
+    monthlyPaymentValue <= 0;
+
+  const paymentRows: DetailRow[] = isOneTimePaymentPlan
+    ? []
+    : [
+        { label: "Down Payment", value: formatCurrencyFromCents(policy?.downPayment) },
+        { label: "Monthly Payment", value: formatCurrencyFromCents(policy?.monthlyPayment) },
+        {
+          label: "Total Payments",
+          value: policy?.totalPayments != null ? formatPaymentCount(policy.totalPayments) : "N/A",
+        },
+      ];
+
+  const vehicleTableHtml = `
+      <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+        <tbody>
+          ${renderCompactRows(vehicleRows)}
+        </tbody>
+      </table>`;
+
+  const paymentTableHtml = paymentRows.length
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+        <tbody>
+          ${renderCompactRows(paymentRows)}
+        </tbody>
+      </table>`
+    : '';
 
   const coverageTables = `
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background-color:#f9fafb;border:1px solid #e5e7eb;margin-bottom:28px;">
@@ -535,16 +566,8 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
       </tbody>
     </table>
     <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;">
-      <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
-        <tbody>
-          ${renderCompactRows(vehicleRows)}
-        </tbody>
-      </table>
-      <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
-        <tbody>
-          ${renderCompactRows(paymentRows)}
-        </tbody>
-      </table>
+      ${vehicleTableHtml}
+      ${paymentTableHtml}
     </div>
   `;
 
