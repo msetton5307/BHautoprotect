@@ -53,6 +53,7 @@ type PolicyFormState = {
   policyStartDate: string;
   monthlyPayment: string;
   totalPayments: string;
+  paymentOption: 'monthly' | 'one-time';
 };
 
 type QuoteFormState = {
@@ -157,6 +158,7 @@ export default function AdminLeadDetail() {
     policyStartDate: '',
     monthlyPayment: '',
     totalPayments: '',
+    paymentOption: 'one-time',
   });
   const [vehicleForm, setVehicleForm] = useState<any>({});
   const [newNote, setNewNote] = useState('');
@@ -618,6 +620,16 @@ export default function AdminLeadDetail() {
     }
     if (leadPayload.policy) {
       const p = leadPayload.policy;
+      const paymentOption: PolicyFormState['paymentOption'] = (() => {
+        const raw = typeof p.paymentOption === 'string' ? p.paymentOption.toLowerCase() : null;
+        if (raw === 'monthly') {
+          return 'monthly';
+        }
+        if (typeof p.monthlyPayment === 'number' && Number.isFinite(p.monthlyPayment) && p.monthlyPayment > 0) {
+          return 'monthly';
+        }
+        return 'one-time';
+      })();
       setPolicyForm({
         package: p.package || '',
         expirationMiles: p.expirationMiles?.toString() || '',
@@ -631,6 +643,7 @@ export default function AdminLeadDetail() {
           p.totalPayments !== null && p.totalPayments !== undefined
             ? String(p.totalPayments)
             : '',
+        paymentOption,
       });
     }
 
@@ -731,8 +744,12 @@ export default function AdminLeadDetail() {
         resolvedTotal = resolvedMonthly * resolvedTerm;
       }
 
-      const paymentOption: QuoteFormState['paymentOption'] =
-        resolvedMonthly && resolvedMonthly > 0 ? 'monthly' : 'one-time';
+      const paymentOption: QuoteFormState['paymentOption'] = (() => {
+        if (typeof policy.paymentOption === 'string') {
+          return policy.paymentOption === 'monthly' ? 'monthly' : 'one-time';
+        }
+        return resolvedMonthly && resolvedMonthly > 0 ? 'monthly' : 'one-time';
+      })();
 
       setQuoteForm({
         plan: planValue,
@@ -805,7 +822,11 @@ export default function AdminLeadDetail() {
         next.priceTotal = monthlyFromPolicy * next.termMonths;
       }
 
-      if (next.priceMonthly && next.priceMonthly > 0) {
+      if (policyForm.paymentOption === 'monthly') {
+        next.paymentOption = 'monthly';
+      } else if (policyForm.paymentOption === 'one-time') {
+        next.paymentOption = 'one-time';
+      } else if (next.priceMonthly && next.priceMonthly > 0) {
         next.paymentOption = 'monthly';
       } else if (next.priceTotal && next.priceTotal > 0) {
         next.paymentOption = 'one-time';
@@ -877,6 +898,17 @@ export default function AdminLeadDetail() {
 
   const handleConvert = () => {
     if (hasPolicy) return;
+    if (
+      policyForm.paymentOption === 'monthly' &&
+      (policyForm.monthlyPayment.trim().length === 0 || policyForm.totalPayments.trim().length === 0)
+    ) {
+      toast({
+        title: 'Missing payment details',
+        description: 'Monthly policies require monthly payment amount and total payment count.',
+        variant: 'destructive',
+      });
+      return;
+    }
     convertLeadMutation.mutate(policyForm);
   };
 
@@ -991,6 +1023,18 @@ export default function AdminLeadDetail() {
         vehiclePayload[key] = Number(vehiclePayload[key]);
       }
     });
+
+    if (
+      policyForm.paymentOption === 'monthly' &&
+      (policyForm.monthlyPayment.trim().length === 0 || policyForm.totalPayments.trim().length === 0)
+    ) {
+      toast({
+        title: 'Missing payment details',
+        description: 'Monthly policies require monthly payment amount and total payment count.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const policyPayload = buildPolicyPayloadFromForm(policyForm);
 
@@ -1470,23 +1514,67 @@ export default function AdminLeadDetail() {
                           />
                         </div>
                         <div>
-                          <Label>Monthly Payment</Label>
-                          <Input
-                            value={policyForm.monthlyPayment}
-                            onChange={(e) => setPolicyForm({ ...policyForm, monthlyPayment: e.target.value })}
-                            placeholder="Monthly Payment"
-                          />
+                          <Label>Payment Schedule</Label>
+                          <Select
+                            value={policyForm.paymentOption}
+                            onValueChange={(value) => {
+                              const nextOption = value as PolicyFormState['paymentOption'];
+                              setPolicyForm((prev) => {
+                                if (prev.paymentOption === nextOption) {
+                                  return prev;
+                                }
+                                if (nextOption === 'one-time') {
+                                  return {
+                                    ...prev,
+                                    paymentOption: nextOption,
+                                    monthlyPayment: '',
+                                    totalPayments: '',
+                                  };
+                                }
+                                return { ...prev, paymentOption: nextOption };
+                              });
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="one-time">Pay in Full (default)</SelectItem>
+                              <SelectItem value="monthly">Monthly Installments</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Selecting monthly will require installment details.
+                          </p>
                         </div>
-                        <div>
-                          <Label>Total Payments</Label>
-                          <Input
-                            value={policyForm.totalPayments}
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            onChange={(e) => setPolicyForm({ ...policyForm, totalPayments: e.target.value })}
-                            placeholder="Total Payments"
-                          />
-                        </div>
+                        {policyForm.paymentOption === 'monthly' && (
+                          <>
+                            <div>
+                              <Label>Monthly Payment</Label>
+                              <Input
+                                value={policyForm.monthlyPayment}
+                                onChange={(e) =>
+                                  setPolicyForm((prev) => ({ ...prev, monthlyPayment: e.target.value }))
+                                }
+                                placeholder="Monthly Payment"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <Label>Total Payments</Label>
+                              <Input
+                                value={policyForm.totalPayments}
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                onChange={(e) =>
+                                  setPolicyForm((prev) => ({ ...prev, totalPayments: e.target.value }))
+                                }
+                                placeholder="Total Payments"
+                                required
+                              />
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </AccordionContent>
