@@ -192,6 +192,35 @@ const dotStuff = (value: string): string => {
 
 const normalizeNewlines = (value: string): string => value.replace(/\r?\n/g, "\n");
 
+const createBoundary = (label: string): string => {
+  const unique = `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
+  return `${label}-${unique}`;
+};
+
+const chunkString = (value: string, size = 76): string => {
+  const chunks: string[] = [];
+  for (let index = 0; index < value.length; index += size) {
+    chunks.push(value.slice(index, index + size));
+  }
+  return chunks.join("\n");
+};
+
+const encodeAttachmentContent = (attachment: MailAttachment): string => {
+  if (attachment.encoding === "base64") {
+    if (typeof attachment.content === "string") {
+      return attachment.content.replace(/\s+/g, "");
+    }
+    return attachment.content.toString("utf8").replace(/\s+/g, "");
+  }
+
+  if (typeof attachment.content === "string") {
+    const buffer = Buffer.from(attachment.content, attachment.encoding ?? "utf8");
+    return buffer.toString("base64");
+  }
+
+  return attachment.content.toString("base64");
+};
+
 const buildDataBlock = (options: MailRequestResolved): string => {
   const headers: string[] = [];
   headers.push(`From: ${options.from}`);
@@ -202,20 +231,125 @@ const buildDataBlock = (options: MailRequestResolved): string => {
   headers.push(`Subject: ${options.subject}`);
   headers.push("MIME-Version: 1.0");
 
-  if (options.html) {
-    headers.push("Content-Type: text/html; charset=UTF-8");
+  const attachments = (options.attachments ?? []).filter((attachment) => {
+    return Boolean(attachment && attachment.contentType && attachment.content !== undefined);
+  });
+
+  const hasHtml = typeof options.html === "string" && options.html.length > 0;
+  const hasAttachments = attachments.length > 0;
+  let bodyContent = "";
+
+  if (hasHtml) {
+    const altBoundary = createBoundary("ALT");
+    const htmlContent = options.html ?? "";
+    if (hasAttachments) {
+      const relatedBoundary = createBoundary("REL");
+      headers.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+
+      const parts: string[] = [];
+      parts.push(`--${altBoundary}`);
+      parts.push("Content-Type: text/plain; charset=UTF-8");
+      parts.push("Content-Transfer-Encoding: 7bit");
+      parts.push("");
+      parts.push(options.text);
+      parts.push("");
+      parts.push(`--${altBoundary}`);
+      parts.push(`Content-Type: multipart/related; boundary="${relatedBoundary}"`);
+      parts.push("");
+      parts.push(`--${relatedBoundary}`);
+      parts.push("Content-Type: text/html; charset=UTF-8");
+      parts.push("Content-Transfer-Encoding: 7bit");
+      parts.push("");
+      parts.push(htmlContent);
+      parts.push("");
+
+      for (const attachment of attachments) {
+        parts.push(`--${relatedBoundary}`);
+        const nameSegment = attachment.filename ? `; name="${attachment.filename}"` : "";
+        parts.push(`Content-Type: ${attachment.contentType}${nameSegment}`);
+        parts.push("Content-Transfer-Encoding: base64");
+        if (attachment.contentId) {
+          parts.push(`Content-ID: <${attachment.contentId}>`);
+        }
+        const disposition = attachment.disposition ?? (attachment.contentId ? "inline" : "attachment");
+        const dispositionSegment = attachment.filename ? `; filename="${attachment.filename}"` : "";
+        parts.push(`Content-Disposition: ${disposition}${dispositionSegment}`);
+        parts.push("");
+        parts.push(chunkString(encodeAttachmentContent(attachment)));
+        parts.push("");
+      }
+
+      parts.push(`--${relatedBoundary}--`);
+      parts.push("");
+      parts.push(`--${altBoundary}--`);
+      bodyContent = parts.join("\n");
+    } else {
+      headers.push(`Content-Type: multipart/alternative; boundary="${altBoundary}"`);
+      const parts: string[] = [];
+      parts.push(`--${altBoundary}`);
+      parts.push("Content-Type: text/plain; charset=UTF-8");
+      parts.push("Content-Transfer-Encoding: 7bit");
+      parts.push("");
+      parts.push(options.text);
+      parts.push("");
+      parts.push(`--${altBoundary}`);
+      parts.push("Content-Type: text/html; charset=UTF-8");
+      parts.push("Content-Transfer-Encoding: 7bit");
+      parts.push("");
+      parts.push(htmlContent);
+      parts.push("");
+      parts.push(`--${altBoundary}--`);
+      bodyContent = parts.join("\n");
+    }
+  } else if (hasAttachments) {
+    const mixedBoundary = createBoundary("MIXED");
+    headers.push(`Content-Type: multipart/mixed; boundary="${mixedBoundary}"`);
+    const parts: string[] = [];
+    parts.push(`--${mixedBoundary}`);
+    parts.push("Content-Type: text/plain; charset=UTF-8");
+    parts.push("Content-Transfer-Encoding: 7bit");
+    parts.push("");
+    parts.push(options.text);
+    parts.push("");
+
+    for (const attachment of attachments) {
+      parts.push(`--${mixedBoundary}`);
+      const nameSegment = attachment.filename ? `; name="${attachment.filename}"` : "";
+      parts.push(`Content-Type: ${attachment.contentType}${nameSegment}`);
+      parts.push("Content-Transfer-Encoding: base64");
+      if (attachment.contentId) {
+        parts.push(`Content-ID: <${attachment.contentId}>`);
+      }
+      const disposition = attachment.disposition ?? "attachment";
+      const dispositionSegment = attachment.filename ? `; filename="${attachment.filename}"` : "";
+      parts.push(`Content-Disposition: ${disposition}${dispositionSegment}`);
+      parts.push("");
+      parts.push(chunkString(encodeAttachmentContent(attachment)));
+      parts.push("");
+    }
+
+    parts.push(`--${mixedBoundary}--`);
+    bodyContent = parts.join("\n");
   } else {
     headers.push("Content-Type: text/plain; charset=UTF-8");
+    headers.push("Content-Transfer-Encoding: 7bit");
+    bodyContent = options.text;
   }
 
-  headers.push("Content-Transfer-Encoding: 7bit");
   const headerBlock = headers.join("\r\n");
-
-  const bodyContent = options.html ?? options.text;
   const normalized = normalizeNewlines(bodyContent);
   const stuffed = dotStuff(normalized);
   const withCrlf = stuffed.replace(/\n/g, "\r\n");
   return `${headerBlock}\r\n\r\n${withCrlf}\r\n.`;
+};
+
+export type MailAttachment = {
+  filename?: string;
+  contentType: string;
+  content: Buffer | string;
+  encoding?: "base64" | "utf8";
+  disposition?: "inline" | "attachment";
+  contentId?: string;
 };
 
 type MailRequestResolved = {
@@ -225,6 +359,7 @@ type MailRequestResolved = {
   text: string;
   html?: string;
   replyTo?: string;
+  attachments?: MailAttachment[];
 };
 
 export type MailRequest = {
@@ -234,6 +369,7 @@ export type MailRequest = {
   text: string;
   html?: string;
   replyTo?: string;
+  attachments?: MailAttachment[];
 };
 
 export async function sendMail(request: MailRequest): Promise<void> {
@@ -259,6 +395,10 @@ export async function sendMail(request: MailRequest): Promise<void> {
     text: request.text,
     html: request.html,
     replyTo: request.replyTo,
+    attachments:
+      request.attachments && request.attachments.length > 0
+        ? [...request.attachments]
+        : undefined,
   };
 
   let socket: SmtpSocket | undefined;

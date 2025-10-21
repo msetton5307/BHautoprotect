@@ -4,7 +4,7 @@ import { createServer, type Server } from "http";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { storage } from "./storage";
-import { sendMail } from "./mail";
+import { sendMail, type MailRequest } from "./mail";
 import { z } from "zod";
 import {
   insertLeadSchema,
@@ -37,7 +37,12 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { calculateQuote } from "../client/src/lib/pricing";
 import { verifyPassword, hashPassword } from "./password";
-import { getEmailLogoDataUrl, renderEmailLogo } from "./emailBranding";
+import {
+  getEmailBrandingAttachments,
+  getEmailLogoCid,
+  hasEmailLogoAsset,
+  renderEmailLogo,
+} from "./emailBranding";
 
 const LEAD_STATUS_VALUES = leadStatusEnum.enumValues as [
   LeadStatus,
@@ -75,6 +80,22 @@ const updateLeadStatus = async (
   const updatedLead = await storage.updateLead(leadId, { status });
   syncLeadMetaWithLead(updatedLead);
   return updatedLead;
+};
+
+const withEmailBranding = (request: MailRequest): MailRequest => {
+  const brandingAttachments = getEmailBrandingAttachments();
+  if (brandingAttachments.length === 0) {
+    return request;
+  }
+  const existing = request.attachments ?? [];
+  return {
+    ...request,
+    attachments: [...existing, ...brandingAttachments],
+  };
+};
+
+const sendBrandedMail = async (request: MailRequest): Promise<void> => {
+  await sendMail(withEmailBranding(request));
 };
 
 const leadWebhookSecret = process.env.LEAD_WEBHOOK_SECRET;
@@ -983,7 +1004,7 @@ const sendNewLeadNotification = async ({
   });
 
   try {
-    await sendMail({
+    await sendBrandedMail({
       from: fromAddress,
       to: uniqueRecipients,
       subject: message.subject,
@@ -1671,6 +1692,18 @@ const buildPolicyActivationEmail = ({
     policy.deductible,
     'As listed on your contract',
   );
+  const monthlyPaymentValue =
+    typeof policy.monthlyPayment === 'number' && Number.isFinite(policy.monthlyPayment)
+      ? policy.monthlyPayment
+      : null;
+  const totalPaymentsCountRaw =
+    typeof policy.totalPayments === 'number' && Number.isFinite(policy.totalPayments)
+      ? Math.round(policy.totalPayments)
+      : null;
+  const isOneTimePaymentPlan =
+    (totalPaymentsCountRaw !== null && totalPaymentsCountRaw <= 1) ||
+    monthlyPaymentValue === null ||
+    monthlyPaymentValue <= 0;
   const downPaymentDisplay = formatCurrencyCentsOrFallback(
     policy.downPayment,
     'To be confirmed with your advisor',
@@ -1685,9 +1718,28 @@ const buildPolicyActivationEmail = ({
   );
   const contractBalanceDisplay = totalPremiumDisplay;
   const paymentCountDisplay =
-    typeof policy.totalPayments === 'number' && Number.isFinite(policy.totalPayments) && policy.totalPayments > 0
-      ? `${Math.round(policy.totalPayments)} ${Math.round(policy.totalPayments) === 1 ? 'payment' : 'payments'}`
+    totalPaymentsCountRaw !== null && totalPaymentsCountRaw > 0
+      ? `${totalPaymentsCountRaw} ${totalPaymentsCountRaw === 1 ? 'payment' : 'payments'}`
       : 'See your contract for payment count';
+  const paymentSectionHtml = isOneTimePaymentPlan
+    ? `<div style="background:#0f172a;border-radius:16px;padding:24px;color:#e2e8f0;margin-bottom:26px;">
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;">Payment summary</div>
+        <p style="margin:0 0 12px;font-size:15px;line-height:1.8;">Your coverage was set up as a pay-in-full policy.</p>
+        <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#e2e8f0;">
+          <li>Pay-in-full amount: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
+        </ul>
+        <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;">Need a copy of your receipt or help arranging financing later? Reply to this email and we’ll take care of it right away.</p>
+      </div>`
+    : `<div style="background:#0f172a;border-radius:16px;padding:24px;color:#e2e8f0;margin-bottom:26px;">
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;">Payment schedule</div>
+        <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#e2e8f0;">
+          <li style="margin-bottom:8px;">Down payment: <strong>${escapeHtml(downPaymentDisplay)}</strong></li>
+          <li style="margin-bottom:8px;">Monthly payment: <strong>${escapeHtml(monthlyPaymentDisplay)}</strong></li>
+          <li style="margin-bottom:8px;">Payments scheduled: <strong>${escapeHtml(paymentCountDisplay)}</strong></li>
+          <li>Contract balance: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
+        </ul>
+        <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;">We'll send reminders before each charge. Reach out if you'd like to adjust billing dates or methods.</p>
+      </div>`;
 
   const subject = `Welcome to BH Auto Protect • Policy ${policyNumber}`;
   const html = `<!DOCTYPE html>
@@ -1747,16 +1799,7 @@ const buildPolicyActivationEmail = ({
                     </tr>
                   </table>
                 </div>
-                <div style="background:#0f172a;border-radius:16px;padding:24px;color:#e2e8f0;margin-bottom:26px;">
-                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;">Payment schedule</div>
-                  <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#e2e8f0;">
-                    <li style="margin-bottom:8px;">Down payment: <strong>${escapeHtml(downPaymentDisplay)}</strong></li>
-                    <li style="margin-bottom:8px;">Monthly payment: <strong>${escapeHtml(monthlyPaymentDisplay)}</strong></li>
-                    <li style="margin-bottom:8px;">Payments scheduled: <strong>${escapeHtml(paymentCountDisplay)}</strong></li>
-                    <li>Contract balance: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
-                  </ul>
-                  <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;">We'll send reminders before each charge. Reach out if you'd like to adjust billing dates or methods.</p>
-                </div>
+                ${paymentSectionHtml}
                 <div style="background:#f8fafc;border-radius:16px;padding:24px;border:1px solid #e2e8f0;margin-bottom:28px;">
                   <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:12px;">Access your customer portal</div>
                   <p style="margin:0 0 14px;font-size:15px;line-height:1.7;">
@@ -1784,7 +1827,46 @@ const buildPolicyActivationEmail = ({
   </body>
 </html>`;
 
-  const text = `Hi ${customerName},\n\nWelcome to BH Auto Protect! Your ${planName} protection for ${vehicleSummary} is now active.\n\nPolicy number: ${policyNumber}\nEffective start: ${startDateDisplay}\nCoverage through: ${expirationDateDisplay}\nMileage limit: ${mileageLimitDisplay}\nDeductible: ${deductibleDisplay}\n\nPayment schedule\n- Down payment: ${downPaymentDisplay}\n- Monthly payment: ${monthlyPaymentDisplay}\n- Contract balance: ${contractBalanceDisplay}\n\nAccess your portal: ${portalLoginBaseUrl}\nSign in with ${loginEmailInstruction} and your policy ID ${policyNumber}.\n\nNeed help? Call (302) 406-8053 or reply to this email.\n\nThe BH Auto Protect Team`;
+  const textLines: string[] = [
+    `Hi ${customerName},`,
+    '',
+    `Welcome to BH Auto Protect! Your ${planName} protection for ${vehicleSummary} is now active.`,
+    '',
+    `Policy number: ${policyNumber}`,
+    `Effective start: ${startDateDisplay}`,
+    `Coverage through: ${expirationDateDisplay}`,
+    `Mileage limit: ${mileageLimitDisplay}`,
+    `Deductible: ${deductibleDisplay}`,
+  ];
+
+  if (isOneTimePaymentPlan) {
+    textLines.push(
+      '',
+      'Payment summary',
+      `- Pay-in-full amount: ${contractBalanceDisplay}`,
+    );
+  } else {
+    textLines.push(
+      '',
+      'Payment schedule',
+      `- Down payment: ${downPaymentDisplay}`,
+      `- Monthly payment: ${monthlyPaymentDisplay}`,
+      `- Payments scheduled: ${paymentCountDisplay}`,
+      `- Contract balance: ${contractBalanceDisplay}`,
+    );
+  }
+
+  textLines.push(
+    '',
+    `Access your portal: ${portalLoginBaseUrl}`,
+    `Sign in with ${loginEmailInstruction} and your policy ID ${policyNumber}.`,
+    '',
+    'Need help? Call (302) 406-8053 or reply to this email.',
+    '',
+    'The BH Auto Protect Team',
+  );
+
+  const text = textLines.join('\n');
 
   return { subject, html, text };
 };
@@ -1820,7 +1902,7 @@ const sendPolicyActivationEmail = async ({
   const recipientList = Array.from(recipientSet);
   const message = buildPolicyActivationEmail({ lead, policy, vehicle });
   try {
-    await sendMail({
+    await sendBrandedMail({
       to: recipientList,
       subject: message.subject,
       html: message.html,
@@ -2195,11 +2277,12 @@ const buildQuoteEmail = ({
     },
   ];
 
-  const emailLogoDataUrl = getEmailLogoDataUrl();
-  const logoMarkup = emailLogoDataUrl
+  const logoAvailable = hasEmailLogoAsset();
+  const logoCid = getEmailLogoCid();
+  const logoMarkup = logoAvailable
     ? `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
-        <img src="${emailLogoDataUrl}" alt="BH Auto Protect" class="email-logo-light" style="display:inline-block;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;" />
-        <img src="${emailLogoDataUrl}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;filter:brightness(0) invert(1);" />
+        <img src="cid:${logoCid}" alt="BH Auto Protect" class="email-logo-light" style="display:inline-block;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;" />
+        <img src="cid:${logoCid}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;filter:brightness(0) invert(1);" />
       </div>`
     : `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
         <span class="email-logo-light email-logo-text" style="display:inline-block;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#ffffff;">BH AUTO PROTECT</span>
@@ -3071,7 +3154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         vehicle,
       });
       try {
-        await sendMail({
+        await sendBrandedMail({
           to: salesRecipient,
           subject: notification.subject,
           html: notification.html,
@@ -4613,7 +4696,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       const text = htmlToPlainText(html) || subject;
 
-      await sendMail({
+      await sendBrandedMail({
         to: recipient,
         subject,
         html,
@@ -4741,7 +4824,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vehicle = await storage.getVehicleByLeadId(leadId);
       const { subject, html, text } = buildContractInviteEmail({ lead, vehicle, quote, contract });
 
-      await sendMail({ to: recipient, subject, html, text });
+      await sendBrandedMail({ to: recipient, subject, html, text });
 
       res.status(201).json({
         data: mapContractForAdmin(contract),
@@ -5529,7 +5612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             requestLink,
           });
           const text = htmlToPlainText(html) || subject;
-          await sendMail({
+          await sendBrandedMail({
             to: customer.email,
             subject,
             html,
@@ -5742,7 +5825,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sanitizedHtml = sanitizeRichHtml(bodyHtml);
       const plainText = htmlToPlainText(sanitizedHtml) || subject;
 
-      await sendMail({
+      await sendBrandedMail({
         to,
         subject,
         text: plainText,
