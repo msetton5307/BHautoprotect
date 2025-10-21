@@ -1687,11 +1687,11 @@ const buildQuoteEmail = ({
   const logoMarkup = emailLogoDataUrl
     ? `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
         <img src="${emailLogoDataUrl}" alt="BH Auto Protect" class="email-logo-light" style="display:inline-block;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;" />
-        <img src="${emailLogoDataUrl}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#f8fafc;filter:brightness(0) invert(1);" />
+        <img src="${emailLogoDataUrl}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;filter:brightness(0) invert(1);" />
       </div>`
     : `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
-        <span class="email-logo-light" style="display:inline-block;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#ffffff;">BH AUTO PROTECT</span>
-        <span class="email-logo-dark" style="display:none;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#f8fafc;">BH AUTO PROTECT</span>
+        <span class="email-logo-light email-logo-text" style="display:inline-block;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#ffffff;">BH AUTO PROTECT</span>
+        <span class="email-logo-dark email-logo-text" style="display:none;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#ffffff;">BH AUTO PROTECT</span>
       </div>`;
 
   const html = `<!DOCTYPE html>
@@ -1709,6 +1709,11 @@ const buildQuoteEmail = ({
       }
       .email-logo-dark {
         display: none;
+      }
+      .email-logo-text,
+      .email-header-title,
+      .email-header-subtitle {
+        color: #ffffff !important;
       }
       @media (prefers-color-scheme: dark) {
         body.email-body {
@@ -1728,7 +1733,11 @@ const buildQuoteEmail = ({
         }
         .email-header div {
           background: transparent !important;
-          color: #f8fafc !important;
+        }
+        .email-logo-text,
+        .email-header-title,
+        .email-header-subtitle {
+          color: #ffffff !important;
         }
         .email-content {
           background-color: #0b1220 !important;
@@ -1772,33 +1781,6 @@ const buildQuoteEmail = ({
           background-color: #111827 !important;
           color: #cbd5f5 !important;
           border-color: #1f2937 !important;
-        }
-        .coverage-card {
-          background: linear-gradient(180deg, #111827 0%, #0f172a 100%) !important;
-          border-color: #1f2937 !important;
-          color: #f8fafc !important;
-        }
-        .coverage-card-label,
-        .coverage-card-title,
-        .coverage-card-text {
-          background-color: transparent !important;
-          color: #cbd5f5 !important;
-        }
-        .coverage-card-title {
-          color: #f8fafc !important;
-        }
-        .coverage-card-table {
-          background-color: transparent !important;
-          color: #f8fafc !important;
-        }
-        .coverage-card-table td {
-          background-color: transparent !important;
-          color: #e2e8f0 !important;
-          border-color: #1f2937 !important;
-        }
-        .feature-icon {
-          background: linear-gradient(135deg, #38bdf8, #2563eb) !important;
-          color: #0f172a !important;
         }
         .email-callout--guarantee {
           background-color: #1e293b !important;
@@ -1851,6 +1833,14 @@ const buildQuoteEmail = ({
       [data-ogsb] .email-header {
         background: linear-gradient(135deg, #0b1220, #1e3a8a) !important;
         color: #f8fafc !important;
+      }
+      [data-ogsc] .email-logo-text,
+      [data-ogsb] .email-logo-text,
+      [data-ogsc] .email-header-title,
+      [data-ogsb] .email-header-title,
+      [data-ogsc] .email-header-subtitle,
+      [data-ogsb] .email-header-subtitle {
+        color: #ffffff !important;
       }
       [data-ogsc] .email-content,
       [data-ogsb] .email-content {
@@ -1905,36 +1895,6 @@ const buildQuoteEmail = ({
         color: #cbd5f5 !important;
         border-color: #1f2937 !important;
       }
-      [data-ogsc] .coverage-card,
-      [data-ogsb] .coverage-card {
-        background: linear-gradient(180deg, #111827 0%, #0f172a 100%) !important;
-        border-color: #1f2937 !important;
-        color: #f8fafc !important;
-      }
-      [data-ogsc] .coverage-card-label,
-      [data-ogsb] .coverage-card-label,
-      [data-ogsc] .coverage-card-title,
-      [data-ogsb] .coverage-card-title,
-      [data-ogsc] .coverage-card-text,
-      [data-ogsb] .coverage-card-text {
-        background-color: transparent !important;
-        color: #cbd5f5 !important;
-      }
-      [data-ogsc] .coverage-card-title,
-      [data-ogsb] .coverage-card-title {
-        color: #f8fafc !important;
-      }
-      [data-ogsc] .coverage-card-table,
-      [data-ogsb] .coverage-card-table {
-        background-color: transparent !important;
-        color: #f8fafc !important;
-      }
-      [data-ogsc] .coverage-card-table td,
-      [data-ogsb] .coverage-card-table td {
-        background-color: transparent !important;
-        color: #e2e8f0 !important;
-        border-color: #1f2937 !important;
-      }
       [data-ogsc] .email-callout--guarantee,
       [data-ogsb] .email-callout--guarantee {
         background-color: #1e293b !important;
@@ -1983,8 +1943,8 @@ const buildQuoteEmail = ({
             <tr>
               <td class="email-header" bgcolor="#111827" style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
                 ${logoMarkup}
-                <div style="font-size:24px;font-weight:700;margin-top:10px;background:transparent;color:#ffffff;">Your ${escapeHtml(planName)} Quote is Ready</div>
-                <div style="margin-top:12px;font-size:14px;opacity:0.85;background:transparent;color:#ffffff;">Quote • ${escapeHtml(quoteId)}</div>
+                <div class="email-header-title" style="font-size:24px;font-weight:700;margin-top:10px;background:transparent;color:#ffffff;">Your ${escapeHtml(planName)} Quote is Ready</div>
+                <div class="email-header-subtitle" style="margin-top:12px;font-size:14px;opacity:0.85;background:transparent;color:#ffffff;">Quote • ${escapeHtml(quoteId)}</div>
               </td>
             </tr>
             <tr>
