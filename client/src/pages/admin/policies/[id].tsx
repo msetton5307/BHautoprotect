@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -604,6 +615,7 @@ export default function AdminPolicyDetail() {
   const { id } = useParams();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, navigate] = useLocation();
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const baseQueriesEnabled = authenticated && !checking;
   const policyQueriesEnabled = baseQueriesEnabled && !!id;
@@ -748,6 +760,8 @@ export default function AdminPolicyDetail() {
   const [showSourceEditor, setShowSourceEditor] = useState(false);
   const [isEditPolicyOpen, setIsEditPolicyOpen] = useState(false);
   const [isUpdatingPolicy, setIsUpdatingPolicy] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeletingPolicy, setIsDeletingPolicy] = useState(false);
   const [policyForm, setPolicyForm] = useState(() => createPolicyFormState(policy));
 
   useEffect(() => {
@@ -1069,6 +1083,53 @@ export default function AdminPolicyDetail() {
     }
   };
 
+  const handleDeletePolicy = async () => {
+    if (!policy) {
+      return;
+    }
+
+    setIsDeletingPolicy(true);
+    try {
+      const response = await fetchWithAuth(`/api/admin/policies/${policy.id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+
+      ensureAuthorized(response);
+      if (!response.ok) {
+        let message = "Failed to delete policy";
+        try {
+          const data = await response.json();
+          if (typeof data?.message === "string") {
+            message = data.message;
+          }
+        } catch {
+          // ignore parsing errors
+        }
+        throw new Error(message);
+      }
+
+      toast({
+        title: "Policy deleted",
+        description: "The policy record and its related data have been removed.",
+      });
+
+      setIsDeleteDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/policies"] });
+      queryClient.removeQueries({ queryKey: ["/api/admin/policies", policy.id] });
+      navigate("/admin/policies");
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Failed to delete policy";
+      toast({
+        title: "Could not delete policy",
+        description,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingPolicy(false);
+    }
+  };
+
   const handleSaveTemplate = async () => {
     const trimmedName = newTemplateName.trim();
     const trimmedSubject = emailSubject.trim();
@@ -1293,7 +1354,7 @@ export default function AdminPolicyDetail() {
                       ) : null}
                     </p>
                   </div>
-                <div className="flex flex-col items-start gap-3 text-xs text-slate-200/80 sm:flex-row sm:items-center">
+                <div className="flex flex-col items-start gap-3 text-xs text-slate-200/80 sm:flex-row sm:items-center sm:gap-4">
                   <Badge
                     variant="outline"
                     className={`rounded-full border bg-transparent px-3 py-1 text-xs font-medium backdrop-blur ${autopayHeroBadgeClass}`}
@@ -1301,14 +1362,50 @@ export default function AdminPolicyDetail() {
                     {autopayLabel}
                   </Badge>
                   <span>Created {policyCreatedDisplay}</span>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
-                    onClick={() => setIsEditPolicyOpen(true)}
-                  >
-                    Edit policy
-                  </Button>
+                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
+                      onClick={() => setIsEditPolicyOpen(true)}
+                    >
+                      Edit policy
+                    </Button>
+                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white shadow-sm transition"
+                          disabled={isDeletingPolicy}
+                        >
+                          Delete policy
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this policy?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. Deleting the policy removes its notes, files,
+                            customer links, and billing records.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel disabled={isDeletingPolicy}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction asChild>
+                            <Button
+                              variant="destructive"
+                              onClick={handleDeletePolicy}
+                              disabled={isDeletingPolicy}
+                            >
+                              {isDeletingPolicy ? "Deleting..." : "Delete"}
+                            </Button>
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </div>
             </div>

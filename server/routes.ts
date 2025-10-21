@@ -5313,6 +5313,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/admin/policies/:id', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const deleted = await storage.deletePolicy(req.params.id);
+      if (!deleted) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      res.json({ data: deleted, message: 'Policy deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting policy:', error);
+      res.status(500).json({ message: 'Failed to delete policy' });
+    }
+  });
+
   app.get('/api/admin/policies/:id/payment-profiles', async (req, res) => {
     if (!ensureAdminUser(res)) {
       return;
