@@ -470,6 +470,14 @@ const formatTerm = (value: number | null | undefined): string => {
     return "Flexible";
   }
   const rounded = Math.round(value);
+  if (rounded <= 0) {
+    return "Flexible";
+  }
+  if (rounded % 12 === 0) {
+    const years = rounded / 12;
+    const suffix = years === 1 ? "year" : "years";
+    return `${years} ${suffix}`;
+  }
   const suffix = rounded === 1 ? "month" : "months";
   return `${rounded} ${suffix}`;
 };
@@ -1414,12 +1422,20 @@ const buildQuoteEmail = ({
   instructions?: string | null;
 }): { subject: string; html: string } => {
   const planName = formatPlanName(quote.plan);
-  const subject = `Your ${planName} Coverage Quote is Ready`;
+  const subject = `BH Auto Protect | Your ${planName} Coverage Quote is Ready`;
   const displayName = getLeadDisplayName(lead);
   const vehicleSummary = getVehicleSummary(vehicle);
   const quoteId = quote.id ?? "Pending";
-  const monthly = formatCurrencyFromCents(quote.priceMonthly);
-  const total = formatCurrencyFromCents(quote.priceTotal);
+  const hasMonthlyPayment =
+    typeof quote.priceMonthly === "number" && quote.priceMonthly > 0;
+  const hasPayInFullAmount =
+    typeof quote.priceTotal === "number" && quote.priceTotal > 0;
+  const monthly = hasMonthlyPayment
+    ? formatCurrencyFromCents(quote.priceMonthly)
+    : null;
+  const total = hasPayInFullAmount
+    ? formatCurrencyFromCents(quote.priceTotal)
+    : null;
   const deductible = formatCurrencyFromDollars(quote.deductible);
   const term = formatTerm(quote.termMonths);
   const validUntil = formatQuoteValidUntil(quote.validUntil ?? undefined);
@@ -1444,22 +1460,32 @@ const buildQuoteEmail = ({
   const paymentPreference: 'monthly' | 'one-time' =
     paymentOptionRaw === 'monthly' ? 'monthly' : 'one-time';
 
-  const highlightLabel = paymentPreference === 'monthly' ? 'Monthly Investment' : 'Pay-in-Full Investment';
-  const highlightValue = paymentPreference === 'monthly' ? monthly : total;
+  const highlightLabel =
+    paymentPreference === "monthly"
+      ? "Monthly Investment"
+      : "Pay-in-Full Investment";
+  const highlightValue =
+    paymentPreference === "monthly"
+      ? monthly ?? "We’ll finalize your monthly amount together."
+      : total ?? "We’ll finalize your pay-in-full amount together.";
   const highlightSupporting =
-    paymentPreference === 'monthly'
-      ? `Total of ${total} across ${term}.`
-      : `${term} of protection with a single payment.`;
+    paymentPreference === "monthly"
+      ? total
+        ? `Total of ${total} across ${term}.`
+        : "Want the pay-in-full total as well? Reply and we’ll prepare it instantly."
+      : term === "Flexible"
+        ? "Flexible coverage term with a single payment."
+        : `${term} of protection with a single payment.`;
 
   const paymentRows =
-    paymentPreference === 'monthly'
+    paymentPreference === "monthly"
       ? [
-          { label: 'Monthly Investment', value: monthly },
-          { label: 'One-Time Total', value: total },
+          ...(monthly ? [{ label: "Monthly Investment", value: monthly }] : []),
+          ...(total ? [{ label: "One-Time Total", value: total }] : []),
         ]
       : [
-          { label: 'Pay-in-Full Investment', value: total },
-          ...(quote.priceMonthly > 0 ? [{ label: 'Monthly Option', value: monthly }] : []),
+          ...(total ? [{ label: "Pay-in-Full Investment", value: total }] : []),
+          ...(monthly ? [{ label: "Monthly Option", value: monthly }] : []),
         ];
 
   const summaryRows = [
@@ -1502,13 +1528,15 @@ const buildQuoteEmail = ({
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
   <title>${escapeHtml(subject)}</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:32px 0;">
+<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;color-scheme:light;" bgcolor="#f5f7fa">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:32px 0;" bgcolor="#f5f7fa">
     <tr>
       <td align="center">
-        <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);" bgcolor="#ffffff">
           <tr>
             <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
               ${renderEmailLogo({ textColor: '#ffffff' })}
