@@ -120,13 +120,6 @@ export default function AdminSettings() {
     };
   }, [previewUrl]);
 
-  useEffect(() => {
-    const value = quotePreferencesQuery.data?.data?.emailInstructions;
-    if (typeof value === "string") {
-      setQuoteInstructions(value);
-    }
-  }, [quotePreferencesQuery.data?.data?.emailInstructions]);
-
   const brandingQuery = useQuery<BrandingResponse>({
     queryKey: ["/api/admin/branding"],
     queryFn: async () => {
@@ -162,6 +155,13 @@ export default function AdminSettings() {
     enabled: queriesEnabled,
     staleTime: 0,
   });
+
+  useEffect(() => {
+    const value = quotePreferencesQuery.data?.data?.emailInstructions;
+    if (typeof value === "string") {
+      setQuoteInstructions(value);
+    }
+  }, [quotePreferencesQuery.data?.data?.emailInstructions]);
 
   const sampleContractQuery = useQuery<SampleContractResponse>({
     queryKey: ["/api/admin/sample-contract"],
