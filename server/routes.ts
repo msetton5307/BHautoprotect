@@ -80,6 +80,7 @@ const updateLeadStatus = async (
 const leadWebhookSecret = process.env.LEAD_WEBHOOK_SECRET;
 
 const QUOTE_DEFAULT_CONTRACT_SETTING_KEY = 'quote_default_contract';
+const PUBLIC_SAMPLE_CONTRACT_SETTING_KEY = 'public_sample_contract';
 const QUOTE_EMAIL_INSTRUCTIONS_SETTING_KEY = 'quote_email_instructions';
 const DEFAULT_QUOTE_EMAIL_INSTRUCTIONS =
   'Ready to move forward? Click the contract button in your quote to review, complete your details, and sign to activate coverage.';
@@ -718,6 +719,151 @@ const buildDefaultContractMetadata = async (): Promise<
     fileType,
     fileSize: size,
     updatedAt: toIsoString(setting.updatedAt ?? null),
+  };
+};
+
+const getStoredSampleContractTemplate = async (): Promise<ContractTemplateFile | null> => {
+  const setting = await storage.getSiteSetting(PUBLIC_SAMPLE_CONTRACT_SETTING_KEY);
+  if (!setting) {
+    return null;
+  }
+
+  const parsed = parseStoredContractSetting(setting.value);
+  if (!parsed || typeof parsed.fileData !== 'string') {
+    return null;
+  }
+
+  const base64 = parsed.fileData.trim();
+  if (!base64) {
+    return null;
+  }
+
+  let size =
+    typeof parsed.fileSize === 'number' && Number.isFinite(parsed.fileSize) ? parsed.fileSize : undefined;
+  if (!size || size <= 0) {
+    try {
+      size = Buffer.from(base64, 'base64').length;
+    } catch (error) {
+      console.warn('Unable to calculate sample contract size:', error);
+      size = undefined;
+    }
+  }
+
+  if (!size || size <= 0) {
+    return null;
+  }
+
+  const fileName =
+    typeof parsed.fileName === 'string' && parsed.fileName.trim().length > 0
+      ? parsed.fileName.trim()
+      : 'BH-Auto-Protect-Sample-Contract.pdf';
+  const fileType =
+    typeof parsed.fileType === 'string' && parsed.fileType.trim().length > 0
+      ? parsed.fileType.trim()
+      : 'application/pdf';
+
+  return { base64, size, fileName, fileType };
+};
+
+const buildSampleContractMetadata = async (): Promise<
+  | {
+      fileName: string;
+      fileType: string;
+      fileSize: number;
+      updatedAt: string | null;
+      isPlaceholder: boolean;
+    }
+  | null
+> => {
+  const setting = await storage.getSiteSetting(PUBLIC_SAMPLE_CONTRACT_SETTING_KEY);
+  if (setting) {
+    const parsed = parseStoredContractSetting(setting.value);
+    if (parsed && typeof parsed.fileData === 'string' && parsed.fileData.trim().length > 0) {
+      const base64 = parsed.fileData.trim();
+      let size =
+        typeof parsed.fileSize === 'number' && Number.isFinite(parsed.fileSize) ? parsed.fileSize : undefined;
+      if (!size || size <= 0) {
+        try {
+          size = Buffer.from(base64, 'base64').length;
+        } catch (error) {
+          console.warn('Unable to calculate sample contract size:', error);
+          size = undefined;
+        }
+      }
+
+      if (size && size > 0) {
+        const fileName =
+          typeof parsed.fileName === 'string' && parsed.fileName.trim().length > 0
+            ? parsed.fileName.trim()
+            : 'BH-Auto-Protect-Sample-Contract.pdf';
+        const fileType =
+          typeof parsed.fileType === 'string' && parsed.fileType.trim().length > 0
+            ? parsed.fileType.trim()
+            : 'application/pdf';
+
+        return {
+          fileName,
+          fileType,
+          fileSize: size,
+          updatedAt: toIsoString(setting.updatedAt ?? null),
+          isPlaceholder: false,
+        };
+      }
+    }
+  }
+
+  if (!placeholderContractBase64) {
+    return null;
+  }
+
+  let placeholderSize = 0;
+  try {
+    placeholderSize = Buffer.from(placeholderContractBase64, 'base64').length;
+  } catch (error) {
+    console.warn('Unable to calculate placeholder contract size:', error);
+    placeholderSize = 0;
+  }
+
+  if (placeholderSize <= 0) {
+    return null;
+  }
+
+  return {
+    fileName: 'BH-Auto-Protect-Sample-Contract.pdf',
+    fileType: 'application/pdf',
+    fileSize: placeholderSize,
+    updatedAt: null,
+    isPlaceholder: true,
+  };
+};
+
+const getSampleContractFile = async (): Promise<ContractTemplateFile | null> => {
+  const stored = await getStoredSampleContractTemplate();
+  if (stored) {
+    return stored;
+  }
+
+  if (!placeholderContractBase64) {
+    return null;
+  }
+
+  let size = 0;
+  try {
+    size = Buffer.from(placeholderContractBase64, 'base64').length;
+  } catch (error) {
+    console.warn('Unable to calculate placeholder contract size:', error);
+    return null;
+  }
+
+  if (size <= 0) {
+    return null;
+  }
+
+  return {
+    base64: placeholderContractBase64,
+    size,
+    fileName: 'BH-Auto-Protect-Sample-Contract.pdf',
+    fileType: 'application/pdf',
   };
 };
 
@@ -2018,6 +2164,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching branding:", error);
       res.status(500).json({ message: "Failed to load branding" });
+    }
+  });
+
+  app.get('/api/site/sample-contract', async (_req, res) => {
+    try {
+      const metadata = await buildSampleContractMetadata();
+      res.json({
+        data: {
+          contract: metadata
+            ? { ...metadata, downloadUrl: '/api/site/sample-contract/pdf' }
+            : null,
+        },
+        message: metadata ? 'Sample contract retrieved successfully' : 'Sample contract not available',
+      });
+    } catch (error) {
+      console.error('Error loading sample contract metadata:', error);
+      res.status(500).json({ message: 'Failed to load sample contract metadata' });
+    }
+  });
+
+  app.get('/api/site/sample-contract/pdf', async (_req, res) => {
+    try {
+      const file = await getSampleContractFile();
+      if (!file) {
+        res.status(404).json({ message: 'Sample contract not available' });
+        return;
+      }
+
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(file.base64, 'base64');
+      } catch (error) {
+        console.error('Unable to decode sample contract file:', error);
+        res.status(500).json({ message: 'Failed to load sample contract file' });
+        return;
+      }
+
+      const safeFileName = file.fileName.replace(/["\r\n]/g, '');
+      res.setHeader('Content-Type', file.fileType || 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${safeFileName}"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error retrieving sample contract file:', error);
+      res.status(500).json({ message: 'Failed to load sample contract file' });
     }
   });
 
@@ -3426,6 +3616,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/sample-contract', async (_req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const metadata = await buildSampleContractMetadata();
+      res.json({
+        data: {
+          contract: metadata
+            ? { ...metadata, downloadUrl: '/api/site/sample-contract/pdf' }
+            : null,
+        },
+        message: metadata ? 'Sample contract retrieved successfully' : 'Sample contract not configured',
+      });
+    } catch (error) {
+      console.error('Error loading sample contract metadata:', error);
+      res.status(500).json({ message: 'Failed to load sample contract metadata' });
+    }
+  });
+
   app.post('/api/admin/quote-preferences/default-contract', async (req, res) => {
     if (!ensureAdminUser(res)) {
       return;
@@ -3494,6 +3705,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('Error saving default contract:', error);
       res.status(500).json({ message: 'Failed to save default contract' });
+    }
+  });
+
+  app.post('/api/admin/sample-contract', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    const payloadSchema = z.object({
+      fileName: z.string().trim().min(1, 'Contract file name is required'),
+      fileType: z.string().trim().optional(),
+      fileData: z.string().min(1, 'Contract data is required'),
+    });
+
+    try {
+      const payload = payloadSchema.parse(req.body ?? {});
+      const base64Content = extractBase64Data(payload.fileData);
+      let buffer: Buffer;
+      try {
+        buffer = Buffer.from(base64Content, 'base64');
+      } catch {
+        res.status(400).json({ message: 'We could not read that file. Please upload a valid PDF.' });
+        return;
+      }
+
+      if (buffer.length === 0) {
+        res.status(400).json({ message: 'The uploaded file is empty.' });
+        return;
+      }
+
+      if (buffer.length > MAX_CONTRACT_FILE_BYTES) {
+        res.status(400).json({ message: 'Contract files must be 5MB or smaller.' });
+        return;
+      }
+
+      const normalizedType = (payload.fileType ?? 'application/pdf').trim().toLowerCase() || 'application/pdf';
+      if (!normalizedType.includes('pdf')) {
+        res.status(400).json({ message: 'Contracts must be uploaded as PDF files.' });
+        return;
+      }
+
+      const fileName = payload.fileName.trim();
+      const saved = await storage.upsertSiteSetting({
+        key: PUBLIC_SAMPLE_CONTRACT_SETTING_KEY,
+        value: JSON.stringify({
+          fileName,
+          fileType: normalizedType,
+          fileSize: buffer.length,
+          fileData: base64Content,
+        }),
+      });
+
+      res.json({
+        data: {
+          contract: {
+            fileName,
+            fileType: normalizedType,
+            fileSize: buffer.length,
+            updatedAt: toIsoString(saved.updatedAt ?? null),
+            isPlaceholder: false,
+            downloadUrl: '/api/site/sample-contract/pdf',
+          },
+        },
+        message: 'Sample contract updated successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid contract payload';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error saving sample contract:', error);
+      res.status(500).json({ message: 'Failed to save sample contract' });
     }
   });
 
