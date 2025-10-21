@@ -35,7 +35,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { calculateQuote } from "../client/src/lib/pricing";
 import { verifyPassword, hashPassword } from "./password";
-import { renderEmailLogo } from "./emailBranding";
+import { getEmailLogoDataUrl, renderEmailLogo } from "./emailBranding";
 
 type LeadMeta = {
   tags: string[];
@@ -751,7 +751,7 @@ const renderQuoteInstructionsBlock = (instructions: string | null | undefined): 
   return paragraphs
     .map((paragraph) => {
       const html = escapeHtml(paragraph).replace(/\r?\n/g, '<br />');
-      return `<p style="margin:0 0 18px;font-size:15px;line-height:1.7;">${html}</p>`;
+      return `<p class="email-paragraph" style="margin:0 0 18px;font-size:15px;line-height:1.7;background:#ffffff;color:#0f172a;">${html}</p>`;
     })
     .join('');
 };
@@ -1322,10 +1322,10 @@ const renderDetailRows = (rows: { label: string; value: string }[]): string =>
       const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
       return `
         <tr>
-          <td style="padding:14px 20px;font-size:14px;font-weight:600;color:#1f2937;${border}">
+          <td bgcolor="#f9fafb" style="padding:14px 20px;font-size:14px;font-weight:600;background:#f9fafb;color:#1f2937;${border}">
             ${escapeHtml(row.label)}
           </td>
-          <td style="padding:14px 20px;font-size:14px;color:#334155;text-align:right;${border}">
+          <td bgcolor="#f9fafb" style="padding:14px 20px;font-size:14px;background:#f9fafb;color:#334155;text-align:right;${border}">
             ${escapeHtml(row.value)}
           </td>
         </tr>
@@ -1339,10 +1339,10 @@ const renderCompactRows = (rows: { label: string; value: string }[]): string =>
       const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
       return `
         <tr>
-          <td style="padding:12px 18px;font-size:13px;font-weight:600;color:#1f2937;${border}">
+          <td bgcolor="#ffffff" style="padding:12px 18px;font-size:13px;font-weight:600;background:#ffffff;color:#1f2937;${border}">
             ${escapeHtml(row.label)}
           </td>
-          <td style="padding:12px 18px;font-size:13px;color:#475569;text-align:right;${border}">
+          <td bgcolor="#ffffff" style="padding:12px 18px;font-size:13px;background:#ffffff;color:#475569;text-align:right;${border}">
             ${escapeHtml(row.value)}
           </td>
         </tr>
@@ -1356,7 +1356,7 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
   }
 
   const descriptionHtml = plan.description
-    ? `<p class="coverage-card-text" style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569;">${escapeHtml(plan.description)}</p>`
+    ? `<p class="coverage-card-text" style="margin:0 0 16px;font-size:14px;line-height:1.6;background:transparent;color:#475569;">${escapeHtml(plan.description)}</p>`
     : "";
 
   const featureRows = plan.features
@@ -1365,7 +1365,7 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
       const border = isLast ? "" : "border-bottom:1px solid #e2e8f0;";
       return `
         <tr class="coverage-feature-row">
-          <td class="feature-icon-cell" style="padding:10px 0 10px 4px;width:32px;vertical-align:top;${border}">
+          <td class="feature-icon-cell" bgcolor="#ffffff" style="padding:10px 0 10px 4px;width:32px;vertical-align:top;background:#ffffff;color:#2563eb;${border}">
             <span class="feature-icon"
               style="
                 display:inline-block;
@@ -1384,7 +1384,7 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
               ✓
             </span>
           </td>
-          <td class="coverage-feature-text" style="padding:10px 0;font-size:14px;line-height:1.6;color:#1f2937;font-weight:500;${border}">
+          <td class="coverage-feature-text" bgcolor="#ffffff" style="padding:10px 0;font-size:14px;line-height:1.6;background:#ffffff;color:#1f2937;font-weight:500;${border}">
             ${escapeHtml(feature)}
           </td>
         </tr>
@@ -1393,13 +1393,13 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
     .join("");
 
   return `
-    <div class="coverage-card" style="margin-bottom:24px;padding:22px;border-radius:16px;border:1px solid #e0e7ff;background:linear-gradient(180deg,#eef2ff 0%,#ffffff 100%);">
-      <div class="coverage-card-label" style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#6366f1;margin-bottom:8px;">
+    <div class="coverage-card" style="margin-bottom:24px;padding:22px;border-radius:16px;border:1px solid #e0e7ff;background:linear-gradient(180deg,#eef2ff 0%,#ffffff 100%);color:#0f172a;">
+      <div class="coverage-card-label" style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#6366f1;margin-bottom:8px;background:transparent;">
         Coverage highlights
       </div>
-      <div class="coverage-card-title" style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:10px;">${escapeHtml(plan.name)} protection at a glance</div>
+      <div class="coverage-card-title" style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:10px;background:transparent;">${escapeHtml(plan.name)} protection at a glance</div>
       ${descriptionHtml}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="coverage-card-table" style="border-collapse:separate;margin:0;padding:0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="coverage-card-table" bgcolor="#ffffff" style="border-collapse:separate;margin:0;padding:0;background:#ffffff;color:#1f2937;">
         ${featureRows}
       </table>
     </div>
@@ -1523,233 +1523,362 @@ const buildQuoteEmail = ({
     },
   ];
 
-  const darkModeStyles = `<style type="text/css">
-    :root {
-      color-scheme: light;
-      supported-color-schemes: light;
-    }
-    @media (prefers-color-scheme: dark) {
-      body {
-        background-color:#0f172a !important;
-        color:#f8fafc !important;
-      }
-      .email-shell {
-        background-color:#0f172a !important;
-      }
-      .email-container {
-        background-color:#111827 !important;
-        color:#e2e8f0 !important;
-      }
-      .email-header {
-        background:linear-gradient(135deg,#0b1220,#1e3a8a) !important;
-        color:#f8fafc !important;
-      }
-      .summary-table,
-      .info-table {
-        background-color:#111827 !important;
-        border-color:#1f2937 !important;
-      }
-      .summary-table td,
-      .info-table td {
-        color:#e2e8f0 !important;
-        border-color:#1f2937 !important;
-      }
-      .email-highlight {
-        background-color:#1e3a8a !important;
-        border-color:#1e3a8a !important;
-        color:#dbeafe !important;
-      }
-      .email-highlight-label {
-        color:#bfdbfe !important;
-      }
-      .email-highlight-value {
-        color:#f8fafc !important;
-      }
-      .email-highlight-supporting {
-        color:#dbeafe !important;
-      }
-      .email-callout {
-        background-color:#0f172a !important;
-        color:#e2e8f0 !important;
-        border-color:#1f2937 !important;
-      }
-      .email-callout strong {
-        color:#f8fafc !important;
-      }
-      .email-callout--reminder {
-        background-color:#1e3a8a !important;
-        color:#dbeafe !important;
-      }
-      .email-callout--reminder strong {
-        color:#f8fafc !important;
-      }
-      .coverage-card {
-        background:linear-gradient(180deg,#1e3a8a 0%,#111827 100%) !important;
-        border-color:#1e3a8a !important;
-        color:#e2e8f0 !important;
-      }
-      .coverage-card-label {
-        color:#bfdbfe !important;
-      }
-      .coverage-card-title {
-        color:#f8fafc !important;
-      }
-      .coverage-card-text {
-        color:#e2e8f0 !important;
-      }
-      .coverage-card-table {
-        border-color:#1f2937 !important;
-      }
-      .coverage-feature-row {
-        border-color:#1f2937 !important;
-      }
-      .coverage-feature-text {
-        color:#e2e8f0 !important;
-      }
-      .feature-icon {
-        background:linear-gradient(135deg,#38bdf8,#2563eb) !important;
-        color:#0f172a !important;
-      }
-    }
-    [data-ogsc] .email-container {
-      background-color:#111827 !important;
-      color:#e2e8f0 !important;
-    }
-    [data-ogsc] .email-header {
-      background:linear-gradient(135deg,#0b1220,#1e3a8a) !important;
-      color:#f8fafc !important;
-    }
-    [data-ogsc] .summary-table,
-    [data-ogsc] .info-table {
-      background-color:#111827 !important;
-      border-color:#1f2937 !important;
-    }
-    [data-ogsc] .summary-table td,
-    [data-ogsc] .info-table td {
-      color:#e2e8f0 !important;
-      border-color:#1f2937 !important;
-    }
-    [data-ogsc] .email-highlight {
-      background-color:#1e3a8a !important;
-      border-color:#1e3a8a !important;
-      color:#dbeafe !important;
-    }
-    [data-ogsc] .email-highlight-label {
-      color:#bfdbfe !important;
-    }
-    [data-ogsc] .email-highlight-value {
-      color:#f8fafc !important;
-    }
-    [data-ogsc] .email-highlight-supporting {
-      color:#dbeafe !important;
-    }
-    [data-ogsc] .email-callout {
-      background-color:#0f172a !important;
-      color:#e2e8f0 !important;
-      border-color:#1f2937 !important;
-    }
-    [data-ogsc] .email-callout--reminder {
-      background-color:#1e3a8a !important;
-      color:#dbeafe !important;
-    }
-    [data-ogsc] .coverage-card {
-      background:linear-gradient(180deg,#1e3a8a 0%,#111827 100%) !important;
-      border-color:#1e3a8a !important;
-      color:#e2e8f0 !important;
-    }
-    [data-ogsc] .coverage-card-label {
-      color:#bfdbfe !important;
-    }
-    [data-ogsc] .coverage-card-title {
-      color:#f8fafc !important;
-    }
-    [data-ogsc] .coverage-card-text,
-    [data-ogsc] .coverage-feature-text {
-      color:#e2e8f0 !important;
-    }
-    [data-ogsc] .coverage-feature-row {
-      border-color:#1f2937 !important;
-    }
-    [data-ogsc] .feature-icon {
-      background:linear-gradient(135deg,#38bdf8,#2563eb) !important;
-      color:#0f172a !important;
-    }
-  </style>`;
+  const emailLogoDataUrl = getEmailLogoDataUrl();
+  const logoMarkup = emailLogoDataUrl
+    ? `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
+        <img src="${emailLogoDataUrl}" alt="BH Auto Protect" class="email-logo-light" style="display:inline-block;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;" />
+        <img src="${emailLogoDataUrl}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#f8fafc;filter:brightness(0) invert(1);" />
+      </div>`
+    : `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
+        <span class="email-logo-light" style="display:inline-block;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#ffffff;">BH AUTO PROTECT</span>
+        <span class="email-logo-dark" style="display:none;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#f8fafc;">BH AUTO PROTECT</span>
+      </div>`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="color-scheme" content="light" />
-  <meta name="supported-color-schemes" content="light" />
-  <title>${escapeHtml(subject)}</title>
-  ${darkModeStyles}
-</head>
-<body data-ogsc data-ogsb class="email-body" style="margin:0;padding:0;background-color:#f5f7fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;color-scheme:light;" bgcolor="#f5f7fa">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-shell" style="background-color:#f5f7fa;padding:32px 0;" bgcolor="#f5f7fa">
-    <tr>
-      <td align="center">
-        <table role="presentation" cellpadding="0" cellspacing="0" width="620" class="email-container" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);" bgcolor="#ffffff">
-          <tr>
-            <td class="email-header" style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
-              ${renderEmailLogo({ textColor: '#ffffff' })}
-              <div style="font-size:24px;font-weight:700;margin-top:10px;">Your ${escapeHtml(planName)} Quote is Ready</div>
-              <div style="margin-top:12px;font-size:14px;opacity:0.85;">Quote • ${escapeHtml(quoteId)}</div>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:32px;">
-              <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
-              <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
-                Thanks for connecting with <strong>BHAutoProtect</strong>. Here’s the personalized coverage quote we created for ${escapeHtml(vehicleSummary)}. Choose the payment approach that fits best and we’ll handle the rest.
-              </p>
-              <div class="email-highlight" style="padding:20px;border-radius:12px;border:1px solid #bfdbfe;background-color:#f8fafc;margin-bottom:28px;">
-                <div class="email-highlight-label" style="font-size:12px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#2563eb;margin-bottom:6px;">${escapeHtml(highlightLabel)}</div>
-                <div class="email-highlight-value" style="font-size:30px;font-weight:700;color:#0f172a;">${escapeHtml(highlightValue)}</div>
-                <div class="email-highlight-supporting" style="margin-top:6px;font-size:14px;color:#475569;">${escapeHtml(highlightSupporting)}</div>
-              </div>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="summary-table" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background-color:#f9fafb;border:1px solid #e5e7eb;margin-bottom:28px;">
-                <tbody>
-                  ${renderDetailRows(summaryRows)}
-                </tbody>
-              </table>
-              ${instructionsBlock}
-              ${coverageBlock}
-              <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
+    <title>${escapeHtml(subject)}</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        supported-color-schemes: light dark;
+      }
+      .email-logo-dark {
+        display: none;
+      }
+      @media (prefers-color-scheme: dark) {
+        body.email-body {
+          background-color: #020617 !important;
+          color: #f8fafc !important;
+        }
+        table.email-wrapper {
+          background-color: #020617 !important;
+        }
+        table.email-container {
+          background-color: #0b1220 !important;
+          color: #f8fafc !important;
+        }
+        .email-header {
+          background: linear-gradient(135deg, #0b1220, #1e3a8a) !important;
+          color: #f8fafc !important;
+        }
+        .email-header div {
+          background: transparent !important;
+          color: #f8fafc !important;
+        }
+        .email-content {
+          background-color: #0b1220 !important;
+          color: #f8fafc !important;
+        }
+        .email-content p {
+          background-color: #0b1220 !important;
+          color: #f8fafc !important;
+        }
+        .email-highlight {
+          background-color: #1e293b !important;
+          border-color: #334155 !important;
+          color: #f8fafc !important;
+        }
+        .email-highlight-label {
+          color: #60a5fa !important;
+          background-color: #1e293b !important;
+        }
+        .email-highlight-value {
+          color: #f8fafc !important;
+          background-color: #1e293b !important;
+        }
+        .email-highlight-supporting {
+          color: #cbd5f5 !important;
+          background-color: #1e293b !important;
+        }
+        table.summary-table {
+          background-color: #111827 !important;
+          border-color: #1f2937 !important;
+        }
+        table.summary-table td {
+          background-color: #111827 !important;
+          color: #e2e8f0 !important;
+          border-color: #1f2937 !important;
+        }
+        table.info-table {
+          background-color: #111827 !important;
+          border-color: #1f2937 !important;
+        }
+        table.info-table td {
+          background-color: #111827 !important;
+          color: #cbd5f5 !important;
+          border-color: #1f2937 !important;
+        }
+        .coverage-card {
+          background: linear-gradient(180deg, #111827 0%, #0f172a 100%) !important;
+          border-color: #1f2937 !important;
+          color: #f8fafc !important;
+        }
+        .coverage-card-label,
+        .coverage-card-title,
+        .coverage-card-text {
+          background-color: transparent !important;
+          color: #cbd5f5 !important;
+        }
+        .coverage-card-title {
+          color: #f8fafc !important;
+        }
+        .coverage-card-table {
+          background-color: transparent !important;
+          color: #f8fafc !important;
+        }
+        .coverage-card-table td {
+          background-color: transparent !important;
+          color: #e2e8f0 !important;
+          border-color: #1f2937 !important;
+        }
+        .feature-icon {
+          background: linear-gradient(135deg, #38bdf8, #2563eb) !important;
+          color: #0f172a !important;
+        }
+        .email-callout--guarantee {
+          background-color: #1e293b !important;
+          color: #fef3c7 !important;
+        }
+        .email-callout--reminder {
+          background-color: #1e3a8a !important;
+          color: #bfdbfe !important;
+        }
+        .email-footer {
+          background-color: #111827 !important;
+          color: #94a3b8 !important;
+        }
+        .email-footer a {
+          color: #bfdbfe !important;
+          background-color: transparent !important;
+        }
+        a.email-button {
+          background-color: #3b82f6 !important;
+          color: #f8fafc !important;
+        }
+        a.email-link {
+          color: #93c5fd !important;
+          background-color: transparent !important;
+        }
+        .email-logo-light {
+          display: none !important;
+        }
+        .email-logo-dark {
+          display: inline-block !important;
+        }
+      }
+      body[data-ogsc].email-body,
+      body[data-ogsb].email-body,
+      [data-ogsc] body.email-body,
+      [data-ogsb] body.email-body {
+        background-color: #020617 !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] table.email-wrapper,
+      [data-ogsb] table.email-wrapper {
+        background-color: #020617 !important;
+      }
+      [data-ogsc] table.email-container,
+      [data-ogsb] table.email-container {
+        background-color: #0b1220 !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] .email-header,
+      [data-ogsb] .email-header {
+        background: linear-gradient(135deg, #0b1220, #1e3a8a) !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] .email-content,
+      [data-ogsb] .email-content {
+        background-color: #0b1220 !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] .email-content p,
+      [data-ogsb] .email-content p {
+        background-color: #0b1220 !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] .email-highlight,
+      [data-ogsb] .email-highlight {
+        background-color: #1e293b !important;
+        border-color: #334155 !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] .email-highlight-label,
+      [data-ogsb] .email-highlight-label {
+        color: #60a5fa !important;
+        background-color: #1e293b !important;
+      }
+      [data-ogsc] .email-highlight-value,
+      [data-ogsb] .email-highlight-value {
+        color: #f8fafc !important;
+        background-color: #1e293b !important;
+      }
+      [data-ogsc] .email-highlight-supporting,
+      [data-ogsb] .email-highlight-supporting {
+        color: #cbd5f5 !important;
+        background-color: #1e293b !important;
+      }
+      [data-ogsc] table.summary-table,
+      [data-ogsb] table.summary-table {
+        background-color: #111827 !important;
+        border-color: #1f2937 !important;
+      }
+      [data-ogsc] table.summary-table td,
+      [data-ogsb] table.summary-table td {
+        background-color: #111827 !important;
+        color: #e2e8f0 !important;
+        border-color: #1f2937 !important;
+      }
+      [data-ogsc] table.info-table,
+      [data-ogsb] table.info-table {
+        background-color: #111827 !important;
+        border-color: #1f2937 !important;
+      }
+      [data-ogsc] table.info-table td,
+      [data-ogsb] table.info-table td {
+        background-color: #111827 !important;
+        color: #cbd5f5 !important;
+        border-color: #1f2937 !important;
+      }
+      [data-ogsc] .coverage-card,
+      [data-ogsb] .coverage-card {
+        background: linear-gradient(180deg, #111827 0%, #0f172a 100%) !important;
+        border-color: #1f2937 !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] .coverage-card-label,
+      [data-ogsb] .coverage-card-label,
+      [data-ogsc] .coverage-card-title,
+      [data-ogsb] .coverage-card-title,
+      [data-ogsc] .coverage-card-text,
+      [data-ogsb] .coverage-card-text {
+        background-color: transparent !important;
+        color: #cbd5f5 !important;
+      }
+      [data-ogsc] .coverage-card-title,
+      [data-ogsb] .coverage-card-title {
+        color: #f8fafc !important;
+      }
+      [data-ogsc] .coverage-card-table,
+      [data-ogsb] .coverage-card-table {
+        background-color: transparent !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] .coverage-card-table td,
+      [data-ogsb] .coverage-card-table td {
+        background-color: transparent !important;
+        color: #e2e8f0 !important;
+        border-color: #1f2937 !important;
+      }
+      [data-ogsc] .email-callout--guarantee,
+      [data-ogsb] .email-callout--guarantee {
+        background-color: #1e293b !important;
+        color: #fef3c7 !important;
+      }
+      [data-ogsc] .email-callout--reminder,
+      [data-ogsb] .email-callout--reminder {
+        background-color: #1e3a8a !important;
+        color: #bfdbfe !important;
+      }
+      [data-ogsc] .email-footer,
+      [data-ogsb] .email-footer {
+        background-color: #111827 !important;
+        color: #94a3b8 !important;
+      }
+      [data-ogsc] .email-footer a,
+      [data-ogsb] .email-footer a {
+        color: #bfdbfe !important;
+        background-color: transparent !important;
+      }
+      [data-ogsc] a.email-button,
+      [data-ogsb] a.email-button {
+        background-color: #3b82f6 !important;
+        color: #f8fafc !important;
+      }
+      [data-ogsc] a.email-link,
+      [data-ogsb] a.email-link {
+        color: #93c5fd !important;
+        background-color: transparent !important;
+      }
+      [data-ogsc] .email-logo-light,
+      [data-ogsb] .email-logo-light {
+        display: none !important;
+      }
+      [data-ogsc] .email-logo-dark,
+      [data-ogsb] .email-logo-dark {
+        display: inline-block !important;
+      }
+    </style>
+  </head>
+  <body class="email-body" style="margin:0;padding:0;background:#f1f5f9;color:#0f172a;font-family:'Helvetica Neue',Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-wrapper" bgcolor="#f1f5f9" style="width:100%;margin:0;padding:32px 0;background:#f1f5f9;color:#0f172a;">
+      <tr>
+        <td align="center" bgcolor="#f1f5f9" style="background:#f1f5f9;color:#0f172a;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="640" class="email-container" bgcolor="#ffffff" style="width:640px;max-width:94%;background:#ffffff;color:#0f172a;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.1);">
+            <tr>
+              <td class="email-header" bgcolor="#111827" style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
+                ${logoMarkup}
+                <div style="font-size:24px;font-weight:700;margin-top:10px;background:transparent;color:#ffffff;">Your ${escapeHtml(planName)} Quote is Ready</div>
+                <div style="margin-top:12px;font-size:14px;opacity:0.85;background:transparent;color:#ffffff;">Quote • ${escapeHtml(quoteId)}</div>
+              </td>
+            </tr>
+            <tr>
+              <td class="email-content" bgcolor="#ffffff" style="padding:32px;background:#ffffff;color:#0f172a;">
+                <p class="email-paragraph" style="margin:0 0 18px;font-size:16px;line-height:1.7;background:#ffffff;color:#0f172a;">Hi ${escapeHtml(displayName)},</p>
+                <p class="email-paragraph" style="margin:0 0 24px;font-size:15px;line-height:1.7;background:#ffffff;color:#0f172a;">
+                  Thanks for connecting with <strong>BHAutoProtect</strong>. Here’s the personalized coverage quote we created for ${escapeHtml(vehicleSummary)}. Choose the payment approach that fits best and we’ll handle the rest.
+                </p>
+                <div class="email-highlight" style="padding:20px;border-radius:12px;border:1px solid #bfdbfe;background:#f8fafc;color:#0f172a;margin-bottom:28px;">
+                  <div class="email-highlight-label" style="font-size:12px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;background:#f8fafc;color:#2563eb;margin-bottom:6px;">${escapeHtml(highlightLabel)}</div>
+                  <div class="email-highlight-value" style="font-size:30px;font-weight:700;background:#f8fafc;color:#0f172a;">${escapeHtml(highlightValue)}</div>
+                  <div class="email-highlight-supporting" style="margin-top:6px;font-size:14px;background:#f8fafc;color:#475569;">${escapeHtml(highlightSupporting)}</div>
+                </div>
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="summary-table" bgcolor="#f9fafb" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background:#f9fafb;color:#0f172a;border:1px solid #e5e7eb;margin-bottom:28px;">
                   <tbody>
-                    ${renderCompactRows(vehicleRows)}
+                    ${renderDetailRows(summaryRows)}
                   </tbody>
                 </table>
-                <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
-                  <tbody>
-                    ${renderCompactRows(supportRows)}
-                  </tbody>
-                </table>
-              </div>
-              <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
-                Ready to lock in this rate or curious about coverage details? Reply to this email and our concierge team will take care of everything for you.
-              </p>
-              <div class="email-callout email-callout--guarantee" style="background-color:#0f172a;color:#f8fafc;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
-                <strong>Our Promise:</strong> Enjoy our 30-Day Price Match Promise and 30-Day full money-back guarantee. If you find a better qualifying rate or change your mind within 30 days, we’ll make it right—no risk, no hassle.
-              </div>
-              <div class="email-callout email-callout--reminder" style="background-color:#eff6ff;color:#1e3a8a;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
-                <strong>Reminder:</strong> We’ll hold this quote through ${escapeHtml(validUntil)}. Ready sooner or want to adjust the payment structure? Reply and we’ll update it together.
-              </div>
-              <p style="margin:0;font-size:15px;line-height:1.7;">With gratitude,<br /><strong>The BHAutoProtect Team</strong></p>
-            </td>
-          </tr>
-          <tr>
-            <td style="background-color:#f9fafb;padding:22px 32px;color:#6b7280;font-size:12px;line-height:1.6;">
-              You’re receiving this email because you requested coverage details from BHAutoProtect. Reply to this message if anything looks off and we’ll make it right immediately.
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
+                ${instructionsBlock}
+                ${coverageBlock}
+                <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;background:#ffffff;color:#0f172a;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" bgcolor="#ffffff" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#ffffff;color:#0f172a;min-width:240px;">
+                    <tbody>
+                      ${renderCompactRows(vehicleRows)}
+                    </tbody>
+                  </table>
+                  <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" bgcolor="#ffffff" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#ffffff;color:#0f172a;min-width:240px;">
+                    <tbody>
+                      ${renderCompactRows(supportRows)}
+                    </tbody>
+                  </table>
+                </div>
+                <p class="email-paragraph" style="margin:0 0 18px;font-size:15px;line-height:1.7;background:#ffffff;color:#0f172a;">
+                  Ready to lock in this rate or curious about coverage details? Reply to this email and our concierge team will take care of everything for you.
+                </p>
+                <div class="email-callout email-callout--guarantee" style="background-color:#0f172a;color:#f8fafc;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+                  <strong>Our Promise:</strong> Enjoy our 30-Day Price Match Promise and 30-Day full money-back guarantee. If you find a better qualifying rate or change your mind within 30 days, we’ll make it right—no risk, no hassle.
+                </div>
+                <div class="email-callout email-callout--reminder" style="background-color:#eff6ff;color:#1e3a8a;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+                  <strong>Reminder:</strong> We’ll hold this quote through ${escapeHtml(validUntil)}. Ready sooner or want to adjust the payment structure? Reply and we’ll update it together.
+                </div>
+                <p class="email-paragraph" style="margin:0;font-size:15px;line-height:1.7;background:#ffffff;color:#0f172a;">With gratitude,<br /><strong>The BHAutoProtect Team</strong></p>
+              </td>
+            </tr>
+            <tr>
+              <td class="email-footer" bgcolor="#f9fafb" style="background:#f9fafb;color:#6b7280;padding:22px 32px;font-size:12px;line-height:1.6;">
+                You’re receiving this email because you requested coverage details from BHAutoProtect. Reply to this message if anything looks off and we’ll make it right immediately.
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
 </html>`;
 
   return { subject, html };
