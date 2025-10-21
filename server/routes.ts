@@ -39,7 +39,7 @@ import { calculateQuote } from "../client/src/lib/pricing";
 import { verifyPassword, hashPassword } from "./password";
 import {
   getEmailBrandingAttachments,
-  getEmailLogoCid,
+  getEmailLogoUrl,
   hasEmailLogoAsset,
   renderEmailLogo,
 } from "./emailBranding";
@@ -2278,11 +2278,11 @@ const buildQuoteEmail = ({
   ];
 
   const logoAvailable = hasEmailLogoAsset();
-  const logoCid = getEmailLogoCid();
-  const logoMarkup = logoAvailable
+  const logoUrl = getEmailLogoUrl();
+  const logoMarkup = logoAvailable && logoUrl
     ? `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
-        <img src="cid:${logoCid}" alt="BH Auto Protect" class="email-logo-light" style="display:inline-block;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;" />
-        <img src="cid:${logoCid}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;filter:brightness(0) invert(1);" />
+        <img src="${logoUrl}" alt="BH Auto Protect" class="email-logo-light" style="display:inline-block;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;" />
+        <img src="${logoUrl}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;filter:brightness(0) invert(1);" />
       </div>`
     : `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
         <span class="email-logo-light email-logo-text" style="display:inline-block;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#ffffff;">BH AUTO PROTECT</span>
