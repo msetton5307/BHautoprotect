@@ -1488,12 +1488,6 @@ export default function AdminLeadDetail() {
                           />
                         </div>
                       </div>
-                      <Button
-                        onClick={handleConvert}
-                        disabled={convertButtonDisabled}
-                      >
-                        {convertButtonLabel}
-                      </Button>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
