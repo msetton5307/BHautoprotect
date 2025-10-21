@@ -1816,6 +1816,19 @@ export default function AdminLeadDetail() {
                                 priceMonthly: Math.round(prev.priceTotal / prev.termMonths),
                               };
                             }
+
+                            if (nextOption === 'one-time') {
+                              const resolvedMonthly =
+                                prev.priceTotal !== null && prev.termMonths && prev.termMonths > 0
+                                  ? Math.round(prev.priceTotal / prev.termMonths)
+                                  : prev.priceMonthly;
+                              return {
+                                ...prev,
+                                paymentOption: nextOption,
+                                priceMonthly: resolvedMonthly,
+                              };
+                            }
+
                             return { ...prev, paymentOption: nextOption };
                           })
                         }
@@ -1859,22 +1872,19 @@ export default function AdminLeadDetail() {
                         placeholder="0.00"
                       />
                     </div>
-                    <div>
-                      <Label>Monthly Price ($)</Label>
-                      <Input
-                        type="text"
-                        inputMode="decimal"
-                        value={quoteForm.priceMonthly !== null ? quoteForm.priceMonthly / 100 : ''}
-                        onChange={(e) => handleMonthlyPriceChange(e.target.value)}
-                        placeholder="0.00"
-                        disabled={quoteForm.paymentOption === 'one-time'}
-                      />
-                      <p className="mt-1 text-xs text-slate-500">
-                        {quoteForm.paymentOption === 'one-time'
-                          ? 'Calculated automatically and hidden from the customer.'
-                          : 'Displayed in the customer email.'}
-                      </p>
-                    </div>
+                    {quoteForm.paymentOption === 'monthly' ? (
+                      <div>
+                        <Label>Monthly Price ($)</Label>
+                        <Input
+                          type="text"
+                          inputMode="decimal"
+                          value={quoteForm.priceMonthly !== null ? quoteForm.priceMonthly / 100 : ''}
+                          onChange={(e) => handleMonthlyPriceChange(e.target.value)}
+                          placeholder="0.00"
+                        />
+                        <p className="mt-1 text-xs text-slate-500">Displayed in the customer email.</p>
+                      </div>
+                    ) : null}
                   </div>
                   <Button 
                     onClick={handleCreateQuote}
@@ -1945,7 +1955,7 @@ export default function AdminLeadDetail() {
                               <div className="flex justify-between">
                                 <span className="font-medium">Pay in full:</span> ${(quote.priceTotal / 100).toFixed(2)}
                               </div>
-                              {quote.priceMonthly > 0 && (
+                              {paymentPreference === 'monthly' && quote.priceMonthly > 0 && (
                                 <div className="flex justify-between">
                                   <span className="font-medium">
                                     {paymentPreference === 'monthly' ? 'Monthly plan:' : 'Monthly option:'}

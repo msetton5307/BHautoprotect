@@ -497,6 +497,62 @@ const formatTerm = (value: number | null | undefined): string => {
   return `${rounded} ${suffix}`;
 };
 
+const calculateCoverageMonths = (start: Date | null, end: Date | null): number | null => {
+  if (!start || !end) {
+    return null;
+  }
+  if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) {
+    return null;
+  }
+
+  const startMonthIndex = start.getFullYear() * 12 + start.getMonth();
+  const endMonthIndex = end.getFullYear() * 12 + end.getMonth();
+  let months = endMonthIndex - startMonthIndex;
+
+  if (end.getDate() < start.getDate()) {
+    months -= 1;
+  }
+
+  return months > 0 ? months : null;
+};
+
+const formatCoverageRange = (start: Date | null, end: Date | null): string | null => {
+  if (!start || !end) {
+    return null;
+  }
+  if (Number.isNaN(start.valueOf()) || Number.isNaN(end.valueOf())) {
+    return null;
+  }
+
+  const startLabel = start.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const endLabel = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${startLabel} – ${endLabel}`;
+};
+
+const formatCoverageDuration = (months: number | null): string | null => {
+  if (months === null || months === undefined || Number.isNaN(months)) {
+    return null;
+  }
+
+  const totalMonths = Math.round(months);
+  if (totalMonths <= 0) {
+    return null;
+  }
+
+  const years = Math.floor(totalMonths / 12);
+  const remainingMonths = totalMonths % 12;
+  const durationParts: string[] = [];
+  if (years > 0) {
+    durationParts.push(`${years} ${years === 1 ? "year" : "years"}`);
+  }
+  if (remainingMonths > 0) {
+    durationParts.push(`${remainingMonths} ${remainingMonths === 1 ? "month" : "months"}`);
+  }
+  const friendly = durationParts.join(" ");
+  const monthLabel = `${totalMonths} ${totalMonths === 1 ? "month" : "months"}`;
+  return friendly ? `${friendly} / ${monthLabel}` : monthLabel;
+};
+
 const formatQuoteValidUntil = (value: Date | string | null | undefined): string => {
   if (!value) {
     return "Let us know when you’re ready";
@@ -2030,6 +2086,44 @@ const buildQuoteEmail = ({
   const paymentPreference: 'monthly' | 'one-time' =
     paymentOptionRaw === 'monthly' ? 'monthly' : 'one-time';
 
+  const policyStart = policy?.policyStartDate ? new Date(policy.policyStartDate) : null;
+  const policyEnd = policy?.expirationDate ? new Date(policy.expirationDate) : null;
+  const coverageMonthsFromPolicy = calculateCoverageMonths(policyStart, policyEnd);
+  const rawTermMonths =
+    typeof quote.termMonths === 'number' && Number.isFinite(quote.termMonths)
+      ? Math.round(quote.termMonths)
+      : null;
+  const defaultCoverageMonths = 60;
+  const coverageMonths =
+    coverageMonthsFromPolicy ??
+    (paymentPreference === 'monthly'
+      ? rawTermMonths
+      : rawTermMonths && rawTermMonths > 1
+        ? rawTermMonths
+        : defaultCoverageMonths);
+  const coverageRange = formatCoverageRange(policyStart, policyEnd);
+  const coverageDuration = formatCoverageDuration(coverageMonths);
+  const defaultCoverageDuration = '5 years / 60 months';
+  const coverageLengthValue = (() => {
+    if (coverageRange && coverageDuration) {
+      return `${coverageRange} (${coverageDuration})`;
+    }
+    if (coverageRange) {
+      return coverageRange;
+    }
+    if (coverageDuration) {
+      return coverageDuration;
+    }
+    return paymentPreference === 'one-time' ? defaultCoverageDuration : term;
+  })();
+  const coverageDurationForHighlight =
+    coverageDuration ??
+    (paymentPreference === 'one-time'
+      ? defaultCoverageDuration
+      : term !== 'Flexible'
+        ? term
+        : null);
+
   const highlightLabel =
     paymentPreference === "monthly"
       ? "Monthly Investment"
@@ -2043,9 +2137,9 @@ const buildQuoteEmail = ({
       ? total
         ? `Total of ${total} across ${term}.`
         : "Want the pay-in-full total as well? Reply and we’ll prepare it instantly."
-      : term === "Flexible"
-        ? "Flexible coverage term with a single payment."
-        : `${term} of protection with a single payment.`;
+      : coverageDurationForHighlight
+        ? `${coverageDurationForHighlight} of protection with a single payment.`
+        : "Flexible coverage length with a single payment.";
 
   const paymentRows =
     paymentPreference === "monthly"
@@ -2054,15 +2148,20 @@ const buildQuoteEmail = ({
           ...(total ? [{ label: "One-Time Total", value: total }] : []),
         ]
       : [
-          ...(total ? [{ label: "Pay-in-Full Investment", value: total }] : []),
-          ...(monthly ? [{ label: "Monthly Option", value: monthly }] : []),
+          {
+            label: "Pay-in-Full Investment",
+            value: total ?? "We’ll finalize your pay-in-full amount together.",
+          },
         ];
 
   const summaryRows = [
     { label: 'Quote ID', value: quoteId },
     ...paymentRows,
     { label: 'Coverage Plan', value: planName },
-    { label: 'Coverage Term', value: term },
+    {
+      label: paymentPreference === 'one-time' ? 'Coverage Length' : 'Coverage Term',
+      value: coverageLengthValue,
+    },
     { label: 'Deductible', value: deductible },
     { label: 'Quote Valid Through', value: validUntil },
   ];
@@ -2085,7 +2184,10 @@ const buildQuoteEmail = ({
     },
     {
       label: 'Need adjustments?',
-      value: 'Want to compare monthly versus pay-in-full? Let us know and we’ll tailor it for you.',
+      value:
+        paymentPreference === 'monthly'
+          ? 'Want to compare monthly versus pay-in-full? Let us know and we’ll tailor it for you.'
+          : 'Prefer monthly payments instead? Reply and we’ll prepare a financing option in minutes.',
     },
     {
       label: 'Concierge Support',
