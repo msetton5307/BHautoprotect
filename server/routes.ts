@@ -1722,23 +1722,23 @@ const buildPolicyActivationEmail = ({
       ? `${totalPaymentsCountRaw} ${totalPaymentsCountRaw === 1 ? 'payment' : 'payments'}`
       : 'See your contract for payment count';
   const paymentSectionHtml = isOneTimePaymentPlan
-    ? `<div style="background:#0f172a;border-radius:16px;padding:24px;color:#e2e8f0;margin-bottom:26px;">
-        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;">Payment summary</div>
-        <p style="margin:0 0 12px;font-size:15px;line-height:1.8;">Your coverage was set up as a pay-in-full policy.</p>
-        <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#e2e8f0;">
-          <li>Pay-in-full amount: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
+    ? `<div style="background:#0f172a;border-radius:16px;padding:24px;color:#e2e8f0;margin-bottom:26px;text-align:center;">
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;text-align:center;">Payment summary</div>
+        <p style="margin:0 0 12px;font-size:15px;line-height:1.8;text-align:center;">Your coverage was set up as a pay-in-full policy.</p>
+        <ul style="margin:0;padding:0;font-size:15px;line-height:1.8;color:#e2e8f0;list-style-position:inside;text-align:center;">
+          <li style="margin:0;text-align:center;">Pay-in-full amount: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
         </ul>
-        <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;">Need a copy of your receipt or help arranging financing later? Reply to this email and we’ll take care of it right away.</p>
+        <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;text-align:center;">Need a copy of your receipt or help arranging financing later? Reply to this email and we’ll take care of it right away.</p>
       </div>`
-    : `<div style="background:#0f172a;border-radius:16px;padding:24px;color:#e2e8f0;margin-bottom:26px;">
-        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;">Payment schedule</div>
-        <ul style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#e2e8f0;">
-          <li style="margin-bottom:8px;">Down payment: <strong>${escapeHtml(downPaymentDisplay)}</strong></li>
-          <li style="margin-bottom:8px;">Monthly payment: <strong>${escapeHtml(monthlyPaymentDisplay)}</strong></li>
-          <li style="margin-bottom:8px;">Payments scheduled: <strong>${escapeHtml(paymentCountDisplay)}</strong></li>
-          <li>Contract balance: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
+    : `<div style="background:#0f172a;border-radius:16px;padding:24px;color:#e2e8f0;margin-bottom:26px;text-align:center;">
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#38bdf8;font-weight:600;margin-bottom:12px;text-align:center;">Payment schedule</div>
+        <ul style="margin:0;padding:0;font-size:15px;line-height:1.8;color:#e2e8f0;list-style-position:inside;text-align:center;">
+          <li style="margin-bottom:8px;text-align:center;">Down payment: <strong>${escapeHtml(downPaymentDisplay)}</strong></li>
+          <li style="margin-bottom:8px;text-align:center;">Monthly payment: <strong>${escapeHtml(monthlyPaymentDisplay)}</strong></li>
+          <li style="margin-bottom:8px;text-align:center;">Payments scheduled: <strong>${escapeHtml(paymentCountDisplay)}</strong></li>
+          <li style="margin:0;text-align:center;">Contract balance: <strong>${escapeHtml(contractBalanceDisplay)}</strong></li>
         </ul>
-        <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;">We'll send reminders before each charge. Reach out if you'd like to adjust billing dates or methods.</p>
+        <p style="margin:18px 0 0;font-size:13px;color:#94a3b8;text-align:center;">We'll send reminders before each charge. Reach out if you'd like to adjust billing dates or methods.</p>
       </div>`;
 
   const subject = `Welcome to BH Auto Protect • Policy ${policyNumber}`;
@@ -1748,76 +1748,82 @@ const buildPolicyActivationEmail = ({
     <meta charset="UTF-8" />
     <title>${escapeHtml(subject)}</title>
   </head>
-  <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+  <body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica Neue',Arial,sans-serif;color:#0f172a;text-align:center;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;text-align:center;">
       <tr>
         <td align="center">
-          <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.12);">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.12);margin:0 auto;text-align:center;">
             <tr>
-              <td style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:32px;color:#e2e8f0;">
-                ${renderEmailLogo({ textColor: '#e2e8f0' })}
-                <div style="font-size:24px;font-weight:700;margin-top:12px;">Your coverage is active</div>
-                <div style="margin-top:8px;font-size:13px;opacity:0.85;">Policy ${escapeHtml(policyNumber)} • ${escapeHtml(planName)}</div>
+              <td style="background:linear-gradient(135deg,#1e3a8a,#2563eb);padding:32px;color:#e2e8f0;text-align:center;">
+                ${renderEmailLogo({
+                  textColor: '#0f172a',
+                  align: 'center',
+                  backgroundColor: '#ffffff',
+                  padding: 18,
+                  borderRadius: 20,
+                })}
+                <div style="font-size:24px;font-weight:700;margin-top:12px;text-align:center;">Your coverage is active</div>
+                <div style="margin-top:8px;font-size:13px;opacity:0.85;text-align:center;">Policy ${escapeHtml(policyNumber)} • ${escapeHtml(planName)}</div>
               </td>
             </tr>
             <tr>
-              <td style="padding:32px;">
-                <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(customerName)},</p>
-                <p style="margin:0 0 20px;font-size:15px;line-height:1.7;">
+              <td style="padding:32px;text-align:center;">
+                <p style="margin:0 0 18px;font-size:16px;line-height:1.7;text-align:center;">Hi ${escapeHtml(customerName)},</p>
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.7;text-align:center;">
                   Welcome to BH Auto Protect! Your protection plan for ${escapeHtml(vehicleSummary)} is now active. Save this message for your records—we've highlighted the details you need most often below.
                 </p>
-                <div style="background:#f8fafc;border-radius:16px;padding:24px;border:1px solid #e2e8f0;margin-bottom:24px;">
-                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:12px;">Policy snapshot</div>
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.6;color:#1f2937;">
+                <div style="background:#f8fafc;border-radius:16px;padding:24px;border:1px solid #e2e8f0;margin-bottom:24px;text-align:center;">
+                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:12px;text-align:center;">Policy snapshot</div>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;line-height:1.6;color:#1f2937;margin:0 auto;text-align:center;">
                     <tr>
-                      <td style="padding:6px 0;color:#64748b;">Policy number</td>
-                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(policyNumber)}</td>
+                      <td style="padding:6px 0;color:#64748b;text-align:center;">Policy number</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;text-align:center;">${escapeHtml(policyNumber)}</td>
                     </tr>
                     <tr>
-                      <td style="padding:6px 0;color:#64748b;">Plan</td>
-                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(planName)}</td>
+                      <td style="padding:6px 0;color:#64748b;text-align:center;">Plan</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;text-align:center;">${escapeHtml(planName)}</td>
                     </tr>
                     <tr>
-                      <td style="padding:6px 0;color:#64748b;">Vehicle</td>
-                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(vehicleSummary)}</td>
+                      <td style="padding:6px 0;color:#64748b;text-align:center;">Vehicle</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;text-align:center;">${escapeHtml(vehicleSummary)}</td>
                     </tr>
                     <tr>
-                      <td style="padding:6px 0;color:#64748b;">Effective start</td>
-                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(startDateDisplay)}</td>
+                      <td style="padding:6px 0;color:#64748b;text-align:center;">Effective start</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;text-align:center;">${escapeHtml(startDateDisplay)}</td>
                     </tr>
                     <tr>
-                      <td style="padding:6px 0;color:#64748b;">Coverage through</td>
-                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(expirationDateDisplay)}</td>
+                      <td style="padding:6px 0;color:#64748b;text-align:center;">Coverage through</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;text-align:center;">${escapeHtml(expirationDateDisplay)}</td>
                     </tr>
                     <tr>
-                      <td style="padding:6px 0;color:#64748b;">Mileage limit</td>
-                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(mileageLimitDisplay)}</td>
+                      <td style="padding:6px 0;color:#64748b;text-align:center;">Mileage limit</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;text-align:center;">${escapeHtml(mileageLimitDisplay)}</td>
                     </tr>
                     <tr>
-                      <td style="padding:6px 0;color:#64748b;">Deductible</td>
-                      <td style="padding:6px 0;font-weight:600;color:#0f172a;">${escapeHtml(deductibleDisplay)}</td>
+                      <td style="padding:6px 0;color:#64748b;text-align:center;">Deductible</td>
+                      <td style="padding:6px 0;font-weight:600;color:#0f172a;text-align:center;">${escapeHtml(deductibleDisplay)}</td>
                     </tr>
                   </table>
                 </div>
                 ${paymentSectionHtml}
-                <div style="background:#f8fafc;border-radius:16px;padding:24px;border:1px solid #e2e8f0;margin-bottom:28px;">
-                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:12px;">Access your customer portal</div>
-                  <p style="margin:0 0 14px;font-size:15px;line-height:1.7;">
+                <div style="background:#f8fafc;border-radius:16px;padding:24px;border:1px solid #e2e8f0;margin-bottom:28px;text-align:center;">
+                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:12px;text-align:center;">Access your customer portal</div>
+                  <p style="margin:0 0 14px;font-size:15px;line-height:1.7;text-align:center;">
                     Download your documents, update payments, or file a claim anytime in the BH Auto Protect portal.
                   </p>
-                  <ol style="margin:0 0 16px;padding-left:20px;font-size:15px;line-height:1.8;color:#1f2937;">
-                    <li>Visit the portal using the button below.</li>
-                    <li>Sign in with ${escapeHtml(loginEmailInstruction)} and your policy ID ${escapeHtml(policyNumber)}.</li>
-                    <li>Bookmark the page so it's handy when you need us.</li>
+                  <ol style="margin:0 0 16px;padding:0;font-size:15px;line-height:1.8;color:#1f2937;list-style-position:inside;text-align:center;">
+                    <li style="margin-bottom:6px;text-align:center;">Visit the portal using the button below.</li>
+                    <li style="margin-bottom:6px;text-align:center;">Sign in with ${escapeHtml(loginEmailInstruction)} and your policy ID ${escapeHtml(policyNumber)}.</li>
+                    <li style="margin:0;text-align:center;">Bookmark the page so it's handy when you need us.</li>
                   </ol>
                   <div style="text-align:center;margin-top:18px;">
                     <a href="${escapeHtml(portalLoginBaseUrl)}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 28px;border-radius:9999px;background:#2563eb;color:#ffffff;font-weight:600;text-decoration:none;">Open Customer Portal</a>
                   </div>
                 </div>
-                <p style="margin:0 0 16px;font-size:15px;line-height:1.7;">
+                <p style="margin:0 0 16px;font-size:15px;line-height:1.7;text-align:center;">
                   Need help or have questions? Call <a href="tel:+13024068053" style="color:#2563eb;text-decoration:none;font-weight:600;">(302) 406-8053</a> or reply to this email. Our concierge team is ready to help with claims, maintenance advice, or billing adjustments.
                 </p>
-                <p style="margin:0;font-size:15px;line-height:1.7;">Warmly,<br/><strong>The BH Auto Protect Team</strong></p>
+                <p style="margin:0;font-size:15px;line-height:1.7;text-align:center;">Warmly,<br/><strong>The BH Auto Protect Team</strong></p>
               </td>
             </tr>
           </table>
