@@ -1,49 +1,8 @@
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import type { MailAttachment } from "./mail";
 
-const EMAIL_LOGO_FILENAME = "IMG_1498.jpeg";
+const EMAIL_LOGO_URL =
+  "https://bhautoprotect.com/uploads/branding/logo-1758137821844.png";
 const EMAIL_LOGO_ALT_TEXT = "BH Auto Protect";
-const EMAIL_LOGO_CONTENT_ID = "bh-auto-protect-logo";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const emailLogoPath = path.join(__dirname, "assets", EMAIL_LOGO_FILENAME);
-
-const resolveContentType = (fileName: string): string => {
-  const extension = path.extname(fileName).toLowerCase();
-  switch (extension) {
-    case ".png":
-      return "image/png";
-    case ".svg":
-      return "image/svg+xml";
-    case ".webp":
-      return "image/webp";
-    case ".jpg":
-    case ".jpeg":
-    default:
-      return "image/jpeg";
-  }
-};
-
-let emailLogoAttachment: MailAttachment | null = null;
-
-try {
-  if (fs.existsSync(emailLogoPath)) {
-    const fileBuffer = fs.readFileSync(emailLogoPath);
-    emailLogoAttachment = {
-      filename: EMAIL_LOGO_FILENAME,
-      contentType: resolveContentType(EMAIL_LOGO_FILENAME),
-      content: fileBuffer,
-      disposition: "inline",
-      contentId: EMAIL_LOGO_CONTENT_ID,
-    };
-  } else {
-    console.warn(`Email logo asset not found at ${emailLogoPath}`);
-  }
-} catch (error) {
-  console.warn("Unable to load email logo asset:", error);
-}
 
 type RenderEmailLogoOptions = {
   textColor?: string;
@@ -53,22 +12,22 @@ type RenderEmailLogoOptions = {
   maxWidth?: number;
 };
 
-export const hasEmailLogoAsset = (): boolean => emailLogoAttachment !== null;
-
-export const getEmailLogoCid = (): string => EMAIL_LOGO_CONTENT_ID;
-
 export const getEmailBrandingAttachments = (): MailAttachment[] => {
-  return emailLogoAttachment ? [{ ...emailLogoAttachment }] : [];
+  return [];
 };
+
+export const hasEmailLogoAsset = (): boolean => EMAIL_LOGO_URL.length > 0;
+
+export const getEmailLogoUrl = (): string => EMAIL_LOGO_URL;
 
 export const renderEmailLogo = (options: RenderEmailLogoOptions = {}): string => {
   const marginBottom = options.marginBottom ?? 16;
   const align = options.align ?? "left";
 
-  if (emailLogoAttachment) {
+  if (EMAIL_LOGO_URL) {
     const height = options.height ?? 48;
     const maxWidth = options.maxWidth ?? 220;
-    return `<div style="margin-bottom:${marginBottom}px;text-align:${align};"><img src="cid:${EMAIL_LOGO_CONTENT_ID}" alt="${EMAIL_LOGO_ALT_TEXT}" style="display:inline-block;height:${height}px;max-width:${maxWidth}px;width:auto;border-radius:12px;object-fit:contain;" /></div>`;
+    return `<div style="margin-bottom:${marginBottom}px;text-align:${align};"><img src="${EMAIL_LOGO_URL}" alt="${EMAIL_LOGO_ALT_TEXT}" style="display:inline-block;height:${height}px;max-width:${maxWidth}px;width:auto;border-radius:12px;object-fit:contain;" /></div>`;
   }
 
   const textColor = options.textColor ?? "#ffffff";
