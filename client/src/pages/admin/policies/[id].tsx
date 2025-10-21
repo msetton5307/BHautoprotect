@@ -131,11 +131,45 @@ const formatCardExpiry = (month: number | null | undefined, year: number | null 
   return `${safeMonth}/${year}`;
 };
 
-const formatMaskedCardNumber = (lastFour: string | null | undefined): string => {
-  if (!lastFour || lastFour.trim().length === 0) {
-    return "—";
+const formatCardDigits = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
   }
-  return `•••• •••• •••• ${lastFour.trim()}`;
+
+  const digits = trimmed.replace(/[^0-9]/g, "");
+  if (digits.length >= 4) {
+    const grouped = digits.replace(/(\d{4})(?=\d)/g, "$1 ").trim();
+    if (grouped.length > 0) {
+      return grouped;
+    }
+  }
+
+  return trimmed;
+};
+
+const buildPaymentProfileCardNumber = (
+  profile: Pick<PolicyPaymentProfileRecord, "accountIdentifier" | "cardLastFour">,
+  fallbackCardNumber?: string | null,
+): { display: string; usedAccountIdentifier: boolean } => {
+  const identifier = typeof profile.accountIdentifier === "string" ? profile.accountIdentifier.trim() : "";
+  if (identifier.length > 0) {
+    const formatted = formatCardDigits(identifier);
+    return { display: formatted || identifier, usedAccountIdentifier: true };
+  }
+
+  const fallback = typeof fallbackCardNumber === "string" ? fallbackCardNumber.trim() : "";
+  if (fallback.length > 0) {
+    const formatted = formatCardDigits(fallback);
+    return { display: formatted || fallback, usedAccountIdentifier: false };
+  }
+
+  const lastFour = typeof profile.cardLastFour === "string" ? profile.cardLastFour.trim() : "";
+  if (lastFour.length > 0) {
+    return { display: `•••• ${lastFour}`, usedAccountIdentifier: false };
+  }
+
+  return { display: "—", usedAccountIdentifier: false };
 };
 
 const formatAddressForDisplay = (
@@ -710,6 +744,14 @@ export default function AdminPolicyDetail() {
   });
 
   const policy = data?.data ?? null;
+  const leadCardNumber = useMemo(() => {
+    const raw = policy?.lead?.cardNumber;
+    if (typeof raw !== "string") {
+      return null;
+    }
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }, [policy]);
   const lead = policy?.lead ?? {};
   const leadEmail = typeof lead.email === "string" ? lead.email : "";
   const vehicle = policy?.vehicle ?? {};
@@ -1901,15 +1943,26 @@ export default function AdminPolicyDetail() {
                     <p className="mt-2 text-xs text-muted-foreground">No payment details have been submitted yet.</p>
                   ) : (
                     <div className="mt-3 grid gap-4">
-                      {paymentProfiles.map(profile => (
-                        <div key={profile.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      {paymentProfiles.map(profile => {
+                        const { display: cardNumberDisplay, usedAccountIdentifier } = buildPaymentProfileCardNumber(
+                          profile,
+                          leadCardNumber,
+                        );
+                        const internalReferenceDisplay = usedAccountIdentifier
+                          ? "—"
+                          : profile.accountIdentifier && profile.accountIdentifier.trim().length > 0
+                            ? profile.accountIdentifier.trim()
+                            : "—";
+
+                        return (
+                          <div key={profile.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-sm font-semibold text-slate-900">
                                 {profile.cardBrand || profile.paymentMethod || "Payment method"}
                               </p>
                               <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.4em] text-slate-500">
-                                {formatMaskedCardNumber(profile.cardLastFour)}
+                                {cardNumberDisplay}
                               </p>
                               <p className="text-xs text-muted-foreground">
                                 {profile.accountName || "No cardholder name on file"}
@@ -1935,7 +1988,7 @@ export default function AdminPolicyDetail() {
                             <div>
                               <dt>Card number</dt>
                               <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                                {formatMaskedCardNumber(profile.cardLastFour)}
+                                {cardNumberDisplay}
                               </dd>
                             </div>
                             <div>
@@ -1953,7 +2006,7 @@ export default function AdminPolicyDetail() {
                             <div>
                               <dt>Internal ref</dt>
                               <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                                {profile.accountIdentifier || "—"}
+                                {internalReferenceDisplay}
                               </dd>
                             </div>
                           </dl>
@@ -1965,8 +2018,9 @@ export default function AdminPolicyDetail() {
                               Updated {new Date(profile.updatedAt).toLocaleString()}
                             </p>
                           ) : null}
-                        </div>
-                      ))}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
