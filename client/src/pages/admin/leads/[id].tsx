@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,6 +75,16 @@ type CreateQuotePayload = {
   priceMonthly: number;
   expirationMiles?: number | null;
   paymentOption: QuoteFormState['paymentOption'];
+};
+
+type ShippingFieldKey = 'shippingAddress' | 'shippingCity' | 'shippingState' | 'shippingZip';
+type BillingFieldKey = 'billingAddress' | 'billingCity' | 'billingState' | 'billingZip';
+
+const SHIPPING_TO_BILLING_FIELD: Record<ShippingFieldKey, BillingFieldKey> = {
+  shippingAddress: 'billingAddress',
+  shippingCity: 'billingCity',
+  shippingState: 'billingState',
+  shippingZip: 'billingZip',
 };
 
 const DEFAULT_QUOTE_FORM: QuoteFormState = {
@@ -197,7 +208,7 @@ export default function AdminLeadDetail() {
   const [expirationDateManuallyEdited, setExpirationDateManuallyEdited] = useState(false);
   const [vehicleForm, setVehicleForm] = useState<any>({});
   const [newNote, setNewNote] = useState('');
-  const [leadForm, setLeadForm] = useState<any>({});
+  const [leadForm, setLeadForm] = useState<any>({ shippingSameAsBilling: false });
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const createQuoteSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -585,7 +596,12 @@ export default function AdminLeadDetail() {
     }
 
     if (leadPayload.lead) {
-      setLeadForm(leadPayload.lead);
+      const leadData = leadPayload.lead;
+      setLeadForm((prev) => ({
+        ...prev,
+        ...leadData,
+        shippingSameAsBilling: Boolean(leadData.shippingSameAsBilling),
+      }));
     }
     const vehicleData = leadPayload.vehicle;
     if (vehicleData) {
@@ -966,6 +982,7 @@ export default function AdminLeadDetail() {
     : convertLeadMutation.isPending
       ? 'Converting...'
       : 'Convert to Policy';
+  const shippingSameAsBilling = Boolean(leadForm?.shippingSameAsBilling);
 
   const handleConvert = () => {
     if (hasPolicy) return;
@@ -1035,6 +1052,50 @@ export default function AdminLeadDetail() {
     });
   };
 
+  const handleShippingFieldChange = (field: ShippingFieldKey, value: string) => {
+    setLeadForm((prev: Record<string, any>) => {
+      const next = { ...prev, [field]: value };
+      if (prev.shippingSameAsBilling) {
+        const billingField = SHIPPING_TO_BILLING_FIELD[field];
+        next[billingField] = value;
+      }
+      return next;
+    });
+  };
+
+  const handleShippingSameAsBillingChange = (checked: boolean) => {
+    setLeadForm((prev: Record<string, any>) => {
+      const next = { ...prev, shippingSameAsBilling: checked };
+      if (checked) {
+        (Object.keys(SHIPPING_TO_BILLING_FIELD) as ShippingFieldKey[]).forEach((shippingField) => {
+          const billingField = SHIPPING_TO_BILLING_FIELD[shippingField];
+          next[billingField] = prev[shippingField] ?? '';
+        });
+      }
+      return next;
+    });
+  };
+
+  const sanitizeLeadUpdates = (input: Record<string, unknown>) => {
+    const result: Record<string, unknown> = {};
+    Object.entries(input).forEach(([key, value]) => {
+      if (value === undefined) {
+        return;
+      }
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        result[key] = trimmed.length > 0 ? trimmed : null;
+        return;
+      }
+      result[key] = value;
+    });
+    delete result.id;
+    delete result.createdAt;
+    delete result.updatedAt;
+    delete result.rawPayload;
+    return result;
+  };
+
   const handleSave = () => {
     const { id: _id, ...leadUpdates } = leadForm;
     const vehiclePayload = { ...vehicleForm } as any;
@@ -1058,11 +1119,13 @@ export default function AdminLeadDetail() {
       return;
     }
 
-    const policyPayload = buildPolicyPayloadFromForm(policyForm);
-
-    const payload: any = { ...leadUpdates };
+    const sanitizedLeadUpdates = sanitizeLeadUpdates(leadUpdates);
+    const payload: any = { ...sanitizedLeadUpdates };
     if (Object.keys(vehiclePayload).length > 0) payload.vehicle = vehiclePayload;
-    if (Object.keys(policyPayload).length > 0) payload.policy = policyPayload;
+    if (existingPolicy) {
+      const policyPayload = buildPolicyPayloadFromForm(policyForm);
+      if (Object.keys(policyPayload).length > 0) payload.policy = policyPayload;
+    }
     updateLeadMutation.mutate(payload);
   };
 
@@ -2023,11 +2086,21 @@ export default function AdminLeadDetail() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="shipping-same-as-billing"
+                        checked={shippingSameAsBilling}
+                        onCheckedChange={(value) => handleShippingSameAsBillingChange(value === true)}
+                      />
+                      <Label htmlFor="shipping-same-as-billing" className="text-sm font-medium text-slate-700">
+                        Billing address is the same as shipping
+                      </Label>
+                    </div>
                     <div>
                       <Label>Shipping Address (Line 1)</Label>
                       <Input
                         value={leadForm.shippingAddress || ''}
-                        onChange={(e) => setLeadForm({ ...leadForm, shippingAddress: e.target.value })}
+                        onChange={(e) => handleShippingFieldChange('shippingAddress', e.target.value)}
                       />
                       <input type="hidden" value={leadForm.shippingAddress2 || ''} />
                     </div>
@@ -2036,21 +2109,21 @@ export default function AdminLeadDetail() {
                         <Label>Shipping City</Label>
                         <Input
                           value={leadForm.shippingCity || ''}
-                          onChange={(e) => setLeadForm({ ...leadForm, shippingCity: e.target.value })}
+                          onChange={(e) => handleShippingFieldChange('shippingCity', e.target.value)}
                         />
                       </div>
                       <div>
                         <Label>Shipping State</Label>
                         <Input
                           value={leadForm.shippingState || ''}
-                          onChange={(e) => setLeadForm({ ...leadForm, shippingState: e.target.value })}
+                          onChange={(e) => handleShippingFieldChange('shippingState', e.target.value)}
                         />
                       </div>
                       <div>
                         <Label>Shipping Zipcode</Label>
                         <Input
                           value={leadForm.shippingZip || ''}
-                          onChange={(e) => setLeadForm({ ...leadForm, shippingZip: e.target.value })}
+                          onChange={(e) => handleShippingFieldChange('shippingZip', e.target.value)}
                         />
                       </div>
                     </div>
@@ -2062,6 +2135,8 @@ export default function AdminLeadDetail() {
                       <Input
                         value={leadForm.billingAddress || ''}
                         onChange={(e) => setLeadForm({ ...leadForm, billingAddress: e.target.value })}
+                        disabled={shippingSameAsBilling}
+                        className={shippingSameAsBilling ? 'bg-muted/30' : undefined}
                       />
                       <input type="hidden" value={leadForm.billingAddress2 || ''} />
                     </div>
@@ -2071,6 +2146,8 @@ export default function AdminLeadDetail() {
                         <Input
                           value={leadForm.billingCity || ''}
                           onChange={(e) => setLeadForm({ ...leadForm, billingCity: e.target.value })}
+                          disabled={shippingSameAsBilling}
+                          className={shippingSameAsBilling ? 'bg-muted/30' : undefined}
                         />
                       </div>
                       <div>
@@ -2078,6 +2155,8 @@ export default function AdminLeadDetail() {
                         <Input
                           value={leadForm.billingState || ''}
                           onChange={(e) => setLeadForm({ ...leadForm, billingState: e.target.value })}
+                          disabled={shippingSameAsBilling}
+                          className={shippingSameAsBilling ? 'bg-muted/30' : undefined}
                         />
                       </div>
                       <div>
@@ -2085,6 +2164,8 @@ export default function AdminLeadDetail() {
                         <Input
                           value={leadForm.billingZip || ''}
                           onChange={(e) => setLeadForm({ ...leadForm, billingZip: e.target.value })}
+                          disabled={shippingSameAsBilling}
+                          className={shippingSameAsBilling ? 'bg-muted/30' : undefined}
                         />
                       </div>
                     </div>

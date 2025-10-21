@@ -138,6 +138,35 @@ const formatMaskedCardNumber = (lastFour: string | null | undefined): string => 
   return `•••• •••• •••• ${lastFour.trim()}`;
 };
 
+const formatAddressForDisplay = (
+  line1: string | null | undefined,
+  city: string | null | undefined,
+  state: string | null | undefined,
+  postalCode: string | null | undefined,
+): string | null => {
+  const parts: string[] = [];
+  if (typeof line1 === "string" && line1.trim().length > 0) {
+    parts.push(line1.trim());
+  }
+  const locality: string[] = [];
+  if (typeof city === "string" && city.trim().length > 0) {
+    locality.push(city.trim());
+  }
+  if (typeof state === "string" && state.trim().length > 0) {
+    locality.push(state.trim());
+  }
+  if (typeof postalCode === "string" && postalCode.trim().length > 0) {
+    locality.push(postalCode.trim());
+  }
+  if (locality.length > 0) {
+    parts.push(locality.join(", "));
+  }
+  if (parts.length === 0) {
+    return null;
+  }
+  return parts.join("\n");
+};
+
 const chargeStatusStyles: Record<PolicyChargeRecord["status"], { label: string; className: string }> = {
   pending: { label: "Pending", className: "border-amber-200 bg-amber-50 text-amber-700" },
   processing: { label: "Processing", className: "border-blue-200 bg-blue-50 text-blue-700" },
@@ -686,6 +715,19 @@ export default function AdminPolicyDetail() {
   const vehicle = policy?.vehicle ?? {};
   const notes = policy?.notes ?? [];
   const files = policy?.files ?? [];
+  const billingAddressDisplay = formatAddressForDisplay(
+    (lead as { billingAddress?: string | null }).billingAddress ?? null,
+    (lead as { billingCity?: string | null }).billingCity ?? null,
+    (lead as { billingState?: string | null }).billingState ?? null,
+    (lead as { billingZip?: string | null }).billingZip ?? null,
+  );
+  const shippingAddressDisplay = formatAddressForDisplay(
+    (lead as { shippingAddress?: string | null }).shippingAddress ?? null,
+    (lead as { shippingCity?: string | null }).shippingCity ?? null,
+    (lead as { shippingState?: string | null }).shippingState ?? null,
+    (lead as { shippingZip?: string | null }).shippingZip ?? null,
+  );
+  const shippingSameAsBilling = Boolean((lead as { shippingSameAsBilling?: boolean }).shippingSameAsBilling);
   const paymentProfiles = useMemo(() => {
     const records = paymentProfilesResponse?.data?.paymentProfiles ?? [];
     return [...records].sort((a, b) => {
@@ -1749,6 +1791,20 @@ export default function AdminPolicyDetail() {
                       <dt className="text-xs uppercase tracking-wide text-slate-400">State</dt>
                       <dd className="mt-1 font-medium text-slate-900">{lead.state || "N/A"}</dd>
                     </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">
+                        {shippingSameAsBilling ? "Shipping address (same as billing)" : "Shipping address"}
+                      </dt>
+                      <dd className="mt-1 font-medium text-slate-900 whitespace-pre-line">
+                        {shippingAddressDisplay ?? "N/A"}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-wide text-slate-400">Billing address</dt>
+                      <dd className="mt-1 font-medium text-slate-900 whitespace-pre-line">
+                        {billingAddressDisplay ?? "N/A"}
+                      </dd>
+                    </div>
                   </dl>
                 </section>
 
@@ -1805,6 +1861,24 @@ export default function AdminPolicyDetail() {
                         ? primaryPaymentProfile?.cardBrand || primaryPaymentProfile?.paymentMethod || "Payment method"
                         : "Awaiting saved payment details"}
                     </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Billing address</p>
+                    <p className="mt-2 text-sm font-medium text-slate-900 whitespace-pre-line">
+                      {billingAddressDisplay ?? "N/A"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Shipping address</p>
+                    <p className="mt-2 text-sm font-medium text-slate-900 whitespace-pre-line">
+                      {shippingAddressDisplay ?? "N/A"}
+                      {shippingSameAsBilling ? (
+                        <span className="ml-2 text-xs font-normal text-slate-500">(Same as billing)</span>
+                      ) : null}
+                    </p>
                   </div>
                 </div>
 
