@@ -125,7 +125,7 @@ export const notes = pgTable("notes", {
 
 export const policies = pgTable("policies", {
   id: varchar("id", { length: 8 }).primaryKey(),
-  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'set null' }).notNull(),
+  leadId: varchar("lead_id").references(() => leads.id, { onDelete: 'cascade' }).notNull(),
   package: varchar("package"),
   expirationMiles: integer("expiration_miles"),
   expirationDate: timestamp("expiration_date"),

@@ -554,7 +554,7 @@ export class DatabaseStorage implements IStorage {
       .insert(policies)
       .values({
         ...sanitized,
-        id: sanitized.id ?? leadId,
+        id: leadId,
         leadId,
       })
       .returning();
