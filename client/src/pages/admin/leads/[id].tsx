@@ -135,6 +135,42 @@ const parseDollarInput = (value: string): number | null => {
   return Math.round(numeric);
 };
 
+const formatDateForInput = (date: Date): string => date.toISOString().slice(0, 10);
+
+const addYearsToDateInputValue = (value: string, years: number): string | null => {
+  if (!value) {
+    return null;
+  }
+  const parts = value.split('-');
+  if (parts.length !== 3) {
+    return null;
+  }
+  const [yearPart, monthPart, dayPart] = parts;
+  const year = Number.parseInt(yearPart, 10);
+  const month = Number.parseInt(monthPart, 10);
+  const day = Number.parseInt(dayPart, 10);
+  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
+    return null;
+  }
+  const baseDate = new Date(Date.UTC(year, month - 1, day));
+  if (Number.isNaN(baseDate.getTime())) {
+    return null;
+  }
+  baseDate.setUTCFullYear(baseDate.getUTCFullYear() + years);
+  return formatDateForInput(baseDate);
+};
+
+const toDateInputValue = (value: string | null | undefined): string | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return formatDateForInput(parsed);
+};
+
 export default function AdminLeadDetail() {
   const { id } = useParams();
   const [, setLocation] = useLocation();
@@ -158,6 +194,7 @@ export default function AdminLeadDetail() {
     totalPayments: '',
     paymentOption: 'one-time',
   });
+  const [expirationDateManuallyEdited, setExpirationDateManuallyEdited] = useState(false);
   const [vehicleForm, setVehicleForm] = useState<any>({});
   const [newNote, setNewNote] = useState('');
   const [leadForm, setLeadForm] = useState<any>({});
@@ -550,14 +587,42 @@ export default function AdminLeadDetail() {
     if (leadPayload.lead) {
       setLeadForm(leadPayload.lead);
     }
-    if (leadPayload.vehicle) {
-      const v = leadPayload.vehicle;
+    const vehicleData = leadPayload.vehicle;
+    if (vehicleData) {
+      const v = vehicleData;
       setVehicleForm({
         ...v,
         year: v.year?.toString(),
         odometer: v.odometer?.toString(),
       });
     }
+
+    const parsedOdometer = (() => {
+      const raw = vehicleData?.odometer;
+      if (typeof raw === 'number') {
+        return Number.isFinite(raw) ? raw : null;
+      }
+      if (typeof raw === 'string') {
+        const normalized = raw.replace(/[,]/g, '').trim();
+        if (normalized.length === 0) {
+          return null;
+        }
+        const numeric = Number.parseFloat(normalized);
+        return Number.isNaN(numeric) ? null : numeric;
+      }
+      return null;
+    })();
+    const defaultExpirationMiles =
+      parsedOdometer !== null ? String(Math.round(parsedOdometer + 100_000)) : '';
+
+    const todayInput = formatDateForInput(new Date());
+    const fallbackStartDate =
+      toDateInputValue(leadPayload.policy?.policyStartDate) ??
+      toDateInputValue(leadPayload.lead?.createdAt) ??
+      todayInput;
+
+    const existingExpirationDate = policyForm.expirationDate;
+
     if (leadPayload.policy) {
       const p = leadPayload.policy;
       const paymentOption: PolicyFormState['paymentOption'] = (() => {
@@ -570,20 +635,40 @@ export default function AdminLeadDetail() {
         }
         return 'one-time';
       })();
+      const expirationMilesValue =
+        p.expirationMiles !== null && p.expirationMiles !== undefined && p.expirationMiles !== ''
+          ? String(p.expirationMiles)
+          : defaultExpirationMiles;
+      const policyStartDateValue = toDateInputValue(p.policyStartDate) ?? fallbackStartDate;
+      const expirationDateValue = toDateInputValue(p.expirationDate) ?? '';
+
       setPolicyForm({
         package: p.package || '',
-        expirationMiles: p.expirationMiles?.toString() || '',
-        expirationDate: p.expirationDate ? p.expirationDate.slice(0, 10) : '',
+        expirationMiles: expirationMilesValue,
+        expirationDate: expirationDateValue,
         deductible: formatDollarInput(p.deductible),
         totalPremium: formatCurrencyInput(p.totalPremium),
         downPayment: formatCurrencyInput(p.downPayment),
-        policyStartDate: p.policyStartDate ? p.policyStartDate.slice(0, 10) : '',
+        policyStartDate: policyStartDateValue,
         monthlyPayment: formatCurrencyInput(p.monthlyPayment),
         totalPayments:
           p.totalPayments !== null && p.totalPayments !== undefined
             ? String(p.totalPayments)
             : '',
         paymentOption,
+      });
+      setExpirationDateManuallyEdited(Boolean(p.expirationDate));
+    } else {
+      setPolicyForm((prev) => ({
+        ...prev,
+        expirationMiles: prev.expirationMiles || defaultExpirationMiles,
+        policyStartDate: prev.policyStartDate || fallbackStartDate,
+      }));
+      setExpirationDateManuallyEdited((prevManual) => {
+        if (prevManual) {
+          return true;
+        }
+        return existingExpirationDate.trim().length > 0;
       });
     }
 
@@ -707,6 +792,27 @@ export default function AdminLeadDetail() {
 
     setQuoteFormInitialized(true);
   }, [leadPayload, quoteFormInitialized]);
+
+  const policyStartDateValue = policyForm.policyStartDate;
+
+  useEffect(() => {
+    if (!policyStartDateValue || expirationDateManuallyEdited) {
+      return;
+    }
+    const nextExpirationDate = addYearsToDateInputValue(policyStartDateValue, 5);
+    if (!nextExpirationDate) {
+      return;
+    }
+    setPolicyForm((prev) => {
+      if (prev.policyStartDate !== policyStartDateValue) {
+        return prev;
+      }
+      if (prev.expirationDate === nextExpirationDate) {
+        return prev;
+      }
+      return { ...prev, expirationDate: nextExpirationDate };
+    });
+  }, [policyStartDateValue, expirationDateManuallyEdited]);
 
   const prefillQuoteFormFromPolicy = useCallback(() => {
     setQuoteForm((prev) => {
@@ -1414,54 +1520,6 @@ export default function AdminLeadDetail() {
                           </Select>
                         </div>
                         <div>
-                          <Label>Expiration Miles</Label>
-                          <Input
-                            value={policyForm.expirationMiles}
-                            onChange={(e) => setPolicyForm({ ...policyForm, expirationMiles: e.target.value })}
-                            placeholder="Expiration Miles"
-                          />
-                        </div>
-                        <div>
-                          <Label>Expiration Date</Label>
-                          <Input
-                            type="date"
-                            value={policyForm.expirationDate}
-                            onChange={(e) => setPolicyForm({ ...policyForm, expirationDate: e.target.value })}
-                          />
-                        </div>
-                        <div>
-                          <Label>Deductible</Label>
-                          <Input
-                            value={policyForm.deductible}
-                            onChange={(e) => setPolicyForm({ ...policyForm, deductible: e.target.value })}
-                            placeholder="Deductible"
-                          />
-                        </div>
-                        <div>
-                          <Label>Total Premium</Label>
-                          <Input
-                            value={policyForm.totalPremium}
-                            onChange={(e) => setPolicyForm({ ...policyForm, totalPremium: e.target.value })}
-                            placeholder="Total Premium"
-                          />
-                        </div>
-                        <div>
-                          <Label>Down Payment</Label>
-                          <Input
-                            value={policyForm.downPayment}
-                            onChange={(e) => setPolicyForm({ ...policyForm, downPayment: e.target.value })}
-                            placeholder="Down Payment"
-                          />
-                        </div>
-                        <div>
-                          <Label>Policy Start Date</Label>
-                          <Input
-                            type="date"
-                            value={policyForm.policyStartDate}
-                            onChange={(e) => setPolicyForm({ ...policyForm, policyStartDate: e.target.value })}
-                          />
-                        </div>
-                        <div>
                           <Label>Payment Schedule</Label>
                           <Select
                             value={policyForm.paymentOption}
@@ -1477,6 +1535,7 @@ export default function AdminLeadDetail() {
                                     paymentOption: nextOption,
                                     monthlyPayment: '',
                                     totalPayments: '',
+                                    downPayment: '',
                                   };
                                 }
                                 return { ...prev, paymentOption: nextOption };
@@ -1495,8 +1554,61 @@ export default function AdminLeadDetail() {
                             Selecting monthly will require installment details.
                           </p>
                         </div>
+                        <div>
+                          <Label>Policy Start Date</Label>
+                          <Input
+                            type="date"
+                            value={policyForm.policyStartDate}
+                            onChange={(e) => setPolicyForm({ ...policyForm, policyStartDate: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <Label>Expiration Date</Label>
+                          <Input
+                            type="date"
+                            value={policyForm.expirationDate}
+                            onChange={(e) => {
+                              setExpirationDateManuallyEdited(e.target.value.trim().length > 0);
+                              setPolicyForm({ ...policyForm, expirationDate: e.target.value });
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <Label>Expiration Miles</Label>
+                          <Input
+                            value={policyForm.expirationMiles}
+                            onChange={(e) => setPolicyForm({ ...policyForm, expirationMiles: e.target.value })}
+                            placeholder="Expiration Miles"
+                          />
+                        </div>
+                        <div>
+                          <Label>Deductible</Label>
+                          <Input
+                            value={policyForm.deductible}
+                            onChange={(e) => setPolicyForm({ ...policyForm, deductible: e.target.value })}
+                            placeholder="Deductible"
+                          />
+                        </div>
+                        <div>
+                          <Label>Total Premium</Label>
+                          <Input
+                            value={policyForm.totalPremium}
+                            onChange={(e) => setPolicyForm({ ...policyForm, totalPremium: e.target.value })}
+                            placeholder="Total Premium"
+                          />
+                        </div>
                         {policyForm.paymentOption === 'monthly' && (
                           <>
+                            <div>
+                              <Label>Down Payment</Label>
+                              <Input
+                                value={policyForm.downPayment}
+                                onChange={(e) =>
+                                  setPolicyForm((prev) => ({ ...prev, downPayment: e.target.value }))
+                                }
+                                placeholder="Down Payment"
+                              />
+                            </div>
                             <div>
                               <Label>Monthly Payment</Label>
                               <Input
