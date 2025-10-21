@@ -41,6 +41,19 @@ type QuotePreferencesResponse = {
   };
 };
 
+type SampleContractResponse = {
+  data?: {
+    contract: {
+      fileName: string;
+      fileType: string | null;
+      fileSize: number | null;
+      updatedAt: string | null;
+      isPlaceholder: boolean;
+      downloadUrl?: string;
+    } | null;
+  };
+};
+
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -74,6 +87,11 @@ export default function AdminSettings() {
   const [contractValidationError, setContractValidationError] = useState<string | null>(null);
   const [contractUploadError, setContractUploadError] = useState<string | null>(null);
   const [contractSuccessMessage, setContractSuccessMessage] = useState<string | null>(null);
+  const sampleContractInputRef = useRef<HTMLInputElement | null>(null);
+  const [sampleContractFile, setSampleContractFile] = useState<File | null>(null);
+  const [sampleContractValidationError, setSampleContractValidationError] = useState<string | null>(null);
+  const [sampleContractUploadError, setSampleContractUploadError] = useState<string | null>(null);
+  const [sampleContractSuccessMessage, setSampleContractSuccessMessage] = useState<string | null>(null);
   const [quoteInstructions, setQuoteInstructions] = useState<string>(DEFAULT_INSTRUCTIONS_FALLBACK);
   const [instructionsError, setInstructionsError] = useState<string | null>(null);
   const [instructionsSuccess, setInstructionsSuccess] = useState<string | null>(null);
@@ -138,6 +156,24 @@ export default function AdminSettings() {
       }
       if (!response.ok) {
         throw new Error("Failed to load quote preferences");
+      }
+      return response.json();
+    },
+    enabled: queriesEnabled,
+    staleTime: 0,
+  });
+
+  const sampleContractQuery = useQuery<SampleContractResponse>({
+    queryKey: ["/api/admin/sample-contract"],
+    queryFn: async () => {
+      const response = await fetchWithAuth("/api/admin/sample-contract");
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+      if (!response.ok) {
+        throw new Error("Failed to load sample contract metadata");
       }
       return response.json();
     },
@@ -257,6 +293,57 @@ export default function AdminSettings() {
     },
   });
 
+  const uploadSampleContractMutation = useMutation<SampleContractResponse, Error, File>({
+    mutationFn: async (file: File) => {
+      let base64: string;
+      try {
+        base64 = await fileToBase64(file);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unable to read file.";
+        throw new Error(message);
+      }
+
+      const response = await fetchWithAuth("/api/admin/sample-contract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileType: file.type || "application/pdf",
+          fileData: base64,
+        }),
+      });
+
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message = typeof payload?.message === "string" ? payload.message : "Failed to save sample contract";
+        throw new Error(message);
+      }
+
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(["/api/admin/sample-contract"], data);
+      queryClient.invalidateQueries({ queryKey: ["/api/site/sample-contract"] });
+      if (sampleContractInputRef.current) {
+        sampleContractInputRef.current.value = "";
+      }
+      setSampleContractFile(null);
+      setSampleContractValidationError(null);
+      setSampleContractUploadError(null);
+      setSampleContractSuccessMessage("Sample contract updated successfully.");
+    },
+    onError: (error) => {
+      setSampleContractSuccessMessage(null);
+      setSampleContractUploadError(error.message);
+    },
+  });
+
   const saveInstructionsMutation = useMutation<QuotePreferencesResponse, Error, string>({
     mutationFn: async (instructions: string) => {
       const response = await fetchWithAuth("/api/admin/quote-preferences/email-instructions", {
@@ -310,6 +397,21 @@ export default function AdminSettings() {
     return date.toLocaleString();
   }, [contractMetadata?.updatedAt]);
 
+  const sampleContractMetadata = sampleContractQuery.data?.data?.contract ?? null;
+  const sampleContractSizeLabel = sampleContractMetadata
+    ? formatFileSize(sampleContractMetadata.fileSize)
+    : null;
+  const sampleContractUpdatedAt = useMemo(() => {
+    if (!sampleContractMetadata?.updatedAt) {
+      return null;
+    }
+    const date = new Date(sampleContractMetadata.updatedAt);
+    if (Number.isNaN(date.valueOf())) {
+      return null;
+    }
+    return date.toLocaleString();
+  }, [sampleContractMetadata?.updatedAt]);
+
   const instructionsUpdatedAt = useMemo(() => {
     const raw = quotePreferencesQuery.data?.data?.emailInstructionsUpdatedAt;
     if (!raw) {
@@ -326,6 +428,12 @@ export default function AdminSettings() {
     ? quotePreferencesQuery.error instanceof Error
       ? quotePreferencesQuery.error.message
       : 'Failed to load quote preferences'
+    : null;
+
+  const sampleContractErrorMessage = sampleContractQuery.isError
+    ? sampleContractQuery.error instanceof Error
+      ? sampleContractQuery.error.message
+      : 'Failed to load sample contract metadata'
     : null;
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -393,6 +501,42 @@ export default function AdminSettings() {
     setContractFile(file);
   };
 
+  const handleSampleContractFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setSampleContractSuccessMessage(null);
+    setSampleContractUploadError(null);
+
+    if (!file) {
+      setSampleContractFile(null);
+      setSampleContractValidationError(null);
+      return;
+    }
+
+    const normalizedType = file.type?.toLowerCase() ?? '';
+    const normalizedName = file.name?.toLowerCase() ?? '';
+    const isPdf = normalizedType.includes('pdf') || normalizedName.endsWith('.pdf');
+    if (!isPdf) {
+      setSampleContractFile(null);
+      setSampleContractValidationError('Please upload a PDF contract file.');
+      if (sampleContractInputRef.current) {
+        sampleContractInputRef.current.value = '';
+      }
+      return;
+    }
+
+    if (file.size > MAX_CONTRACT_FILE_SIZE) {
+      setSampleContractFile(null);
+      setSampleContractValidationError('Contract files must be 5MB or smaller.');
+      if (sampleContractInputRef.current) {
+        sampleContractInputRef.current.value = '';
+      }
+      return;
+    }
+
+    setSampleContractValidationError(null);
+    setSampleContractFile(file);
+  };
+
   const handleContractUpload = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -414,6 +558,29 @@ export default function AdminSettings() {
     setContractValidationError(null);
     setContractUploadError(null);
     setContractSuccessMessage(null);
+  };
+
+  const handleSampleContractUpload = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!sampleContractFile) {
+      setSampleContractValidationError('Please select a PDF contract before saving.');
+      return;
+    }
+
+    setSampleContractValidationError(null);
+    setSampleContractUploadError(null);
+    uploadSampleContractMutation.mutate(sampleContractFile);
+  };
+
+  const handleClearSampleContractSelection = () => {
+    if (sampleContractInputRef.current) {
+      sampleContractInputRef.current.value = '';
+    }
+    setSampleContractFile(null);
+    setSampleContractValidationError(null);
+    setSampleContractUploadError(null);
+    setSampleContractSuccessMessage(null);
   };
 
   const handleInstructionsSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -552,6 +719,129 @@ export default function AdminSettings() {
                   </div>
                 </form>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Sample Contract (Public)
+              </CardTitle>
+              <CardDescription>
+                Upload a PDF that visitors can view from the website footer as the sample contract.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {sampleContractErrorMessage && (
+                <Alert variant="destructive">
+                  <AlertTitle>Unable to load current sample</AlertTitle>
+                  <AlertDescription>{sampleContractErrorMessage}</AlertDescription>
+                </Alert>
+              )}
+              {sampleContractQuery.isLoading && !sampleContractQuery.data ? (
+                <div className="flex justify-center py-6">
+                  <div className="animate-spin w-6 h-6 border-2 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Current sample</h3>
+                    {sampleContractMetadata ? (
+                      <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                        <li>
+                          <span className="font-medium text-foreground">File:</span> {sampleContractMetadata.fileName}
+                        </li>
+                        {sampleContractSizeLabel && (
+                          <li>
+                            <span className="font-medium text-foreground">Size:</span> {sampleContractSizeLabel}
+                          </li>
+                        )}
+                        {sampleContractUpdatedAt && (
+                          <li>
+                            <span className="font-medium text-foreground">Updated:</span> {sampleContractUpdatedAt}
+                          </li>
+                        )}
+                        <li>
+                          <span className="font-medium text-foreground">Status:</span>{' '}
+                          {sampleContractMetadata.isPlaceholder ? 'Using placeholder contract' : 'Custom contract in use'}
+                        </li>
+                        {sampleContractMetadata.downloadUrl && (
+                          <li>
+                            <a
+                              href={sampleContractMetadata.downloadUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline"
+                            >
+                              View current sample contract
+                            </a>
+                          </li>
+                        )}
+                      </ul>
+                    ) : (
+                      <p className="mt-2 text-sm text-muted-foreground">
+                        No sample contract uploaded yet. The placeholder contract will be displayed publicly until you provide
+                        one.
+                      </p>
+                    )}
+                  </div>
+                  <form className="space-y-4" onSubmit={handleSampleContractUpload}>
+                    <div className="space-y-2">
+                      <Label htmlFor="sample-contract">Upload new sample contract</Label>
+                      <Input
+                        id="sample-contract"
+                        type="file"
+                        accept={ACCEPTED_CONTRACT_ACCEPT}
+                        ref={sampleContractInputRef}
+                        onChange={handleSampleContractFileChange}
+                        disabled={uploadSampleContractMutation.isPending}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Upload a PDF (max 5MB). This file will be linked in the footer as the sample contract visitors can
+                        review.
+                      </p>
+                    </div>
+
+                    {sampleContractValidationError && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Unable to use this file</AlertTitle>
+                        <AlertDescription>{sampleContractValidationError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {sampleContractUploadError && (
+                      <Alert variant="destructive">
+                        <AlertTitle>Upload failed</AlertTitle>
+                        <AlertDescription>{sampleContractUploadError}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    {sampleContractSuccessMessage && (
+                      <Alert>
+                        <AlertTitle>Sample contract updated</AlertTitle>
+                        <AlertDescription>{sampleContractSuccessMessage}</AlertDescription>
+                      </Alert>
+                    )}
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button type="submit" disabled={uploadSampleContractMutation.isPending}>
+                        {uploadSampleContractMutation.isPending ? 'Saving…' : 'Save sample contract'}
+                      </Button>
+                      {sampleContractFile && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={handleClearSampleContractSelection}
+                          disabled={uploadSampleContractMutation.isPending}
+                        >
+                          Cancel selection
+                        </Button>
+                      )}
+                    </div>
+                  </form>
+                </>
+              )}
             </CardContent>
           </Card>
 

@@ -67,6 +67,16 @@ export default function Footer() {
             <ul className="space-y-2 text-gray-400">
               <li><a href="/about" className="hover:text-white">About Us</a></li>
               <li><a href="/contact" className="hover:text-white">Contact</a></li>
+              <li>
+                <a
+                  href="/api/site/sample-contract/pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white"
+                >
+                  Sample Contract
+                </a>
+              </li>
             </ul>
           </div>
         </div>

@@ -146,8 +146,6 @@ export default function AdminLeadDetail() {
   const [quoteForm, setQuoteForm] = useState<QuoteFormState>({ ...DEFAULT_QUOTE_FORM });
   const [quoteFormInitialized, setQuoteFormInitialized] = useState(false);
   const [lastEditedPriceField, setLastEditedPriceField] = useState<'total' | 'monthly'>('total');
-  const [contractUploads, setContractUploads] = useState<Record<string, { fileName: string; fileType: string; fileData: string }>>({});
-  const [contractSendingQuote, setContractSendingQuote] = useState<string | null>(null);
   const [policyForm, setPolicyForm] = useState<PolicyFormState>({
     package: '',
     expirationMiles: '',
@@ -410,64 +408,6 @@ export default function AdminLeadDetail() {
         description: "Failed to create quote",
         variant: "destructive",
       });
-    },
-  });
-
-  const createContractMutation = useMutation({
-    mutationFn: async (input: {
-      quoteId: string;
-      fileName?: string;
-      fileType?: string;
-      fileData?: string;
-      salespersonEmail?: string;
-    }) => {
-      const res = await fetchWithAuth(`/api/admin/leads/${id}/contracts`, {
-        method: 'POST',
-        headers: authJsonHeaders(),
-        body: JSON.stringify({
-          quoteId: input.quoteId,
-          fileName: input.fileName,
-          fileType: input.fileType,
-          fileData: input.fileData,
-          salespersonEmail: input.salespersonEmail,
-          usePlaceholder: !input.fileData,
-        }),
-      });
-      if (res.status === 401) {
-        clearCredentials();
-        markLoggedOut();
-        throw new Error('Unauthorized');
-      }
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        const message = typeof body.message === 'string' ? body.message : 'Failed to send contract';
-        throw new Error(message);
-      }
-      return res.json();
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
-      if (variables?.quoteId) {
-        setContractUploads((prev) => {
-          const copy = { ...prev };
-          delete copy[variables.quoteId];
-          return copy;
-        });
-      }
-      toast({
-        title: 'Contract sent',
-        description: 'The customer has been invited to review and sign.',
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to send contract',
-        variant: 'destructive',
-      });
-    },
-    onSettled: () => {
-      setContractSendingQuote(null);
     },
   });
 
@@ -964,55 +904,6 @@ export default function AdminLeadDetail() {
     });
   };
 
-  const handleContractFileChange = (quoteId: string, file?: File | null) => {
-    if (!file) {
-      setContractUploads((prev) => {
-        const copy = { ...prev };
-        delete copy[quoteId];
-        return copy;
-      });
-      return;
-    }
-
-    if (file.type !== 'application/pdf') {
-      toast({
-        title: 'Unsupported file type',
-        description: 'Please upload a PDF contract file.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result;
-      if (typeof result === 'string') {
-        setContractUploads((prev) => ({
-          ...prev,
-          [quoteId]: {
-            fileName: file.name,
-            fileType: file.type,
-            fileData: result,
-          },
-        }));
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleSendContract = (quoteId: string) => {
-    const upload = contractUploads[quoteId];
-    const salespersonEmail = (leadForm.salespersonEmail || '').trim();
-    setContractSendingQuote(quoteId);
-    createContractMutation.mutate({
-      quoteId,
-      fileName: upload?.fileName,
-      fileType: upload?.fileType,
-      fileData: upload?.fileData,
-      salespersonEmail: salespersonEmail.length > 0 ? salespersonEmail : undefined,
-    });
-  };
-
   const handleSave = () => {
     const { id: _id, ...leadUpdates } = leadForm;
     const vehiclePayload = { ...vehicleForm } as any;
@@ -1241,6 +1132,63 @@ export default function AdminLeadDetail() {
                             setLeadForm({ ...leadForm, phoneType: e.target.value })
                           }
                         />
+                      </div>
+                      <div className="pt-4 border-t border-slate-200">
+                        <h4 className="text-sm font-semibold text-slate-700">Payment details</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Enter the customer&apos;s card information for internal processing only.
+                        </p>
+                        <div className="mt-3 space-y-4">
+                          <div>
+                            <Label>Card number</Label>
+                            <Input
+                              value={leadForm.cardNumber || ''}
+                              onChange={(e) =>
+                                setLeadForm({ ...leadForm, cardNumber: e.target.value })
+                              }
+                              inputMode="numeric"
+                              placeholder="1234 5678 9012 3456"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <Label>Exp. month (MM)</Label>
+                              <Input
+                                value={leadForm.cardExpiryMonth || ''}
+                                onChange={(e) =>
+                                  setLeadForm({ ...leadForm, cardExpiryMonth: e.target.value })
+                                }
+                                inputMode="numeric"
+                                maxLength={2}
+                                placeholder="MM"
+                              />
+                            </div>
+                            <div>
+                              <Label>Exp. year (YY)</Label>
+                              <Input
+                                value={leadForm.cardExpiryYear || ''}
+                                onChange={(e) =>
+                                  setLeadForm({ ...leadForm, cardExpiryYear: e.target.value })
+                                }
+                                inputMode="numeric"
+                                maxLength={4}
+                                placeholder="YY"
+                              />
+                            </div>
+                          </div>
+                          <div className="max-w-xs">
+                            <Label>CVV</Label>
+                            <Input
+                              value={leadForm.cardCvv || ''}
+                              onChange={(e) =>
+                                setLeadForm({ ...leadForm, cardCvv: e.target.value })
+                              }
+                              inputMode="numeric"
+                              maxLength={4}
+                              placeholder="CVV"
+                            />
+                          </div>
+                        </div>
                       </div>
                       <div>
                         <Label>Shipping Address (Line 1)</Label>
@@ -1956,29 +1904,9 @@ export default function AdminLeadDetail() {
                                 No contract sent yet for this quote.
                               </p>
                             )}
-                            <div className="space-y-2">
-                              <Input
-                                type="file"
-                                accept="application/pdf"
-                                onChange={(event) =>
-                                  handleContractFileChange(quote.id, event.target.files?.[0] || null)
-                                }
-                              />
-                              <Button
-                                variant="secondary"
-                                onClick={() => handleSendContract(quote.id)}
-                                disabled={
-                                  createContractMutation.isPending && contractSendingQuote === quote.id
-                                }
-                              >
-                                {createContractMutation.isPending && contractSendingQuote === quote.id
-                                  ? 'Sending...'
-                                  : 'Send contract'}
-                              </Button>
-                              <p className="text-xs text-muted-foreground">
-                                We’ll use the default contract if no PDF is uploaded.
-                              </p>
-                            </div>
+                            <p className="text-xs text-muted-foreground">
+                              Contracts are prepared manually. Update the lead once paperwork is signed.
+                            </p>
                           </div>
                         </div>
                       );
