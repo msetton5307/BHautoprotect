@@ -529,6 +529,416 @@ const formatLocation = (lead: Lead): string => {
   return parts.join(" • ");
 };
 
+const formatOptionalString = (value: unknown, fallback = "Not provided"): string => {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : fallback;
+  }
+
+  if (typeof value === "number") {
+    if (Number.isNaN(value)) {
+      return fallback;
+    }
+    return value.toString();
+  }
+
+  try {
+    const stringValue = String(value).trim();
+    return stringValue.length > 0 ? stringValue : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const formatPhoneNumberDisplay = (value: string | null | undefined): string => {
+  if (!value) {
+    return "Not provided";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "Not provided";
+  }
+
+  const digits = trimmed.replace(/\D/g, "");
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+  }
+
+  return trimmed;
+};
+
+const formatDateTimeEastern = (
+  value: Date | string | number | null | undefined,
+  fallback = "Not recorded",
+): string => {
+  if (value === null || value === undefined) {
+    return fallback;
+  }
+
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.valueOf())) {
+    return fallback;
+  }
+
+  return (
+    parsed.toLocaleString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: "America/New_York",
+    }) + " ET"
+  );
+};
+
+const formatLeadSourceDisplay = (value: string | null | undefined): string => {
+  const normalized = typeof value === "string" ? value.trim() : "";
+  if (!normalized) {
+    return "Website";
+  }
+
+  return normalized
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1).toLowerCase()}`)
+    .join(" ");
+};
+
+const formatVehicleUsageDisplay = (value: string | null | undefined): string | null => {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!normalized) {
+    return null;
+  }
+
+  switch (normalized) {
+    case "personal":
+      return "Personal use";
+    case "commercial":
+      return "Commercial use";
+    case "rideshare":
+      return "Rideshare use";
+    default:
+      return `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
+  }
+};
+
+const truncateDisplayValue = (value: string, maxLength = 240): string => {
+  if (value.length <= maxLength) {
+    return value;
+  }
+  return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
+};
+
+const buildAdminLeadUrl = (leadId: string): string => {
+  const explicitBase = process.env.ADMIN_LEAD_URL_BASE?.trim();
+  if (explicitBase) {
+    const normalized = explicitBase.replace(/\/$/, "");
+    return `${normalized}/${leadId}`;
+  }
+
+  const baseCandidate =
+    process.env.ADMIN_DASHBOARD_BASE_URL ||
+    process.env.ADMIN_BASE_URL ||
+    process.env.APP_BASE_URL ||
+    process.env.PUBLIC_SITE_URL ||
+    process.env.SITE_URL ||
+    "";
+
+  const trimmed = baseCandidate.trim().replace(/\/$/, "");
+  if (!trimmed) {
+    return `https://bhautoprotect.com/admin/leads/${leadId}`;
+  }
+
+  if (trimmed.endsWith("/admin/leads")) {
+    return `${trimmed}/${leadId}`;
+  }
+
+  if (trimmed.endsWith("/admin")) {
+    return `${trimmed}/leads/${leadId}`;
+  }
+
+  return `${trimmed}/admin/leads/${leadId}`;
+};
+
+const buildLeadNotificationEmail = ({
+  lead,
+  vehicle,
+  adminLeadUrl,
+}: {
+  lead: Lead;
+  vehicle: Vehicle | null | undefined;
+  adminLeadUrl: string;
+}) => {
+  const displayName = getLeadDisplayName(lead);
+  const hasName = displayName !== "there";
+  const leadName = hasName ? displayName : "New lead";
+  const headerTitle = hasName
+    ? `${leadName} requested coverage`
+    : "New lead captured";
+  const vehicleSummaryRaw = getVehicleSummary(vehicle);
+  const vehicleSummary =
+    vehicleSummaryRaw === "your vehicle"
+      ? "Vehicle details pending"
+      : vehicleSummaryRaw;
+  const subjectVehicleSegment =
+    vehicleSummary === "Vehicle details pending" ? "" : ` (${vehicleSummary})`;
+  const subject = `New lead • ${leadName}${subjectVehicleSegment}`;
+  const submittedAtDisplay = formatDateTimeEastern(lead.createdAt, "Not recorded");
+  const locationDisplay = formatLocation(lead);
+  const sourceDisplay = formatLeadSourceDisplay(lead.source);
+  const emailDisplay = formatOptionalString(lead.email, "Not provided");
+  const phoneDisplay = formatPhoneNumberDisplay(
+    typeof lead.phone === "string" ? lead.phone : undefined,
+  );
+  const consentTimestampDisplay = lead.consentTimestamp
+    ? formatDateTimeEastern(lead.consentTimestamp, "Not recorded")
+    : "Not recorded";
+  const consentIpDisplay = formatOptionalString(lead.consentIP, "Not captured");
+  const userAgentDisplay = lead.consentUserAgent
+    ? truncateDisplayValue(lead.consentUserAgent, 220)
+    : "Not captured";
+
+  const utmTags: string[] = [];
+  if (lead.utmSource) utmTags.push(`utm_source=${lead.utmSource}`);
+  if (lead.utmMedium) utmTags.push(`utm_medium=${lead.utmMedium}`);
+  if (lead.utmCampaign) utmTags.push(`utm_campaign=${lead.utmCampaign}`);
+
+  const overviewRows = [
+    { label: "Lead ID", value: lead.id },
+    { label: "Submitted", value: submittedAtDisplay },
+    { label: "Source", value: sourceDisplay },
+    { label: "Location", value: locationDisplay },
+    { label: "Vehicle", value: vehicleSummary },
+  ];
+
+  const contactRows = [
+    { label: "Name", value: hasName ? leadName : "Not provided" },
+    { label: "Email", value: emailDisplay },
+    { label: "Phone", value: phoneDisplay },
+  ];
+
+  const vehicleRows: { label: string; value: string }[] = [];
+  if (vehicle) {
+    if (typeof vehicle.year === "number" && !Number.isNaN(vehicle.year)) {
+      vehicleRows.push({ label: "Year", value: vehicle.year.toString() });
+    }
+    const makeDisplay = formatOptionalString(vehicle.make, "");
+    if (makeDisplay) {
+      vehicleRows.push({ label: "Make", value: makeDisplay });
+    }
+    const modelDisplay = formatOptionalString(vehicle.model, "");
+    if (modelDisplay) {
+      vehicleRows.push({ label: "Model", value: modelDisplay });
+    }
+    const trimDisplay = formatOptionalString(vehicle.trim, "");
+    if (trimDisplay) {
+      vehicleRows.push({ label: "Trim", value: trimDisplay });
+    }
+    const vinDisplay = formatOptionalString(vehicle.vin, "");
+    if (vinDisplay) {
+      vehicleRows.push({ label: "VIN", value: vinDisplay });
+    }
+    if (typeof vehicle.odometer === "number" && !Number.isNaN(vehicle.odometer)) {
+      vehicleRows.push({ label: "Odometer", value: formatOdometer(vehicle.odometer) });
+    }
+    const usageDisplay = formatVehicleUsageDisplay(vehicle.usage);
+    if (usageDisplay) {
+      vehicleRows.push({ label: "Usage", value: usageDisplay });
+    }
+  }
+
+  const complianceRows = [
+    { label: "TCPA Consent", value: lead.consentTCPA ? "Yes" : "No" },
+    { label: "Consent Timestamp", value: consentTimestampDisplay },
+    { label: "Consent IP", value: consentIpDisplay },
+    { label: "User Agent", value: userAgentDisplay },
+  ];
+
+  const renderRows = (rows: { label: string; value: string }[]): string => {
+    return rows
+      .filter((row) => row.value && row.value.trim().length > 0)
+      .map(
+        (row) => `
+          <tr>
+            <td style="padding:6px 0;color:#64748b;font-size:14px;">${escapeHtml(row.label)}</td>
+            <td style="padding:6px 0;color:#0f172a;font-weight:600;font-size:14px;text-align:right;max-width:320px;word-break:break-word;">${escapeHtml(row.value).replace(/\n/g, '<br />')}</td>
+          </tr>`,
+      )
+      .join("");
+  };
+
+  const renderInfoCard = (
+    title: string,
+    rows: { label: string; value: string }[],
+    extraContent = "",
+  ): string => {
+    const rowsHtml = renderRows(rows);
+    if (!rowsHtml && !extraContent) {
+      return "";
+    }
+    return `
+      <div style="background:#ffffff;border-radius:16px;padding:22px 24px;border:1px solid #e2e8f0;margin-bottom:20px;">
+        <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:600;margin-bottom:12px;">${escapeHtml(title)}</div>
+        ${rowsHtml
+          ? `<table role="presentation" width="100%" style="border-collapse:collapse;width:100%;"><tbody>${rowsHtml}</tbody></table>`
+          : ""}
+        ${extraContent}
+      </div>
+    `;
+  };
+
+  const utmHtml = utmTags.length
+    ? `<div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;">
+        ${utmTags
+          .map(
+            (tag) =>
+              `<span style="display:inline-flex;align-items:center;padding:6px 12px;border-radius:9999px;background:#e0f2fe;color:#0369a1;font-size:12px;font-weight:600;">${escapeHtml(tag)}</span>`,
+          )
+          .join("")}
+      </div>`
+    : "";
+
+  const vehicleCard = renderInfoCard("Vehicle details", vehicleRows);
+  const complianceCard = renderInfoCard("Consent & tracking", complianceRows, utmHtml);
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.08);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#0f172a,#1e40af);padding:32px;color:#e2e8f0;">
+                ${renderEmailLogo({ textColor: '#bae6fd' })}
+                <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#38bdf8;">New lead</div>
+                <div style="font-size:26px;font-weight:700;margin-top:12px;color:#f8fafc;">${escapeHtml(headerTitle)}</div>
+                <div style="margin-top:6px;font-size:14px;color:#bae6fd;">Lead ${escapeHtml(lead.id)} • ${escapeHtml(vehicleSummary)}</div>
+                <div style="margin-top:6px;font-size:13px;color:#94a3b8;">Submitted ${escapeHtml(submittedAtDisplay)}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:28px 32px;">
+                ${renderInfoCard("Lead snapshot", overviewRows)}
+                ${renderInfoCard("Contact details", contactRows)}
+                ${vehicleCard}
+                ${complianceCard}
+                <div style="text-align:center;margin-top:28px;">
+                  <a href="${escapeHtml(adminLeadUrl)}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 28px;border-radius:9999px;background:#2563eb;color:#ffffff;font-weight:600;text-decoration:none;">Open lead in dashboard</a>
+                </div>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const textLines: string[] = [
+    `${headerTitle}${subjectVehicleSegment}`,
+    `Lead ID: ${lead.id}`,
+    `Submitted: ${submittedAtDisplay}`,
+    `Source: ${sourceDisplay}`,
+    `Location: ${locationDisplay}`,
+    `Vehicle: ${vehicleSummary}`,
+    "",
+    "Contact",
+    `  Name: ${hasName ? leadName : "Not provided"}`,
+    `  Email: ${emailDisplay}`,
+    `  Phone: ${phoneDisplay}`,
+  ];
+
+  if (vehicleRows.length > 0) {
+    textLines.push("", "Vehicle details");
+    for (const row of vehicleRows) {
+      textLines.push(`  ${row.label}: ${row.value}`);
+    }
+  }
+
+  textLines.push(
+    "",
+    "Consent & tracking",
+    `  TCPA consent: ${lead.consentTCPA ? "Yes" : "No"}`,
+    `  Consent timestamp: ${consentTimestampDisplay}`,
+    `  Consent IP: ${consentIpDisplay}`,
+    `  User agent: ${userAgentDisplay}`,
+  );
+
+  if (utmTags.length > 0) {
+    textLines.push("", "UTM tags");
+    for (const tag of utmTags) {
+      textLines.push(`  ${tag}`);
+    }
+  }
+
+  textLines.push("", `Open lead: ${adminLeadUrl}`);
+
+  const text = textLines.join("\n");
+
+  return { subject, html, text };
+};
+
+const sendNewLeadNotification = async ({
+  lead,
+  vehicle,
+}: {
+  lead: Lead;
+  vehicle?: Vehicle | null;
+}): Promise<void> => {
+  const recipientsEnv =
+    process.env.NEW_LEAD_NOTIFICATION_TO ||
+    process.env.LEAD_ALERT_EMAIL ||
+    "admin@bhautoprotect.com";
+
+  const recipients = recipientsEnv
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  if (recipients.length === 0) {
+    console.warn("No recipients configured for new lead notifications");
+    return;
+  }
+
+  const uniqueRecipients = Array.from(new Set(recipients));
+
+  const fromAddress =
+    process.env.NEW_LEAD_NOTIFICATION_FROM?.trim() || "info@bhautoprotect.com";
+
+  const adminLeadUrl = buildAdminLeadUrl(lead.id);
+  const message = buildLeadNotificationEmail({
+    lead,
+    vehicle: vehicle ?? null,
+    adminLeadUrl,
+  });
+
+  try {
+    await sendMail({
+      from: fromAddress,
+      to: uniqueRecipients,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+    });
+  } catch (error) {
+    console.error("Error sending new lead notification email:", error);
+  }
+};
+
 const getLeadDisplayName = (lead: Lead): string => {
   const first = typeof lead.firstName === "string" ? lead.firstName.trim() : "";
   const last = typeof lead.lastName === "string" ? lead.lastName.trim() : "";
@@ -3280,6 +3690,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const vehicle = payload.vehicle;
+      let createdVehicle: Vehicle | null = null;
       if (
         vehicle &&
         typeof vehicle.year === 'number' &&
@@ -3287,7 +3698,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         typeof vehicle.model === 'string' &&
         typeof vehicle.odometer === 'number'
       ) {
-        await storage.createVehicle({
+        createdVehicle = await storage.createVehicle({
           leadId: newLead.id,
           year: vehicle.year,
           make: vehicle.make,
@@ -3303,6 +3714,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         leadId: newLead.id,
         content: `Customer portal request from ${account.email}:\n${payload.message.trim()}`,
       });
+
+      void sendNewLeadNotification({ lead: newLead, vehicle: createdVehicle });
 
       res.json({
         data: { leadId: newLead.id },
@@ -3925,6 +4338,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       syncLeadMetaWithLead(lead);
 
+      void sendNewLeadNotification({ lead });
+
       res.status(201).json({ ok: true, id: lead.id });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -3948,34 +4363,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vehicleData = insertVehicleSchema
         .omit({ leadId: true })
         .parse(req.body.vehicle);
-      
+
       // Create lead
-      const lead = await storage.createLead({
-        ...leadData,
-        consentTimestamp: getEasternDate(),
-        consentUserAgent: req.get('User-Agent') || '',
-      }, {
-        originalPayload: req.body,
+      const lead = await storage.createLead(
+        {
+          ...leadData,
+          consentTimestamp: getEasternDate(),
+          consentUserAgent: req.get('User-Agent') || '',
+          consentIP: getClientIp(req),
+        },
+        {
+          originalPayload: req.body,
+        },
+      );
+
+      const vehicle = await storage.createVehicle({
+        ...vehicleData,
+        leadId: lead.id,
       });
-      
-      // Create vehicle
-        await storage.createVehicle({
-          ...vehicleData,
-          leadId: lead.id,
-        });
 
-        // Initialize metadata so newly created leads are visible in admin views
-        syncLeadMetaWithLead(lead);
+      // Initialize metadata so newly created leads are visible in admin views
+      syncLeadMetaWithLead(lead);
 
-        res.status(201).json({
-          data: lead,
-          message: "Lead created successfully"
-        });
-      } catch (error) {
-        console.error("Error creating lead:", error);
-        res.status(400).json({ message: "Invalid lead data" });
-      }
-    });
+      void sendNewLeadNotification({ lead, vehicle });
+
+      res.status(201).json({
+        data: lead,
+        message: 'Lead created successfully',
+      });
+    } catch (error) {
+      console.error('Error creating lead:', error);
+      res.status(400).json({ message: 'Invalid lead data' });
+    }
+  });
 
   // Get leads (for future admin use)
   app.get('/api/leads', async (req, res) => {
