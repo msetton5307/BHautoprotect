@@ -231,6 +231,7 @@ const escapeHtml = (value: string): string =>
 
 const EMAIL_BRAND_LOGO =
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMTIwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNjAlIiBzdG9wLWNvbG9yPSIjMWQ0ZWQ4IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZykiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0yMCA3MGMyOC0yOCA4OC00OCAxNDAtNDhzMTEyIDIwIDE0MCA0OCIvPgogICAgPHBhdGggZD0iTTI4IDU4YzE4LTIyIDc4LTQwIDEzMi00MHMxMTQgMTggMTMyIDQwIiBvcGFjaXR5PSIwLjU1Ii8+CiAgPC9nPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIxMCA0OCkiPgogICAgPHBhdGggZD0iTTM2IDQgMTgtNCAwIDR2MzJjMCAxOCA4IDM0IDE4IDQyIDEwLTggMTgtMjQgMTgtNDJWNFoiIGZpbGw9IiMwZjE3MmEiIG9wYWNpdHk9IjAuMTIiLz4KICAgIDxwYXRoIGQ9Ik0zNiAwIDE4LTggMCAwdjMyYzAgMTggOCAzNCAxOCA0MiAxMC04IDE4LTI0IDE4LTQyVjBaIiBmaWxsPSIjMGIxZjRlIi8+CiAgICA8cGF0aCBkPSJNOSAxOCAxOCAyOGwxNS0xOCIgc3Ryb2tlPSIjZTBmMmZlIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwvZz4KPC9zdmc+";
+const CUSTOMER_PORTAL_URL = "https://bhautoprotect.com/portal";
 
 const convertPlainTextToHtml = (value: string): string => {
   const paragraphs = value
@@ -548,6 +549,48 @@ const buildDefaultEmailTemplates = (policy: any): EmailTemplateRecord[] => {
   `;
 
   const templates: EmailTemplateRecord[] = [];
+
+  const activationStepsSubject = `Action needed: Final steps for Policy ${policyId}`;
+  const activationStepsBody = `
+    <p style="margin:0 0 18px;font-size:16px;line-height:1.7;">Hi ${escapeHtml(displayName)},</p>
+    <p style="margin:0 0 20px;font-size:15px;line-height:1.7;">
+      There are just a few more steps before your <strong>${escapeHtml(policyPackage)}</strong> coverage is officially active.
+      Once we receive two quick photos, we can lock in your start date and send your welcome packet.
+    </p>
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:18px 22px;border-radius:12px;margin-bottom:22px;">
+      <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#1d4ed8;font-weight:600;margin-bottom:10px;">Finish in the customer portal</div>
+      <ol style="margin:0;padding-left:20px;font-size:15px;line-height:1.8;color:#1f2937;">
+        <li style="margin-bottom:10px;">Go to <a href="${escapeHtml(CUSTOMER_PORTAL_URL)}" style="color:#2563eb;font-weight:600;text-decoration:none;">the BH Auto Protect customer portal</a>.</li>
+        <li style="margin-bottom:10px;">Sign in with the email on your policy and your Policy ID <strong>${escapeHtml(policyId)}</strong>.</li>
+        <li>Open the <strong>Documents</strong> section and choose <strong>Upload</strong>.</li>
+      </ol>
+    </div>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.7;">Upload clear photos of the following items:</p>
+    <ul style="margin:0 0 22px 20px;padding:0;font-size:15px;line-height:1.7;color:#334155;">
+      <li style="margin-bottom:8px;">Your current odometer reading on the dash.</li>
+      <li>A picture of your VIN label (door jamb sticker) or registration showing the full VIN.</li>
+    </ul>
+    <p style="margin:0 0 22px;font-size:15px;line-height:1.7;">
+      As soon as everything is uploaded, our team will review the documents and confirm that your coverage is active.
+      We’ll also send a confirmation email so you know you’re all set.
+    </p>
+    <div style="text-align:center;margin:24px 0;">
+      <a href="${escapeHtml(CUSTOMER_PORTAL_URL)}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 28px;border-radius:9999px;background:#2563eb;color:#ffffff;font-weight:600;text-decoration:none;">Open Customer Portal</a>
+    </div>
+    <p style="margin:0;font-size:15px;line-height:1.7;">Need a hand? Reply to this email or call <a href="tel:+13024068053" style="color:#2563eb;text-decoration:none;font-weight:600;">(302) 406-8053</a> and we’ll walk you through it.</p>
+  `;
+
+  templates.push({
+    id: "coverage-activation-steps",
+    name: "Coverage activation steps",
+    subject: activationStepsSubject,
+    bodyHtml: buildEmailLayout({
+      subject: activationStepsSubject,
+      heroTitle: "Finish Activating Your Coverage",
+      heroSubtitle,
+      bodyContent: activationStepsBody,
+    }),
+  });
 
   const policyActivatedSubject = `Your ${policyPackage} Coverage is Activated`;
   const policyActivatedBody = `
