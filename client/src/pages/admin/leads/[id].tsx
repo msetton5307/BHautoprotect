@@ -178,7 +178,7 @@ export default function AdminLeadDetail() {
   const queryClient = useQueryClient();
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [isCreatingQuote, setIsCreatingQuote] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'activity'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'quotes' | 'payment-info'>('overview');
   const [quoteForm, setQuoteForm] = useState<QuoteFormState>({ ...DEFAULT_QUOTE_FORM });
   const [quoteFormInitialized, setQuoteFormInitialized] = useState(false);
   const [lastEditedPriceField, setLastEditedPriceField] = useState<'total' | 'monthly'>('total');
@@ -888,6 +888,31 @@ export default function AdminLeadDetail() {
   const existingPolicy = leadPayload?.policy;
   const contracts = leadPayload?.contracts ?? [];
 
+  const cardholderName = useMemo(() => {
+    if (typeof leadForm?.cardholderName === 'string' && leadForm.cardholderName.trim().length > 0) {
+      return leadForm.cardholderName.trim();
+    }
+    const parts: string[] = [];
+    if (typeof leadForm?.firstName === 'string' && leadForm.firstName.trim().length > 0) {
+      parts.push(leadForm.firstName.trim());
+    }
+    if (typeof leadForm?.lastName === 'string' && leadForm.lastName.trim().length > 0) {
+      parts.push(leadForm.lastName.trim());
+    }
+    return parts.join(' ').trim();
+  }, [leadForm?.cardholderName, leadForm?.firstName, leadForm?.lastName]);
+
+  const formatActivityDate = useCallback((value: unknown): string | null => {
+    if (!value) {
+      return null;
+    }
+    const date = new Date(value as string);
+    if (Number.isNaN(date.valueOf())) {
+      return null;
+    }
+    return date.toLocaleDateString();
+  }, []);
+
   const contractGroups = useMemo(() => {
     const grouped: Record<string, LeadContractSummary[]> = {};
     contracts.forEach((contract) => {
@@ -1136,13 +1161,13 @@ export default function AdminLeadDetail() {
         </div>
         <Tabs
           value={activeTab}
-          onValueChange={(value) => setActiveTab(value as 'overview' | 'quotes' | 'activity')}
+          onValueChange={(value) => setActiveTab(value as 'overview' | 'quotes' | 'payment-info')}
           className="space-y-6"
         >
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="quotes">Quotes ({quotes?.length || 0})</TabsTrigger>
-            <TabsTrigger value="activity">Activity</TabsTrigger>
+            <TabsTrigger value="payment-info">Payment Info</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
@@ -1238,141 +1263,6 @@ export default function AdminLeadDetail() {
                             setLeadForm({ ...leadForm, phoneType: e.target.value })
                           }
                         />
-                      </div>
-                      <div className="pt-4 border-t border-slate-200">
-                        <h4 className="text-sm font-semibold text-slate-700">Payment details</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Enter the customer&apos;s card information for internal processing only.
-                        </p>
-                        <div className="mt-3 space-y-4">
-                          <div>
-                            <Label>Card number</Label>
-                            <Input
-                              value={leadForm.cardNumber || ''}
-                              onChange={(e) =>
-                                setLeadForm({ ...leadForm, cardNumber: e.target.value })
-                              }
-                              inputMode="numeric"
-                              placeholder="1234 5678 9012 3456"
-                            />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div>
-                              <Label>Exp. month (MM)</Label>
-                              <Input
-                                value={leadForm.cardExpiryMonth || ''}
-                                onChange={(e) =>
-                                  setLeadForm({ ...leadForm, cardExpiryMonth: e.target.value })
-                                }
-                                inputMode="numeric"
-                                maxLength={2}
-                                placeholder="MM"
-                              />
-                            </div>
-                            <div>
-                              <Label>Exp. year (YY)</Label>
-                              <Input
-                                value={leadForm.cardExpiryYear || ''}
-                                onChange={(e) =>
-                                  setLeadForm({ ...leadForm, cardExpiryYear: e.target.value })
-                                }
-                                inputMode="numeric"
-                                maxLength={4}
-                                placeholder="YY"
-                              />
-                            </div>
-                          </div>
-                          <div className="max-w-xs">
-                            <Label>CVV</Label>
-                            <Input
-                              value={leadForm.cardCvv || ''}
-                              onChange={(e) =>
-                                setLeadForm({ ...leadForm, cardCvv: e.target.value })
-                              }
-                              inputMode="numeric"
-                              maxLength={4}
-                              placeholder="CVV"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Shipping Address (Line 1)</Label>
-                        <Input
-                          value={leadForm.shippingAddress || ''}
-                          onChange={(e) =>
-                            setLeadForm({ ...leadForm, shippingAddress: e.target.value })
-                          }
-                        />
-                        <input type="hidden" value={leadForm.shippingAddress2 || ''} />
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <Label>Shipping City</Label>
-                          <Input
-                            value={leadForm.shippingCity || ''}
-                            onChange={(e) =>
-                              setLeadForm({ ...leadForm, shippingCity: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label>Shipping State</Label>
-                          <Input
-                            value={leadForm.shippingState || ''}
-                            onChange={(e) =>
-                              setLeadForm({ ...leadForm, shippingState: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label>Shipping Zipcode</Label>
-                          <Input
-                            value={leadForm.shippingZip || ''}
-                            onChange={(e) =>
-                              setLeadForm({ ...leadForm, shippingZip: e.target.value })
-                            }
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <Label>Billing Address (Line 1)</Label>
-                        <Input
-                          value={leadForm.billingAddress || ''}
-                          onChange={(e) =>
-                            setLeadForm({ ...leadForm, billingAddress: e.target.value })
-                          }
-                        />
-                        <input type="hidden" value={leadForm.billingAddress2 || ''} />
-                      </div>
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <Label>Billing City</Label>
-                          <Input
-                            value={leadForm.billingCity || ''}
-                            onChange={(e) =>
-                              setLeadForm({ ...leadForm, billingCity: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label>Billing State</Label>
-                          <Input
-                            value={leadForm.billingState || ''}
-                            onChange={(e) =>
-                              setLeadForm({ ...leadForm, billingState: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div>
-                          <Label>Billing Zipcode</Label>
-                          <Input
-                            value={leadForm.billingZip || ''}
-                            onChange={(e) =>
-                              setLeadForm({ ...leadForm, billingZip: e.target.value })
-                            }
-                          />
-                        </div>
                       </div>
                       <div>
                         <Label>Newsletter</Label>
@@ -1722,6 +1612,38 @@ export default function AdminLeadDetail() {
                       >
                         {addNoteMutation.isPending ? 'Saving...' : 'Add Note'}
                       </Button>
+                      <div className="pt-6 border-t border-slate-200 space-y-4">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                          <Activity className="h-4 w-4" />
+                          Lead activity
+                        </div>
+                        <div className="space-y-4">
+                          <div className="flex items-start gap-3">
+                            <div className="mt-2 h-2 w-2 rounded-full bg-green-500" />
+                            <div>
+                              <p className="font-medium">Lead Created</p>
+                              <p className="text-sm text-muted-foreground">
+                                Lead submitted quote request • {formatActivityDate(leadForm?.createdAt) ?? 'Date unavailable'}
+                              </p>
+                            </div>
+                          </div>
+                          {quotes && quotes.length > 0 ? (
+                            quotes.map((quote: any) => (
+                              <div key={quote.id} className="flex items-start gap-3">
+                                <div className="mt-2 h-2 w-2 rounded-full bg-blue-500" />
+                                <div>
+                                  <p className="font-medium">Quote Created</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {quote.plan} plan quote for ${(quote.priceTotal / 100).toFixed(2)} • {formatActivityDate(quote.createdAt) ?? 'Date unavailable'}
+                                  </p>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <p className="text-sm text-muted-foreground">No quotes have been created for this lead yet.</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -2033,40 +1955,143 @@ export default function AdminLeadDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="activity">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Activity className="h-5 w-5 mr-2" />
-                  Activity Timeline
-                </CardTitle>
-                <CardDescription>All activities and interactions for this lead</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
+          <TabsContent value="payment-info" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Payment method</CardTitle>
+                  <CardDescription>
+                    Keep the customer&apos;s billing details on file for a smooth policy handoff.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
                     <div>
-                      <p className="font-medium">Lead Created</p>
-                      <p className="text-sm text-gray-500">
-                        Lead submitted quote request • {new Date(leadForm.createdAt).toLocaleDateString()}
-                      </p>
+                      <Label>Cardholder name</Label>
+                      <Input value={cardholderName} readOnly className="bg-muted/30" />
                     </div>
-                  </div>
-                  {quotes?.map((quote: any) => (
-                    <div key={quote.id} className="flex items-start space-x-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                    <div>
+                      <Label>Card number</Label>
+                      <Input
+                        value={leadForm.cardNumber || ''}
+                        onChange={(e) => setLeadForm({ ...leadForm, cardNumber: e.target.value })}
+                        inputMode="numeric"
+                        placeholder="1234 5678 9012 3456"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <p className="font-medium">Quote Created</p>
-                        <p className="text-sm text-gray-500">
-                          {quote.plan} plan quote for ${(quote.priceTotal / 100).toFixed(2)} • {new Date(quote.createdAt).toLocaleDateString()}
-                        </p>
+                        <Label>Exp. month (MM)</Label>
+                        <Input
+                          value={leadForm.cardExpiryMonth || ''}
+                          onChange={(e) => setLeadForm({ ...leadForm, cardExpiryMonth: e.target.value })}
+                          inputMode="numeric"
+                          maxLength={2}
+                          placeholder="MM"
+                        />
+                      </div>
+                      <div>
+                        <Label>Exp. year (YY)</Label>
+                        <Input
+                          value={leadForm.cardExpiryYear || ''}
+                          onChange={(e) => setLeadForm({ ...leadForm, cardExpiryYear: e.target.value })}
+                          inputMode="numeric"
+                          maxLength={4}
+                          placeholder="YY"
+                        />
                       </div>
                     </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                    <div className="max-w-xs">
+                      <Label>CVV</Label>
+                      <Input
+                        value={leadForm.cardCvv || ''}
+                        onChange={(e) => setLeadForm({ ...leadForm, cardCvv: e.target.value })}
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="CVV"
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Billing &amp; shipping</CardTitle>
+                  <CardDescription>
+                    Addresses used on paperwork and future billing communications.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Shipping Address (Line 1)</Label>
+                      <Input
+                        value={leadForm.shippingAddress || ''}
+                        onChange={(e) => setLeadForm({ ...leadForm, shippingAddress: e.target.value })}
+                      />
+                      <input type="hidden" value={leadForm.shippingAddress2 || ''} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Shipping City</Label>
+                        <Input
+                          value={leadForm.shippingCity || ''}
+                          onChange={(e) => setLeadForm({ ...leadForm, shippingCity: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Shipping State</Label>
+                        <Input
+                          value={leadForm.shippingState || ''}
+                          onChange={(e) => setLeadForm({ ...leadForm, shippingState: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Shipping Zipcode</Label>
+                        <Input
+                          value={leadForm.shippingZip || ''}
+                          onChange={(e) => setLeadForm({ ...leadForm, shippingZip: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Billing</p>
+                    </div>
+                    <div>
+                      <Label>Billing Address (Line 1)</Label>
+                      <Input
+                        value={leadForm.billingAddress || ''}
+                        onChange={(e) => setLeadForm({ ...leadForm, billingAddress: e.target.value })}
+                      />
+                      <input type="hidden" value={leadForm.billingAddress2 || ''} />
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <Label>Billing City</Label>
+                        <Input
+                          value={leadForm.billingCity || ''}
+                          onChange={(e) => setLeadForm({ ...leadForm, billingCity: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Billing State</Label>
+                        <Input
+                          value={leadForm.billingState || ''}
+                          onChange={(e) => setLeadForm({ ...leadForm, billingState: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Billing Zipcode</Label>
+                        <Input
+                          value={leadForm.billingZip || ''}
+                          onChange={(e) => setLeadForm({ ...leadForm, billingZip: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
       </div>
