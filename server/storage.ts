@@ -235,6 +235,7 @@ export interface IStorage {
   >;
   getPolicyByLeadId(leadId: string): Promise<Policy | undefined>;
   updatePolicy(leadId: string, updates: Partial<InsertPolicy>): Promise<Policy>;
+  deletePolicy(id: string): Promise<Policy | undefined>;
 
   // Policy note operations
   getPolicyNotes(policyId: string): Promise<PolicyNote[]>;
@@ -558,6 +559,11 @@ export class DatabaseStorage implements IStorage {
         leadId,
       })
       .returning();
+    return policy;
+  }
+
+  async deletePolicy(id: string): Promise<Policy | undefined> {
+    const [policy] = await db.delete(policies).where(eq(policies.id, id)).returning();
     return policy;
   }
 
