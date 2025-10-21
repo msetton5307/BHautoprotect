@@ -1356,7 +1356,7 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
   }
 
   const descriptionHtml = plan.description
-    ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569;">${escapeHtml(plan.description)}</p>`
+    ? `<p class="coverage-card-text" style="margin:0 0 16px;font-size:14px;line-height:1.6;color:#475569;">${escapeHtml(plan.description)}</p>`
     : "";
 
   const featureRows = plan.features
@@ -1364,9 +1364,9 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
       const isLast = index === plan.features.length - 1;
       const border = isLast ? "" : "border-bottom:1px solid #e2e8f0;";
       return `
-        <tr>
-          <td style="padding:10px 0 10px 4px;width:32px;vertical-align:top;${border}">
-            <span
+        <tr class="coverage-feature-row">
+          <td class="feature-icon-cell" style="padding:10px 0 10px 4px;width:32px;vertical-align:top;${border}">
+            <span class="feature-icon"
               style="
                 display:inline-block;
                 width:22px;
@@ -1384,7 +1384,7 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
               ✓
             </span>
           </td>
-          <td style="padding:10px 0;font-size:14px;line-height:1.6;color:#1f2937;font-weight:500;${border}">
+          <td class="coverage-feature-text" style="padding:10px 0;font-size:14px;line-height:1.6;color:#1f2937;font-weight:500;${border}">
             ${escapeHtml(feature)}
           </td>
         </tr>
@@ -1393,13 +1393,13 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
     .join("");
 
   return `
-    <div style="margin-bottom:24px;padding:22px;border-radius:16px;border:1px solid #e0e7ff;background:linear-gradient(180deg,#eef2ff 0%,#ffffff 100%);">
-      <div style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#6366f1;margin-bottom:8px;">
+    <div class="coverage-card" style="margin-bottom:24px;padding:22px;border-radius:16px;border:1px solid #e0e7ff;background:linear-gradient(180deg,#eef2ff 0%,#ffffff 100%);">
+      <div class="coverage-card-label" style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#6366f1;margin-bottom:8px;">
         Coverage highlights
       </div>
-      <div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:10px;">${escapeHtml(plan.name)} protection at a glance</div>
+      <div class="coverage-card-title" style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:10px;">${escapeHtml(plan.name)} protection at a glance</div>
       ${descriptionHtml}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;margin:0;padding:0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="coverage-card-table" style="border-collapse:separate;margin:0;padding:0;">
         ${featureRows}
       </table>
     </div>
@@ -1523,6 +1523,159 @@ const buildQuoteEmail = ({
     },
   ];
 
+  const darkModeStyles = `<style type="text/css">
+    :root {
+      color-scheme: light;
+      supported-color-schemes: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color:#0f172a !important;
+        color:#f8fafc !important;
+      }
+      .email-shell {
+        background-color:#0f172a !important;
+      }
+      .email-container {
+        background-color:#111827 !important;
+        color:#e2e8f0 !important;
+      }
+      .email-header {
+        background:linear-gradient(135deg,#0b1220,#1e3a8a) !important;
+        color:#f8fafc !important;
+      }
+      .summary-table,
+      .info-table {
+        background-color:#111827 !important;
+        border-color:#1f2937 !important;
+      }
+      .summary-table td,
+      .info-table td {
+        color:#e2e8f0 !important;
+        border-color:#1f2937 !important;
+      }
+      .email-highlight {
+        background-color:#1e3a8a !important;
+        border-color:#1e3a8a !important;
+        color:#dbeafe !important;
+      }
+      .email-highlight-label {
+        color:#bfdbfe !important;
+      }
+      .email-highlight-value {
+        color:#f8fafc !important;
+      }
+      .email-highlight-supporting {
+        color:#dbeafe !important;
+      }
+      .email-callout {
+        background-color:#0f172a !important;
+        color:#e2e8f0 !important;
+        border-color:#1f2937 !important;
+      }
+      .email-callout strong {
+        color:#f8fafc !important;
+      }
+      .email-callout--reminder {
+        background-color:#1e3a8a !important;
+        color:#dbeafe !important;
+      }
+      .email-callout--reminder strong {
+        color:#f8fafc !important;
+      }
+      .coverage-card {
+        background:linear-gradient(180deg,#1e3a8a 0%,#111827 100%) !important;
+        border-color:#1e3a8a !important;
+        color:#e2e8f0 !important;
+      }
+      .coverage-card-label {
+        color:#bfdbfe !important;
+      }
+      .coverage-card-title {
+        color:#f8fafc !important;
+      }
+      .coverage-card-text {
+        color:#e2e8f0 !important;
+      }
+      .coverage-card-table {
+        border-color:#1f2937 !important;
+      }
+      .coverage-feature-row {
+        border-color:#1f2937 !important;
+      }
+      .coverage-feature-text {
+        color:#e2e8f0 !important;
+      }
+      .feature-icon {
+        background:linear-gradient(135deg,#38bdf8,#2563eb) !important;
+        color:#0f172a !important;
+      }
+    }
+    [data-ogsc] .email-container {
+      background-color:#111827 !important;
+      color:#e2e8f0 !important;
+    }
+    [data-ogsc] .email-header {
+      background:linear-gradient(135deg,#0b1220,#1e3a8a) !important;
+      color:#f8fafc !important;
+    }
+    [data-ogsc] .summary-table,
+    [data-ogsc] .info-table {
+      background-color:#111827 !important;
+      border-color:#1f2937 !important;
+    }
+    [data-ogsc] .summary-table td,
+    [data-ogsc] .info-table td {
+      color:#e2e8f0 !important;
+      border-color:#1f2937 !important;
+    }
+    [data-ogsc] .email-highlight {
+      background-color:#1e3a8a !important;
+      border-color:#1e3a8a !important;
+      color:#dbeafe !important;
+    }
+    [data-ogsc] .email-highlight-label {
+      color:#bfdbfe !important;
+    }
+    [data-ogsc] .email-highlight-value {
+      color:#f8fafc !important;
+    }
+    [data-ogsc] .email-highlight-supporting {
+      color:#dbeafe !important;
+    }
+    [data-ogsc] .email-callout {
+      background-color:#0f172a !important;
+      color:#e2e8f0 !important;
+      border-color:#1f2937 !important;
+    }
+    [data-ogsc] .email-callout--reminder {
+      background-color:#1e3a8a !important;
+      color:#dbeafe !important;
+    }
+    [data-ogsc] .coverage-card {
+      background:linear-gradient(180deg,#1e3a8a 0%,#111827 100%) !important;
+      border-color:#1e3a8a !important;
+      color:#e2e8f0 !important;
+    }
+    [data-ogsc] .coverage-card-label {
+      color:#bfdbfe !important;
+    }
+    [data-ogsc] .coverage-card-title {
+      color:#f8fafc !important;
+    }
+    [data-ogsc] .coverage-card-text,
+    [data-ogsc] .coverage-feature-text {
+      color:#e2e8f0 !important;
+    }
+    [data-ogsc] .coverage-feature-row {
+      border-color:#1f2937 !important;
+    }
+    [data-ogsc] .feature-icon {
+      background:linear-gradient(135deg,#38bdf8,#2563eb) !important;
+      color:#0f172a !important;
+    }
+  </style>`;
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1531,14 +1684,15 @@ const buildQuoteEmail = ({
   <meta name="color-scheme" content="light" />
   <meta name="supported-color-schemes" content="light" />
   <title>${escapeHtml(subject)}</title>
+  ${darkModeStyles}
 </head>
-<body style="margin:0;padding:0;background-color:#f5f7fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;color-scheme:light;" bgcolor="#f5f7fa">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f7fa;padding:32px 0;" bgcolor="#f5f7fa">
+<body data-ogsc data-ogsb class="email-body" style="margin:0;padding:0;background-color:#f5f7fa;font-family:'Helvetica Neue',Arial,sans-serif;color:#1f2937;color-scheme:light;" bgcolor="#f5f7fa">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="email-shell" style="background-color:#f5f7fa;padding:32px 0;" bgcolor="#f5f7fa">
     <tr>
       <td align="center">
-        <table role="presentation" cellpadding="0" cellspacing="0" width="620" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);" bgcolor="#ffffff">
+        <table role="presentation" cellpadding="0" cellspacing="0" width="620" class="email-container" style="width:620px;max-width:94%;background-color:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 20px 45px rgba(15,23,42,0.08);" bgcolor="#ffffff">
           <tr>
-            <td style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
+            <td class="email-header" style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
               ${renderEmailLogo({ textColor: '#ffffff' })}
               <div style="font-size:24px;font-weight:700;margin-top:10px;">Your ${escapeHtml(planName)} Quote is Ready</div>
               <div style="margin-top:12px;font-size:14px;opacity:0.85;">Quote • ${escapeHtml(quoteId)}</div>
@@ -1550,12 +1704,12 @@ const buildQuoteEmail = ({
               <p style="margin:0 0 24px;font-size:15px;line-height:1.7;">
                 Thanks for connecting with <strong>BHAutoProtect</strong>. Here’s the personalized coverage quote we created for ${escapeHtml(vehicleSummary)}. Choose the payment approach that fits best and we’ll handle the rest.
               </p>
-              <div style="padding:20px;border-radius:12px;border:1px solid #bfdbfe;background-color:#f8fafc;margin-bottom:28px;">
-                <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#2563eb;margin-bottom:6px;">${escapeHtml(highlightLabel)}</div>
-                <div style="font-size:30px;font-weight:700;color:#0f172a;">${escapeHtml(highlightValue)}</div>
-                <div style="margin-top:6px;font-size:14px;color:#475569;">${escapeHtml(highlightSupporting)}</div>
+              <div class="email-highlight" style="padding:20px;border-radius:12px;border:1px solid #bfdbfe;background-color:#f8fafc;margin-bottom:28px;">
+                <div class="email-highlight-label" style="font-size:12px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#2563eb;margin-bottom:6px;">${escapeHtml(highlightLabel)}</div>
+                <div class="email-highlight-value" style="font-size:30px;font-weight:700;color:#0f172a;">${escapeHtml(highlightValue)}</div>
+                <div class="email-highlight-supporting" style="margin-top:6px;font-size:14px;color:#475569;">${escapeHtml(highlightSupporting)}</div>
               </div>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background-color:#f9fafb;border:1px solid #e5e7eb;margin-bottom:28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="summary-table" style="border-collapse:collapse;border-radius:12px;overflow:hidden;background-color:#f9fafb;border:1px solid #e5e7eb;margin-bottom:28px;">
                 <tbody>
                   ${renderDetailRows(summaryRows)}
                 </tbody>
@@ -1563,12 +1717,12 @@ const buildQuoteEmail = ({
               ${instructionsBlock}
               ${coverageBlock}
               <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
                   <tbody>
                     ${renderCompactRows(vehicleRows)}
                   </tbody>
                 </table>
-                <table role="presentation" cellpadding="0" cellspacing="0" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background-color:#ffffff;min-width:240px;">
                   <tbody>
                     ${renderCompactRows(supportRows)}
                   </tbody>
@@ -1577,10 +1731,10 @@ const buildQuoteEmail = ({
               <p style="margin:0 0 18px;font-size:15px;line-height:1.7;">
                 Ready to lock in this rate or curious about coverage details? Reply to this email and our concierge team will take care of everything for you.
               </p>
-              <div style="background-color:#0f172a;color:#f8fafc;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+              <div class="email-callout email-callout--guarantee" style="background-color:#0f172a;color:#f8fafc;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
                 <strong>Our Promise:</strong> Enjoy our 30-Day Price Match Promise and 30-Day full money-back guarantee. If you find a better qualifying rate or change your mind within 30 days, we’ll make it right—no risk, no hassle.
               </div>
-              <div style="background-color:#eff6ff;color:#1e3a8a;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
+              <div class="email-callout email-callout--reminder" style="background-color:#eff6ff;color:#1e3a8a;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
                 <strong>Reminder:</strong> We’ll hold this quote through ${escapeHtml(validUntil)}. Ready sooner or want to adjust the payment structure? Reply and we’ll update it together.
               </div>
               <p style="margin:0;font-size:15px;line-height:1.7;">With gratitude,<br /><strong>The BHAutoProtect Team</strong></p>
