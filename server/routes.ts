@@ -2895,9 +2895,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   };
 
-  const ensureAdminUser = (res: Response): AuthenticatedUser | null => {
+  const ensureAdminOrStaffUser = (res: Response): AuthenticatedUser | null => {
     const user = res.locals.user as AuthenticatedUser | undefined;
-    if (!user || user.role !== 'admin') {
+    if (!user) {
+      res.status(403).json({ message: 'Forbidden' });
+      return null;
+    }
+    return user;
+  };
+
+  const ensureAdminUser = (res: Response): AuthenticatedUser | null => {
+    const user = ensureAdminOrStaffUser(res);
+    if (!user) {
+      return null;
+    }
+    if (user.role !== 'admin') {
       res.status(403).json({ message: 'Forbidden' });
       return null;
     }
@@ -5366,7 +5378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: get policy by id
   app.get('/api/admin/policies/:id', async (req, res) => {
-    if (!ensureAdminUser(res)) {
+    if (!ensureAdminOrStaffUser(res)) {
       return;
     }
 
@@ -5546,7 +5558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/admin/policies/:id/payment-profiles', async (req, res) => {
-    if (!ensureAdminUser(res)) {
+    if (!ensureAdminOrStaffUser(res)) {
       return;
     }
 
@@ -5563,7 +5575,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/admin/policies/:id/charges', async (req, res) => {
-    if (!ensureAdminUser(res)) {
+    if (!ensureAdminOrStaffUser(res)) {
       return;
     }
 
@@ -5577,7 +5589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/admin/policies/:id/document-requests', async (req, res) => {
-    if (!ensureAdminUser(res)) {
+    if (!ensureAdminOrStaffUser(res)) {
       return;
     }
 
@@ -5717,7 +5729,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get('/api/admin/document-uploads/:id', async (req, res) => {
-    if (!ensureAdminUser(res)) {
+    if (!ensureAdminOrStaffUser(res)) {
       return;
     }
 
