@@ -18,6 +18,19 @@ import { z } from "zod";
 
 // Enums
 export const planTypeEnum = pgEnum('plan_type', ['basic', 'silver', 'gold']);
+export const leadStatusEnum = pgEnum('lead_status', [
+  'new',
+  'quoted',
+  'callback',
+  'left-message',
+  'no-contact',
+  'wrong-number',
+  'fake-lead',
+  'not-interested',
+  'duplicate-lead',
+  'dnc',
+  'sold',
+]);
 export const quoteStatusEnum = pgEnum('quote_status', ['draft', 'sent', 'accepted', 'rejected']);
 export const claimStatusEnum = pgEnum('claim_status', [
   'new',
@@ -73,6 +86,7 @@ export const leads = pgTable("leads", {
   phone: varchar("phone"),
   zip: varchar("zip"),
   state: varchar("state"),
+  status: leadStatusEnum('status').notNull().default('new'),
   salespersonEmail: varchar('salesperson_email'),
   consentTCPA: boolean("consent_tcpa").default(false),
   consentTimestamp: timestamp("consent_timestamp"),
@@ -473,6 +487,7 @@ export const insertSiteSettingSchema = createInsertSchema(siteSettings).omit({
 // Types
 export type Lead = typeof leads.$inferSelect;
 export type InsertLead = z.infer<typeof insertLeadSchema>;
+export type LeadStatus = (typeof leadStatusEnum.enumValues)[number];
 export type Vehicle = typeof vehicles.$inferSelect;
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type Quote = typeof quotes.$inferSelect;

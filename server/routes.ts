@@ -12,9 +12,11 @@ import {
   insertPolicySchema,
   insertClaimSchema,
   insertPolicyNoteSchema,
+  leadStatusEnum,
   type Claim,
   type InsertLead,
   type Lead,
+  type LeadStatus,
   type Policy,
   type InsertPolicy,
   type Quote,
@@ -37,28 +39,43 @@ import { calculateQuote } from "../client/src/lib/pricing";
 import { verifyPassword, hashPassword } from "./password";
 import { renderEmailLogo } from "./emailBranding";
 
+const LEAD_STATUS_VALUES = leadStatusEnum.enumValues as [
+  LeadStatus,
+  ...LeadStatus[],
+];
+
 type LeadMeta = {
   tags: string[];
-  status:
-    | "new"
-    | "quoted"
-    | "callback"
-    | "left-message"
-    | "no-contact"
-    | "wrong-number"
-    | "fake-lead"
-    | "not-interested"
-    | "duplicate-lead"
-    | "dnc"
-    | "sold";
-};
-
-const DEFAULT_META: LeadMeta = {
-  tags: [],
-  status: "new",
+  status: LeadStatus;
 };
 
 const leadMeta: Record<string, LeadMeta> = {};
+
+const createDefaultLeadMeta = (): LeadMeta => ({
+  tags: [],
+  status: 'new',
+});
+
+const getLeadMeta = (id: string): LeadMeta => {
+  return leadMeta[id] ?? createDefaultLeadMeta();
+};
+
+const syncLeadMetaWithLead = (lead: Lead): LeadMeta => {
+  const status = (lead.status ?? 'new') as LeadStatus;
+  const current = getLeadMeta(lead.id);
+  const next: LeadMeta = { ...current, status };
+  leadMeta[lead.id] = next;
+  return next;
+};
+
+const updateLeadStatus = async (
+  leadId: string,
+  status: LeadStatus,
+): Promise<Lead> => {
+  const updatedLead = await storage.updateLead(leadId, { status });
+  syncLeadMetaWithLead(updatedLead);
+  return updatedLead;
+};
 
 const leadWebhookSecret = process.env.LEAD_WEBHOOK_SECRET;
 
@@ -358,10 +375,6 @@ declare module "express-session" {
   }
 }
 
-const getLeadMeta = (id: string): LeadMeta => {
-  return leadMeta[id] || DEFAULT_META;
-};
-
 const loadLeadFromRequest = async (req: Request, res: Response): Promise<Lead | null> => {
   const lead = await storage.getLead(req.params.id);
   if (!lead) {
@@ -370,6 +383,7 @@ const loadLeadFromRequest = async (req: Request, res: Response): Promise<Lead | 
   }
   req.params.id = lead.id;
   res.locals.lead = lead;
+  syncLeadMetaWithLead(lead);
   return lead;
 };
 
@@ -2251,8 +2265,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.syncCustomerPoliciesByEmail(account.id, account.email);
     }
 
-    const currentMeta = getLeadMeta(contract.leadId);
-    leadMeta[contract.leadId] = { ...currentMeta, status: 'sold' };
+    await updateLeadStatus(contract.leadId, 'sold');
 
     const salesRecipient =
       typeof lead.salespersonEmail === 'string' && lead.salespersonEmail.includes('@')
@@ -3497,7 +3510,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         originalPayload: req.body,
       });
 
-      leadMeta[lead.id] = leadMeta[lead.id] ?? DEFAULT_META;
+      syncLeadMetaWithLead(lead);
 
       res.status(201).json({ ok: true, id: lead.id });
     } catch (error) {
@@ -3539,7 +3552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Initialize metadata so newly created leads are visible in admin views
-        leadMeta[lead.id] = DEFAULT_META;
+        syncLeadMetaWithLead(lead);
 
         res.status(201).json({
           data: lead,
@@ -3555,6 +3568,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/leads', async (req, res) => {
     try {
       const leads = await storage.getLeads({});
+      leads.forEach(syncLeadMetaWithLead);
       res.json({
         data: leads,
         message: "Leads retrieved successfully"
@@ -3690,8 +3704,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         breakdown: breakdownPayload,
       });
 
-      const currentMeta = getLeadMeta(leadId);
-      leadMeta[leadId] = { ...currentMeta, status: 'quoted' };
+      await updateLeadStatus(leadId, 'quoted');
 
       const [policy, instructions] = await Promise.all([policyPromise, instructionsPromise]);
 
@@ -3961,9 +3974,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let soldLeads = 0;
       await Promise.all(
         leads.map(async (lead) => {
-          const meta = getLeadMeta(lead.id);
-          statusCounts[meta.status] = (statusCounts[meta.status] || 0) + 1;
-          if (meta.status === 'sold') soldLeads++;
+          syncLeadMetaWithLead(lead);
+          const status = (lead.status ?? 'new') as LeadStatus;
+          statusCounts[status] = (statusCounts[status] || 0) + 1;
+          if (status === 'sold') soldLeads++;
           const quotes = await storage.getQuotesByLeadId(lead.id);
           if (quotes.length > 0) quotedLeads++;
         })
@@ -4005,7 +4019,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       // Ensure newly created leads are tracked for admin views
-      leadMeta[lead.id] = DEFAULT_META;
+      syncLeadMetaWithLead(lead);
 
       res.status(201).json({
         data: { lead, vehicle },
@@ -4023,11 +4037,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const leads = await storage.getLeads({});
       const data = await Promise.all(
         leads.map(async (lead) => {
+          syncLeadMetaWithLead(lead);
           const vehicle = await storage.getVehicleByLeadId(lead.id);
           const quotes = await storage.getQuotesByLeadId(lead.id);
-          const meta = getLeadMeta(lead.id);
           return {
-            lead: { ...lead, status: meta.status },
+            lead,
             vehicle,
             quoteCount: quotes.length,
           };
@@ -4053,10 +4067,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const notes = await storage.getNotesByLeadId(leadId);
       const policy = await storage.getPolicyByLeadId(leadId);
       const contracts = await storage.getLeadContracts(leadId);
-      const meta = getLeadMeta(leadId);
+      syncLeadMetaWithLead(lead);
       res.json({
         data: {
-          lead: { ...lead, status: meta.status },
+          lead,
           vehicle,
           quotes,
           notes,
@@ -4122,8 +4136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .map((contract) => contract.signatureEmail)
         .filter((email): email is string => typeof email === 'string' && email.length > 0);
       const policy = await storage.createPolicy({ leadId, ...data });
-      const current = getLeadMeta(leadId);
-      leadMeta[leadId] = { ...current, status: 'sold' };
+      await updateLeadStatus(leadId, 'sold');
       await sendPolicyActivationEmail({
         lead,
         policy,
@@ -4143,21 +4156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .extend({ consentTimestamp: z.coerce.date().optional() })
       .partial()
       .extend({
-        status: z
-          .enum([
-            'new',
-            'quoted',
-            'callback',
-            'left-message',
-            'no-contact',
-            'wrong-number',
-            'fake-lead',
-            'not-interested',
-            'duplicate-lead',
-            'dnc',
-            'sold',
-          ])
-          .optional(),
+        status: z.enum(LEAD_STATUS_VALUES).optional(),
         vehicle: insertVehicleSchema.partial().optional(),
         policy: insertPolicySchema
           .extend({
@@ -4199,10 +4198,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updatePolicy(leadId, policy);
       }
       if (status) {
-        const current = getLeadMeta(leadId);
-        leadMeta[leadId] = { ...current, status };
+        await updateLeadStatus(leadId, status);
       }
       const updatedLead = await storage.getLead(leadId);
+      if (updatedLead) {
+        syncLeadMetaWithLead(updatedLead);
+      }
       const updatedVehicle = await storage.getVehicleByLeadId(leadId);
       const updatedPolicy = await storage.getPolicyByLeadId(leadId);
       res.json({
@@ -4210,7 +4211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lead: updatedLead,
           vehicle: updatedVehicle,
           policy: updatedPolicy,
-          status: getLeadMeta(leadId).status,
+          status: updatedLead?.status ?? getLeadMeta(leadId).status,
         },
         message: 'Lead updated successfully',
       });
