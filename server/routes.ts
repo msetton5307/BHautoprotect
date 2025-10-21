@@ -2285,14 +2285,24 @@ const buildQuoteEmail = ({
 
   const logoAvailable = hasEmailLogoAsset();
   const logoUrl = getEmailLogoUrl();
+  const logoBadgeStyle =
+    "display:inline-flex;align-items:center;justify-content:center;padding:18px;border-radius:18px;background-color:#ffffff !important;box-shadow:0 16px 40px rgba(15,23,42,0.2);";
+  const logoImageStyle =
+    "height:44px;max-width:200px;width:auto;object-fit:contain;";
+  const logoTextStyle =
+    "font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#0f172a;";
   const logoMarkup = logoAvailable && logoUrl
-    ? `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
-        <img src="${logoUrl}" alt="BH Auto Protect" class="email-logo-light" style="display:inline-block;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;" />
-        <img src="${logoUrl}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;height:48px;max-width:220px;width:auto;border-radius:12px;object-fit:contain;background:transparent;color:#ffffff;filter:brightness(0) invert(1);" />
+    ? `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;">
+        <div class="email-logo-badge" style="${logoBadgeStyle}">
+          <img src="${logoUrl}" alt="BH Auto Protect" class="email-logo-light" style="display:block;${logoImageStyle}" />
+          <img src="${logoUrl}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;${logoImageStyle}" />
+        </div>
       </div>`
-    : `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;background:transparent;color:#ffffff;">
-        <span class="email-logo-light email-logo-text" style="display:inline-block;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#ffffff;">BH AUTO PROTECT</span>
-        <span class="email-logo-dark email-logo-text" style="display:none;font-size:12px;letter-spacing:0.28em;text-transform:uppercase;background:transparent;color:#ffffff;">BH AUTO PROTECT</span>
+    : `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;">
+        <div class="email-logo-badge" style="${logoBadgeStyle}">
+          <span class="email-logo-light email-logo-text" style="display:inline-block;${logoTextStyle}">BH AUTO PROTECT</span>
+          <span class="email-logo-dark email-logo-text" style="display:none;${logoTextStyle}">BH AUTO PROTECT</span>
+        </div>
       </div>`;
 
   const html = `<!DOCTYPE html>
@@ -2311,10 +2321,12 @@ const buildQuoteEmail = ({
       .email-logo-dark {
         display: none;
       }
-      .email-logo-text,
       .email-header-title,
       .email-header-subtitle {
         color: #ffffff !important;
+      }
+      .email-logo-text {
+        color: #0f172a !important;
       }
       @media (prefers-color-scheme: dark) {
         body.email-body {
@@ -2332,13 +2344,16 @@ const buildQuoteEmail = ({
           background: linear-gradient(135deg, #0b1220, #1e3a8a) !important;
           color: #f8fafc !important;
         }
-        .email-header div {
-          background: transparent !important;
-        }
-        .email-logo-text,
         .email-header-title,
         .email-header-subtitle {
+          background: transparent !important;
           color: #ffffff !important;
+        }
+        .email-logo-text {
+          color: #0f172a !important;
+        }
+        .email-logo-badge {
+          background-color: #ffffff !important;
         }
         .email-content {
           background-color: #0b1220 !important;
@@ -2435,13 +2450,20 @@ const buildQuoteEmail = ({
         background: linear-gradient(135deg, #0b1220, #1e3a8a) !important;
         color: #f8fafc !important;
       }
-      [data-ogsc] .email-logo-text,
-      [data-ogsb] .email-logo-text,
       [data-ogsc] .email-header-title,
       [data-ogsb] .email-header-title,
       [data-ogsc] .email-header-subtitle,
       [data-ogsb] .email-header-subtitle {
+        background: transparent !important;
         color: #ffffff !important;
+      }
+      [data-ogsc] .email-logo-text,
+      [data-ogsb] .email-logo-text {
+        color: #0f172a !important;
+      }
+      [data-ogsc] .email-logo-badge,
+      [data-ogsb] .email-logo-badge {
+        background-color: #ffffff !important;
       }
       [data-ogsc] .email-content,
       [data-ogsb] .email-content {
