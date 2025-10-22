@@ -87,12 +87,14 @@ export function SearchableSelect({
         align="start"
         className={cn(
           "w-[var(--radix-popover-trigger-width)] p-0",
+          "max-h-[min(calc(100vh-8rem),24rem)]",
+          "flex flex-col overflow-hidden",
           contentClassName,
         )}
       >
-        <Command>
+        <Command className="flex-1 overflow-hidden">
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList>
+          <CommandList className="max-h-none flex-1 overflow-y-auto overscroll-contain">
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             {loading ? (
               <CommandItem value="__loading" disabled>
