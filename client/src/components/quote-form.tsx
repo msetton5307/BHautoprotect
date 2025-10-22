@@ -567,7 +567,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
               <Label htmlFor="trim">Trim (Optional)</Label>
               <Input
                 id="trim"
-                placeholder="e.g., XLE"
+                placeholder="Trim level (if known)"
                 value={quoteData.vehicle.trim}
                 onChange={(e) => handleVehicleChange("trim", e.target.value)}
               />
@@ -577,7 +577,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
               <Input
                 id="odometer"
                 type="number"
-                placeholder="e.g., 45,000"
+                placeholder="How many miles are on the dash?"
                 value={quoteData.vehicle.odometer}
                 onChange={(e) => handleVehicleChange("odometer", e.target.value)}
                 required
