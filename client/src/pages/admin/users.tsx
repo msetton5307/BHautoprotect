@@ -11,6 +11,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Users as UsersIcon, ShieldAlert, AlertTriangle } from "lucide-react";
 
 const authJsonHeaders = () => ({
@@ -23,28 +31,80 @@ type ApiUser = {
   username: string;
   role: "admin" | "staff";
   createdAt: string | null;
+  fullName: string | null;
+  title: string | null;
+  email: string | null;
+  phone: string | null;
 };
 
 type CreateUserPayload = {
   username: string;
   password: string;
   role: "admin" | "staff";
+  fullName?: string | null;
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+};
+
+type CreateUserFormState = {
+  username: string;
+  password: string;
+  role: "admin" | "staff";
+  fullName: string;
+  title: string;
+  email: string;
+  phone: string;
+};
+
+type ContactFormState = {
+  fullName: string;
+  title: string;
+  email: string;
+  phone: string;
+};
+
+type UpdateUserPayload = {
+  id: string;
+  data: {
+    fullName: string | null;
+    title: string | null;
+    email: string | null;
+    phone: string | null;
+  };
 };
 
 export default function AdminUsers() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [forbidden, setForbidden] = useState(false);
-  const [form, setForm] = useState<CreateUserPayload>({
+  const [form, setForm] = useState<CreateUserFormState>({
     username: "",
     password: "",
     role: "staff",
+    fullName: "",
+    title: "",
+    email: "",
+    phone: "",
   });
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [editingUser, setEditingUser] = useState<ApiUser | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [contactForm, setContactForm] = useState<ContactFormState>({
+    fullName: "",
+    title: "",
+    email: "",
+    phone: "",
+  });
   const currentUsername = getStoredUsername();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const queriesEnabled = authenticated && !checking;
+
+  const toNullable = (value: string): string | null => {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
 
   const usersQuery = useQuery({
     queryKey: ["/api/admin/users"],
@@ -98,7 +158,15 @@ export default function AdminUsers() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
-      setForm({ username: "", password: "", role: "staff" });
+      setForm({
+        username: "",
+        password: "",
+        role: "staff",
+        fullName: "",
+        title: "",
+        email: "",
+        phone: "",
+      });
       toast({
         title: "User created",
         description: "The new user can now log in to the admin tools.",
@@ -108,6 +176,48 @@ export default function AdminUsers() {
       if (error.message === "Unauthorized") return;
       toast({
         title: "Unable to create user",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateUserMutation = useMutation({
+    mutationFn: async ({ id, data }: UpdateUserPayload) => {
+      const res = await fetchWithAuth(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        headers: authJsonHeaders(),
+        body: JSON.stringify(data),
+      });
+      const responseData = await res.json().catch(() => ({}));
+      if (res.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+      if (res.status === 403) {
+        setForbidden(true);
+        throw new Error("You do not have permission to manage users");
+      }
+      if (!res.ok) {
+        throw new Error(responseData?.message || "Failed to update user");
+      }
+      setForbidden(false);
+      return responseData;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setEditDialogOpen(false);
+      setEditingUser(null);
+      toast({
+        title: "Details updated",
+        description: "The user’s contact information is now up to date.",
+      });
+    },
+    onError: (error: Error) => {
+      if (error.message === "Unauthorized") return;
+      toast({
+        title: "Unable to update user",
         description: error.message,
         variant: "destructive",
       });
@@ -154,6 +264,41 @@ export default function AdminUsers() {
     },
     onSettled: () => setPendingDeleteId(null),
   });
+
+  const openEditDialog = (user: ApiUser) => {
+    setEditingUser(user);
+    setContactForm({
+      fullName: user.fullName ?? "",
+      title: user.title ?? "",
+      email: user.email ?? "",
+      phone: user.phone ?? "",
+    });
+    setEditDialogOpen(true);
+  };
+
+  const handleEditDialogOpenChange = (open: boolean) => {
+    if (!open) {
+      setEditDialogOpen(false);
+      setEditingUser(null);
+    } else {
+      setEditDialogOpen(true);
+    }
+  };
+
+  const handleContactSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingUser) return;
+
+    updateUserMutation.mutate({
+      id: editingUser.id,
+      data: {
+        fullName: toNullable(contactForm.fullName),
+        title: toNullable(contactForm.title),
+        email: toNullable(contactForm.email),
+        phone: toNullable(contactForm.phone),
+      },
+    });
+  };
 
   if (checking) {
     return (
@@ -241,7 +386,16 @@ export default function AdminUsers() {
       });
       return;
     }
-    createUserMutation.mutate({ ...form, username: form.username.trim() });
+    const payload: CreateUserPayload = {
+      username: form.username.trim(),
+      password: form.password,
+      role: form.role,
+      fullName: toNullable(form.fullName),
+      title: toNullable(form.title),
+      email: toNullable(form.email),
+      phone: toNullable(form.phone),
+    };
+    createUserMutation.mutate(payload);
   };
 
   const handleDelete = (id: string) => {
@@ -279,6 +433,7 @@ export default function AdminUsers() {
                     <TableRow>
                       <TableHead>User</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Sales rep contact</TableHead>
                       <TableHead>Created</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -293,6 +448,8 @@ export default function AdminUsers() {
                       const isCurrentUser = currentUsername && user.username === currentUsername;
                       const isDeleting = deleteUserMutation.isPending && pendingDeleteId === user.id;
                       const disableDelete = !!(isCurrentUser || isDeleting);
+                      const isUpdating =
+                        updateUserMutation.isPending && editingUser?.id === user.id;
 
                       return (
                         <TableRow key={user.id}>
@@ -302,8 +459,44 @@ export default function AdminUsers() {
                               {user.role === "admin" ? "Admin" : "Staff"}
                             </Badge>
                           </TableCell>
+                          <TableCell>
+                            <div className="space-y-1 text-sm">
+                              <div className="font-medium">
+                                {user.fullName ? user.fullName : "Add a name"}
+                              </div>
+                              {user.title && (
+                                <div className="text-muted-foreground">{user.title}</div>
+                              )}
+                              {user.email && (
+                                <div>
+                                  <a
+                                    href={`mailto:${user.email}`}
+                                    className="text-primary hover:underline"
+                                  >
+                                    {user.email}
+                                  </a>
+                                </div>
+                              )}
+                              {user.phone && (
+                                <div className="text-sm text-gray-700">{user.phone}</div>
+                              )}
+                              {!user.fullName && !user.title && !user.email && !user.phone && (
+                                <div className="text-sm text-muted-foreground">
+                                  Add contact info so quotes include a personal point of contact.
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>{created}</TableCell>
                           <TableCell className="text-right space-x-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isUpdating}
+                              onClick={() => openEditDialog(user)}
+                            >
+                              {isUpdating ? "Saving..." : "Edit details"}
+                            </Button>
                             <Button
                               variant="destructive"
                               size="sm"
@@ -318,7 +511,7 @@ export default function AdminUsers() {
                     })}
                     {users.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-gray-500 py-8">
+                        <TableCell colSpan={5} className="text-center text-gray-500 py-8">
                           No users found. Use the form to invite your team.
                         </TableCell>
                       </TableRow>
@@ -372,6 +565,43 @@ export default function AdminUsers() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Full name</label>
+                  <Input
+                    value={form.fullName}
+                    onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                    placeholder="Jordan Smith"
+                    autoComplete="name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Title</label>
+                  <Input
+                    value={form.title}
+                    onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
+                    placeholder="Senior Coverage Specialist"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Email</label>
+                  <Input
+                    type="email"
+                    value={form.email}
+                    onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
+                    placeholder="name@company.com"
+                    autoComplete="email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Phone</label>
+                  <Input
+                    type="tel"
+                    value={form.phone}
+                    onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+                    placeholder="(555) 123-4567"
+                    autoComplete="tel"
+                  />
+                </div>
                 <Button type="submit" className="w-full" disabled={createUserMutation.isPending}>
                   {createUserMutation.isPending ? "Creating..." : "Add user"}
                 </Button>
@@ -381,5 +611,64 @@ export default function AdminUsers() {
         </div>
       </div>
     </div>
+      <Dialog open={editDialogOpen} onOpenChange={handleEditDialogOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Personal sales rep details</DialogTitle>
+            <DialogDescription>
+              Keep this user’s contact information current so every quote includes their direct line.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleContactSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Full name</label>
+              <Input
+                value={contactForm.fullName}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                placeholder="Jordan Smith"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Title</label>
+              <Input
+                value={contactForm.title}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, title: event.target.value }))}
+                placeholder="Senior Coverage Specialist"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Email</label>
+              <Input
+                type="email"
+                value={contactForm.email}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, email: event.target.value }))}
+                placeholder="name@company.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Phone</label>
+              <Input
+                type="tel"
+                value={contactForm.phone}
+                onChange={(event) => setContactForm((prev) => ({ ...prev, phone: event.target.value }))}
+                placeholder="(555) 123-4567"
+              />
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleEditDialogOpenChange(false)}
+                disabled={updateUserMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={updateUserMutation.isPending}>
+                {updateUserMutation.isPending ? "Saving..." : "Save changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
   );
 }
