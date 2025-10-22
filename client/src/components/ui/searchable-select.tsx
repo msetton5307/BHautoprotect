@@ -213,7 +213,9 @@ export function SearchableSelect({
       >
         <Command className="flex-1 overflow-hidden">
           <CommandInput placeholder={searchPlaceholder} />
-          <CommandList className="max-h-none flex-1 overflow-y-auto overscroll-contain">
+          <CommandList
+            className="flex-1 overflow-y-auto overscroll-contain max-h-[min(calc(100vh-12rem),20rem)]"
+          >
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             {loading ? (
               <CommandItem value="__loading" disabled>
