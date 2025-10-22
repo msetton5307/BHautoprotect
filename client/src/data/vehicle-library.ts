@@ -21,6 +21,11 @@ interface NhtsaModelResult {
   Model_Name: string;
 }
 
+export interface VehicleMake {
+  id: number;
+  name: string;
+}
+
 const MAINSTREAM_US_CAR_MAKES = [
   "Acura",
   "Alfa Romeo",
@@ -57,6 +62,7 @@ const MAINSTREAM_US_CAR_MAKES = [
   "Nissan",
   "Porsche",
   "Ram",
+  "Rivian",
   "Rolls-Royce",
   "Subaru",
   "Tesla",
@@ -103,22 +109,38 @@ async function fetchFromNhtsa<ResultType>(
   return (await response.json()) as NhtsaResponse<ResultType>;
 }
 
-export async function fetchVehicleMakes(signal?: AbortSignal): Promise<string[]> {
+export async function fetchVehicleMakes(signal?: AbortSignal): Promise<VehicleMake[]> {
   const data = await fetchFromNhtsa<NhtsaVehicleTypeMakeResult>(
     "GetMakesForVehicleType/car?format=json",
     signal,
   );
-  const makes =
-    data.Results?.map((result) => {
-      const normalized = result.MakeName?.trim();
-      if (!normalized) return undefined;
+  const makesByName = new Map<string, VehicleMake>();
 
-      return MAINSTREAM_US_CAR_MAKE_SET.has(normalized.toLowerCase())
-        ? normalized
-        : undefined;
-    }) ?? [];
+  for (const result of data.Results ?? []) {
+    const normalizedName = result.MakeName?.trim();
+    if (!normalizedName) continue;
 
-  return dedupeAndSort(makes);
+    if (!MAINSTREAM_US_CAR_MAKE_SET.has(normalizedName.toLowerCase())) {
+      continue;
+    }
+
+    const key = normalizedName.toLowerCase();
+    const makeId = Number(result.MakeId);
+    if (!Number.isFinite(makeId)) {
+      continue;
+    }
+
+    if (!makesByName.has(key)) {
+      makesByName.set(key, {
+        id: makeId,
+        name: normalizedName,
+      });
+    }
+  }
+
+  return Array.from(makesByName.values()).sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
 }
 
 function isValidModelYear(year?: string | null): year is string {
@@ -140,20 +162,23 @@ function isValidModelYear(year?: string | null): year is string {
 }
 
 export async function fetchVehicleModels(
-  make: string,
+  make: VehicleMake,
   year?: string,
   signal?: AbortSignal,
 ): Promise<string[]> {
-  const trimmedMake = make.trim();
+  const trimmedMake = make.name.trim();
   if (!trimmedMake) {
     return [];
   }
 
-  const endpoint = isValidModelYear(year)
-    ? `GetModelsForMakeYear/make/${encodeURIComponent(trimmedMake)}/modelyear/${encodeURIComponent(
-        year.trim(),
-      )}?format=json`
-    : `GetModelsForMake/${encodeURIComponent(trimmedMake)}?format=json`;
+  const trimmedYear = year?.trim();
+  if (!isValidModelYear(trimmedYear)) {
+    return [];
+  }
+
+  const endpoint = `GetModelsForMakeIdYear/makeId/${encodeURIComponent(
+    String(make.id),
+  )}/modelyear/${encodeURIComponent(trimmedYear)}?format=json`;
 
   const data = await fetchFromNhtsa<NhtsaModelResult>(endpoint, signal);
   const models = data.Results?.map((result) => result.Model_Name) ?? [];
