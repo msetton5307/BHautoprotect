@@ -297,6 +297,11 @@ export const policyCharges = pgTable('policy_charges', {
   status: policyChargeStatusEnum('status').notNull().default('pending'),
   chargedAt: timestamp('charged_at').defaultNow(),
   notes: text('notes'),
+  reference: varchar('reference', { length: 120 }),
+  invoiceFileName: text('invoice_file_name'),
+  invoiceFilePath: text('invoice_file_path'),
+  invoiceFileType: text('invoice_file_type'),
+  invoiceFileSize: integer('invoice_file_size'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });

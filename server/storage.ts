@@ -306,6 +306,7 @@ export interface IStorage {
   upsertCustomerPaymentProfile(
     profile: InsertCustomerPaymentProfile & { customerId: string },
   ): Promise<CustomerPaymentProfile>;
+  createPolicyCharge(charge: InsertPolicyCharge): Promise<PolicyCharge>;
   listPolicyCharges(policyId: string): Promise<PolicyCharge[]>;
   listCustomerCharges(customerId: string): Promise<PolicyCharge[]>;
   createCustomerDocumentRequest(
@@ -1042,6 +1043,32 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
 
+    return record;
+  }
+
+  async createPolicyCharge(charge: InsertPolicyCharge): Promise<PolicyCharge> {
+    const timestamp = getEasternDate();
+    const chargedAtCandidate = charge.chargedAt ? new Date(charge.chargedAt) : timestamp;
+    const chargedAt = Number.isNaN(chargedAtCandidate.valueOf()) ? timestamp : chargedAtCandidate;
+
+    const payload = {
+      policyId: charge.policyId,
+      customerId: charge.customerId ?? null,
+      description: charge.description,
+      amountCents: charge.amountCents,
+      status: charge.status ?? 'pending',
+      chargedAt,
+      notes: charge.notes ?? null,
+      reference: charge.reference ?? null,
+      invoiceFileName: charge.invoiceFileName ?? null,
+      invoiceFilePath: charge.invoiceFilePath ?? null,
+      invoiceFileType: charge.invoiceFileType ?? null,
+      invoiceFileSize: charge.invoiceFileSize ?? null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+
+    const [record] = await db.insert(policyCharges).values(payload).returning();
     return record;
   }
 

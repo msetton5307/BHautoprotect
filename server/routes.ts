@@ -13,6 +13,7 @@ import {
   insertClaimSchema,
   insertPolicyNoteSchema,
   leadStatusEnum,
+  policyChargeStatusEnum,
   type Claim,
   type InsertLead,
   type Lead,
@@ -125,6 +126,16 @@ const DOCUMENT_REQUEST_STATUS_VALUES = documentRequestStatusEnum.enumValues as [
   'cancelled',
 ];
 
+const POLICY_CHARGE_STATUS_VALUES = policyChargeStatusEnum.enumValues as [
+  'pending',
+  'processing',
+  'paid',
+  'failed',
+  'refunded',
+];
+
+const MAX_INVOICE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
 const DOCUMENT_REQUEST_TYPE_COPY: Record<(typeof DOCUMENT_REQUEST_TYPE_VALUES)[number], { label: string; hint: string }> = {
   vin_photo: {
     label: 'VIN Photo',
@@ -151,6 +162,24 @@ const DOCUMENT_REQUEST_TYPE_COPY: Record<(typeof DOCUMENT_REQUEST_TYPE_VALUES)[n
 const optionalTrimmedString = z.string().trim().min(1).optional().nullable();
 const optionalRequiredString = z.string().trim().min(1).optional();
 const optionalEmailString = z.string().trim().email().optional().nullable();
+
+const sanitizeFileName = (value: string): string => value.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+const parseChargeDateInput = (value: string | null | undefined): Date | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  const candidate = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T00:00:00` : trimmed;
+  const parsed = new Date(candidate);
+  if (Number.isNaN(parsed.valueOf())) {
+    throw new Error('Invalid charge date');
+  }
+  return parsed;
+};
 
 const policyUpdateSchema = z.object({
   package: z
@@ -189,6 +218,22 @@ const policyUpdateSchema = z.object({
       ev: z.boolean().optional(),
     })
     .optional(),
+});
+
+const policyChargeInvoiceSchema = z.object({
+  fileName: z.string().trim().min(1, 'Invoice file name is required'),
+  fileType: z.string().trim().max(120).optional().nullable(),
+  fileData: z.string().min(1, 'Invoice file data is required'),
+});
+
+const policyChargeCreateSchema = z.object({
+  description: z.string().trim().min(1, 'Description is required'),
+  amountCents: z.number().int().min(1, 'Amount must be at least $0.01'),
+  chargedAt: z.string().trim().optional().nullable(),
+  status: z.enum(POLICY_CHARGE_STATUS_VALUES).optional().default('pending'),
+  reference: z.string().trim().max(120).optional().nullable(),
+  notes: z.string().trim().optional().nullable(),
+  invoice: policyChargeInvoiceSchema.optional(),
 });
 
 const portalBaseUrlEnv =
@@ -5571,6 +5616,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching payment profiles for policy:', error);
       res.status(500).json({ message: 'Failed to load payment profiles' });
+    }
+  });
+
+  app.post('/api/admin/policies/:id/charges', async (req, res) => {
+    if (!ensureAdminOrStaffUser(res)) {
+      return;
+    }
+
+    try {
+      const payload = policyChargeCreateSchema.parse(req.body ?? {});
+      const policy = await storage.getPolicy(req.params.id);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      let chargedAt: Date | null = null;
+      try {
+        chargedAt = parseChargeDateInput(payload.chargedAt ?? null);
+      } catch {
+        res.status(400).json({ message: 'Charge date is invalid' });
+        return;
+      }
+
+      let invoiceFileName: string | null = null;
+      let invoiceFilePath: string | null = null;
+      let invoiceFileType: string | null = null;
+      let invoiceFileSize: number | null = null;
+
+      if (payload.invoice) {
+        const { fileData, fileName, fileType } = payload.invoice;
+        const base64Segment = fileData.includes(',') ? fileData.slice(fileData.indexOf(',') + 1) : fileData;
+        const normalizedData = base64Segment.replace(/\s+/g, '');
+
+        let buffer: Buffer;
+        try {
+          buffer = Buffer.from(normalizedData, 'base64');
+        } catch {
+          res.status(400).json({ message: 'Invoice file data is invalid' });
+          return;
+        }
+
+        if (!buffer || buffer.length === 0) {
+          res.status(400).json({ message: 'Invoice file is empty' });
+          return;
+        }
+
+        if (buffer.length > MAX_INVOICE_FILE_SIZE_BYTES) {
+          res.status(400).json({ message: 'Invoice file is too large (max 10 MB)' });
+          return;
+        }
+
+        const invoicesDir = path.join('uploads', 'invoices');
+        fs.mkdirSync(invoicesDir, { recursive: true });
+        const safeName = sanitizeFileName(fileName);
+        const storedName = `${Date.now()}-${safeName}`;
+        const filePath = path.join(invoicesDir, storedName);
+        fs.writeFileSync(filePath, buffer);
+
+        invoiceFileName = fileName;
+        invoiceFileType = fileType?.trim() || null;
+        invoiceFileSize = buffer.length;
+        invoiceFilePath = filePath.split(path.sep).join('/');
+      }
+
+      const charge = await storage.createPolicyCharge({
+        policyId: req.params.id,
+        description: payload.description.trim(),
+        amountCents: payload.amountCents,
+        status: payload.status ?? 'pending',
+        chargedAt: chargedAt ?? undefined,
+        notes: payload.notes && payload.notes.trim().length > 0 ? payload.notes.trim() : null,
+        reference: payload.reference && payload.reference.trim().length > 0 ? payload.reference.trim() : null,
+        invoiceFileName,
+        invoiceFilePath,
+        invoiceFileType,
+        invoiceFileSize,
+      });
+
+      res.status(201).json({ data: charge, message: 'Charge recorded successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid charge payload';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error saving policy charge:', error);
+      res.status(500).json({ message: 'Failed to save charge' });
     }
   });
 
