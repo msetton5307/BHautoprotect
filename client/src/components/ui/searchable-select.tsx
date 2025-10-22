@@ -212,14 +212,14 @@ export function SearchableSelect({
   const commandContent = (
     <Command
       className={cn(
-        "flex-1 overflow-hidden",
+        "flex-1 min-h-0 overflow-hidden",
         isTouchDevice && "rounded-xl border border-border bg-background shadow-sm",
       )}
     >
       <CommandInput placeholder={searchPlaceholder} />
       <CommandList
         className={cn(
-          "flex-1 overflow-y-auto overscroll-contain",
+          "flex-1 min-h-0 overflow-y-auto overscroll-contain",
           isTouchDevice
             ? "max-h-none"
             : "max-h-[min(calc(100vh-12rem),20rem)]",
@@ -272,7 +272,12 @@ export function SearchableSelect({
                 : "Scroll or search to choose an option."}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="flex h-full flex-col gap-4 px-4 pb-6">
+          <div
+            className="flex h-full min-h-0 flex-col gap-4 px-4 pb-6"
+            style={{
+              paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 1.5rem)",
+            }}
+          >
             {commandContent}
           </div>
         </DrawerContent>
