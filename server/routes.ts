@@ -22,6 +22,7 @@ import {
   type InsertPolicy,
   type Quote,
   type User,
+  type InsertUser,
   type Vehicle,
   type InsertVehicle,
   type CustomerAccount,
@@ -426,6 +427,10 @@ type AuthenticatedUser = {
   id: string;
   username: string;
   role: "admin" | "staff";
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  title: string | null;
 };
 
 type AuthenticatedCustomer = {
@@ -2162,6 +2167,71 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
   `;
 };
 
+type QuoteSalesRepContact = {
+  displayName: string;
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
+};
+
+const toTelHref = (phone: string): string | null => {
+  const cleaned = phone.replace(/[^+\d]/g, "").trim();
+  return cleaned.length > 0 ? cleaned : null;
+};
+
+const renderSalesRepBlock = (salesRep: QuoteSalesRepContact | null | undefined): string => {
+  if (!salesRep) {
+    return "";
+  }
+
+  const name = salesRep.displayName?.trim();
+  const title = salesRep.title?.trim();
+  const email = salesRep.email?.trim();
+  const phone = salesRep.phone?.trim();
+
+  if (!name && !email && !phone && !title) {
+    return "";
+  }
+
+  const contactItems: string[] = [];
+  if (email) {
+    const safeEmail = escapeHtml(email);
+    contactItems.push(
+      `<div style='margin-bottom:6px;'><strong style='color:#0f172a;'>Email:</strong> ` +
+        `<a href='mailto:${safeEmail}' style='color:#2563eb;text-decoration:none;'>${safeEmail}</a></div>`,
+    );
+  }
+
+  if (phone) {
+    const telHref = toTelHref(phone);
+    const safePhone = escapeHtml(phone);
+    const phoneLink = telHref
+      ? `<a href='tel:${escapeHtml(telHref)}' style='color:#2563eb;text-decoration:none;'>${safePhone}</a>`
+      : safePhone;
+    contactItems.push(
+      `<div style='margin-bottom:6px;'><strong style='color:#0f172a;'>Call/Text:</strong> ${phoneLink}</div>`,
+    );
+  }
+
+  const contactDetails =
+    contactItems.length > 0
+      ? `<div style="margin-top:14px;font-size:14px;line-height:1.6;color:#1f2937;">${contactItems.join('')}</div>`
+      : `<div style="margin-top:14px;font-size:14px;line-height:1.6;color:#1f2937;">Reply to this email and I’ll take care of the next steps with you personally.</div>`;
+
+  const titleLine = title
+    ? `<div style="font-size:14px;color:#475569;margin-top:2px;">${escapeHtml(title)}</div>`
+    : "";
+
+  return `
+    <div class="sales-rep-card" style="margin-bottom:28px;padding:24px;border-radius:16px;border:1px solid #bfdbfe;background:linear-gradient(180deg,#eff6ff 0%,#ffffff 100%);color:#0f172a;">
+      <div style="font-size:12px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:#2563eb;margin-bottom:8px;">Your personal sales rep</div>
+      <div style="font-size:18px;font-weight:700;color:#0f172a;">${escapeHtml(name || 'Your BH Auto Protect rep')}</div>
+      ${titleLine}
+      ${contactDetails}
+    </div>
+  `;
+};
+
 const buildQuoteEmail = ({
   lead,
   vehicle,
@@ -2169,6 +2239,7 @@ const buildQuoteEmail = ({
   policy,
   expirationMilesOverride,
   instructions,
+  salesRep,
 }: {
   lead: Lead;
   vehicle: Vehicle | null | undefined;
@@ -2176,6 +2247,7 @@ const buildQuoteEmail = ({
   policy?: Policy | null;
   expirationMilesOverride?: number | null;
   instructions?: string | null;
+  salesRep?: QuoteSalesRepContact | null;
 }): { subject: string; html: string } => {
   const planName = formatPlanName(quote.plan);
   const subject = `BH Auto Protect | Your ${planName} Coverage Quote is Ready`;
@@ -2206,6 +2278,7 @@ const buildQuoteEmail = ({
   );
   const coveragePlan = getCoveragePlanDefinition(quote.plan);
   const coverageBlock = renderPlanCoverageBlock(coveragePlan);
+  const salesRepBlock = renderSalesRepBlock(salesRep ?? null);
 
   const breakdown = (quote.breakdown ?? null) as Record<string, unknown> | null;
   const paymentOptionRaw =
@@ -2635,6 +2708,7 @@ const buildQuoteEmail = ({
                   </tbody>
                 </table>
                 ${instructionsBlock}
+                ${salesRepBlock}
                 ${coverageBlock}
                 <div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:28px;background:#ffffff;color:#0f172a;">
                   <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" bgcolor="#ffffff" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#ffffff;color:#0f172a;min-width:240px;">
@@ -2860,6 +2934,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         username: user.username,
         role: user.role,
+        fullName: user.fullName ?? null,
+        email: user.email ?? null,
+        phone: user.phone ?? null,
+        title: user.title ?? null,
       };
 
       await new Promise<void>((resolve, reject) => {
@@ -2932,6 +3010,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         id: user.id,
         username: user.username,
         role: user.role,
+        fullName: user.fullName ?? null,
+        email: user.email ?? null,
+        phone: user.phone ?? null,
+        title: user.title ?? null,
       };
 
       req.session.user = authenticatedUser;
@@ -2966,6 +3048,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const sanitizeUser = ({ passwordHash: _passwordHash, ...user }: User) => user;
   const sanitizeCustomerAccount = ({ passwordHash: _passwordHash, ...account }: CustomerAccount) => account;
+
+  const normalizeOptionalContactField = <T extends z.ZodTypeAny>(schema: T) =>
+    z.preprocess(
+      (value) => {
+        if (value === undefined) return undefined;
+        if (value === null) return null;
+        if (typeof value === 'string') {
+          const trimmed = value.trim();
+          return trimmed.length === 0 ? null : trimmed;
+        }
+        return value;
+      },
+      schema.nullable().optional(),
+    );
+
+  const userContactFieldsSchema = z
+    .object({
+      fullName: normalizeOptionalContactField(
+        z
+          .string()
+          .min(2, 'Full name must be at least 2 characters long')
+          .max(160, 'Full name must be at most 160 characters long'),
+      ),
+      email: normalizeOptionalContactField(
+        z
+          .string()
+          .trim()
+          .email('Please provide a valid email address')
+          .max(160, 'Email must be at most 160 characters long'),
+      ),
+      phone: normalizeOptionalContactField(
+        z
+          .string()
+          .min(7, 'Phone number must be at least 7 characters long')
+          .max(32, 'Phone number must be at most 32 characters long'),
+      ),
+      title: normalizeOptionalContactField(
+        z
+          .string()
+          .min(2, 'Title must be at least 2 characters long')
+          .max(120, 'Title must be at most 120 characters long'),
+      ),
+    })
+    .partial();
 
   const toAuthenticatedCustomer = (account: CustomerAccount): AuthenticatedCustomer => ({
     id: account.id,
@@ -4727,6 +4853,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     try {
+      const sessionUser = req.session?.user as AuthenticatedUser | undefined;
+      if (!sessionUser) {
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const dbUser = await storage.getUser(sessionUser.id);
+      if (!dbUser) {
+        req.session.user = undefined;
+        res.status(401).json({ message: 'Unauthorized' });
+        return;
+      }
+
+      const currentUser: AuthenticatedUser = {
+        id: dbUser.id,
+        username: dbUser.username,
+        role: dbUser.role,
+        fullName: dbUser.fullName ?? null,
+        email: dbUser.email ?? null,
+        phone: dbUser.phone ?? null,
+        title: dbUser.title ?? null,
+      };
+      req.session.user = currentUser;
+      res.locals.user = currentUser;
+
       const data = schema.parse(req.body);
 
       const lead = await loadLeadFromRequest(req, res);
@@ -4738,6 +4889,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const recipient = typeof lead.email === 'string' ? lead.email.trim() : '';
       if (!recipient) {
         return res.status(400).json({ message: 'Lead must have an email address before sending a quote' });
+      }
+
+      const repEmail = currentUser.email ? currentUser.email.trim() : '';
+      if (repEmail && repEmail !== (lead.salespersonEmail ?? '').trim()) {
+        await storage.updateLead(leadId, { salespersonEmail: repEmail });
+        lead.salespersonEmail = repEmail;
       }
 
       const vehicle = await storage.getVehicleByLeadId(leadId);
@@ -4768,6 +4925,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: 'sent',
         validUntil,
         breakdown: breakdownPayload,
+        createdBy: currentUser.id,
       });
 
       await updateLeadStatus(leadId, 'quoted');
@@ -4781,6 +4939,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         policy,
         expirationMilesOverride: data.expirationMiles ?? null,
         instructions,
+        salesRep: {
+          displayName: currentUser.fullName ?? currentUser.username,
+          title: currentUser.title ?? null,
+          email: currentUser.email ?? null,
+          phone: currentUser.phone ?? null,
+        },
       });
       const text = htmlToPlainText(html) || subject;
 
@@ -4789,6 +4953,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subject,
         html,
         text,
+        replyTo: currentUser.email ?? undefined,
       });
 
       res.status(201).json({
@@ -4955,16 +5120,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/admin/users', async (req, res) => {
     if (!ensureAdminUser(res)) return;
 
-    const schema = z.object({
-      username: z
-        .string()
-        .trim()
-        .min(3, 'Username must be at least 3 characters long')
-        .max(64, 'Username must be at most 64 characters long')
-        .regex(/^[^\s:]+$/, 'Username cannot contain spaces or colons'),
-      password: z.string().min(8, 'Password must be at least 8 characters long'),
-      role: z.enum(['admin', 'staff']).default('staff'),
-    });
+    const schema = z
+      .object({
+        username: z
+          .string()
+          .trim()
+          .min(3, 'Username must be at least 3 characters long')
+          .max(64, 'Username must be at most 64 characters long')
+          .regex(/^[^\s:]+$/, 'Username cannot contain spaces or colons'),
+        password: z.string().min(8, 'Password must be at least 8 characters long'),
+        role: z.enum(['admin', 'staff']).default('staff'),
+      })
+      .merge(userContactFieldsSchema);
 
     try {
       const data = schema.parse(req.body);
@@ -4978,6 +5145,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         username: data.username,
         passwordHash: hashPassword(data.password),
         role: data.role,
+        fullName: data.fullName ?? null,
+        email: data.email ?? null,
+        phone: data.phone ?? null,
+        title: data.title ?? null,
       });
 
       res.status(201).json({
@@ -4991,6 +5162,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('Error creating user:', error);
       res.status(500).json({ message: 'Failed to create user' });
+    }
+  });
+
+  app.patch('/api/admin/users/:id', async (req, res) => {
+    if (!ensureAdminUser(res)) return;
+
+    try {
+      const payload = userContactFieldsSchema.parse(req.body ?? {});
+      const updates: Partial<InsertUser> = {};
+
+      if (Object.prototype.hasOwnProperty.call(payload, 'fullName')) {
+        updates.fullName = payload.fullName ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, 'email')) {
+        updates.email = payload.email ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, 'phone')) {
+        updates.phone = payload.phone ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(payload, 'title')) {
+        updates.title = payload.title ?? null;
+      }
+
+      if (Object.keys(updates).length === 0) {
+        res.status(400).json({ message: 'No updates were provided' });
+        return;
+      }
+
+      const user = await storage.getUser(req.params.id);
+      if (!user) {
+        res.status(404).json({ message: 'User not found' });
+        return;
+      }
+
+      const updated = await storage.updateUser(user.id, updates);
+
+      if (res.locals.user && (res.locals.user as AuthenticatedUser).id === updated.id) {
+        const sessionUser: AuthenticatedUser = {
+          id: updated.id,
+          username: updated.username,
+          role: updated.role,
+          fullName: updated.fullName ?? null,
+          email: updated.email ?? null,
+          phone: updated.phone ?? null,
+          title: updated.title ?? null,
+        };
+        req.session.user = sessionUser;
+        res.locals.user = sessionUser;
+      }
+
+      res.json({
+        data: sanitizeUser(updated),
+        message: 'User updated successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: 'Invalid user details', errors: error.errors });
+        return;
+      }
+      console.error('Error updating user:', error);
+      res.status(500).json({ message: 'Failed to update user' });
     }
   });
 

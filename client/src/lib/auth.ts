@@ -17,6 +17,10 @@ type AuthenticatedUser = {
   id?: string;
   username: string;
   role?: "admin" | "staff";
+  fullName?: string | null;
+  title?: string | null;
+  email?: string | null;
+  phone?: string | null;
 };
 
 function decodeLegacyUsername(token: string | null): string | null {

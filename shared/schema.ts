@@ -73,6 +73,10 @@ export const users = pgTable('users', {
   username: varchar('username').notNull(),
   passwordHash: text('password_hash').notNull(),
   role: userRoleEnum('role').notNull().default('staff'),
+  fullName: varchar('full_name', { length: 160 }),
+  email: varchar('email', { length: 160 }),
+  phone: varchar('phone', { length: 32 }),
+  title: varchar('title', { length: 120 }),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => ({
   usernameIdx: uniqueIndex('users_username_idx').on(table.username),
@@ -140,6 +144,7 @@ export const quotes = pgTable("quotes", {
   status: quoteStatusEnum("status").default('draft'),
   breakdown: jsonb("breakdown"),
   validUntil: timestamp("valid_until"),
+  createdBy: varchar('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -364,6 +369,10 @@ export const quotesRelations = relations(quotes, ({ one }) => ({
   lead: one(leads, {
     fields: [quotes.leadId],
     references: [leads.id],
+  }),
+  createdByUser: one(users, {
+    fields: [quotes.createdBy],
+    references: [users.id],
   }),
 }));
 
