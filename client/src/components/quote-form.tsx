@@ -1,4 +1,4 @@
-import { FormEvent, forwardRef, useMemo, useState } from "react";
+import { FormEvent, forwardRef, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,10 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { US_STATES } from "@/lib/constants";
-import { VEHICLE_LIBRARY } from "@/data/vehicle-library";
+import { fetchVehicleMakes, fetchVehicleModels } from "@/data/vehicle-library";
 import { cn } from "@/lib/utils";
 
 interface QuoteFormProps {
@@ -83,20 +83,69 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     const [manualMake, setManualMake] = useState(false);
     const [manualModel, setManualModel] = useState(false);
 
-    const vehicleMakes = useMemo(
-      () => VEHICLE_LIBRARY.map((entry) => entry.make),
-      [],
-    );
+    const {
+      data: fetchedVehicleMakes,
+      isLoading: vehicleMakesLoading,
+      isError: vehicleMakesError,
+    } = useQuery({
+      queryKey: ["vehicle-makes"],
+      queryFn: ({ signal }) => fetchVehicleMakes(signal),
+    });
 
-    const selectedMakeDefinition = useMemo(() => {
+    const normalizedSelectedMake = quoteData.vehicle.make.trim();
+
+    const {
+      data: fetchedVehicleModels,
+      isLoading: vehicleModelsLoading,
+      isError: vehicleModelsError,
+    } = useQuery({
+      queryKey: ["vehicle-models", normalizedSelectedMake],
+      queryFn: ({ signal }) => fetchVehicleModels(normalizedSelectedMake, signal),
+      enabled: !manualMake && normalizedSelectedMake.length > 0,
+    });
+
+    const vehicleMakes = fetchedVehicleMakes ?? [];
+    const vehicleModels = fetchedVehicleModels ?? [];
+
+    useEffect(() => {
       if (manualMake) {
-        return null;
+        setManualModel(true);
+        return;
       }
 
-      return VEHICLE_LIBRARY.find((entry) => entry.make === quoteData.vehicle.make) ?? null;
-    }, [manualMake, quoteData.vehicle.make]);
+      if (!normalizedSelectedMake) {
+        setManualModel(false);
+        return;
+      }
 
-    const availableModels = selectedMakeDefinition?.models ?? [];
+      if (vehicleModelsError) {
+        setManualModel(true);
+        return;
+      }
+
+      if (vehicleModelsLoading) {
+        return;
+      }
+
+      if (vehicleModels.length === 0) {
+        setManualModel(true);
+      }
+    }, [
+      manualMake,
+      normalizedSelectedMake,
+      vehicleModels,
+      vehicleModelsError,
+      vehicleModelsLoading,
+    ]);
+
+    const noModelsAvailable =
+      !vehicleModelsLoading &&
+      !vehicleModelsError &&
+      normalizedSelectedMake.length > 0 &&
+      vehicleModels.length === 0;
+
+    const canShowModelSelectButton =
+      !manualMake && !vehicleModelsError && (vehicleModels.length > 0 || vehicleModelsLoading);
 
     const { toast } = useToast();
     const [, navigate] = useLocation();
@@ -188,16 +237,9 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       }
 
       setManualMake(false);
+      setManualModel(false);
       handleVehicleChange("make", value);
-
-      const definition = VEHICLE_LIBRARY.find((entry) => entry.make === value);
-      if (definition && definition.models.length > 0) {
-        setManualModel(false);
-        handleVehicleChange("model", "");
-      } else {
-        setManualModel(true);
-        handleVehicleChange("model", "");
-      }
+      handleVehicleChange("model", "");
     };
 
     const handleModelSelection = (value: string) => {
@@ -329,24 +371,56 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                   >
                     Select make from list
                   </Button>
+                  {vehicleMakesError ? (
+                    <p className="text-sm text-red-600">
+                      We couldn't load vehicle makes right now. Please enter your make manually.
+                    </p>
+                  ) : null}
                 </div>
               ) : (
-                <Select
-                  value={quoteData.vehicle.make || undefined}
-                  onValueChange={handleMakeSelection}
-                >
-                  <SelectTrigger id="make">
-                    <SelectValue placeholder="Select make" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicleMakes.map((make) => (
-                      <SelectItem key={make} value={make}>
-                        {make}
-                      </SelectItem>
-                    ))}
-                    <SelectItem value="__manual_make">Make not listed</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="space-y-2">
+                  <Select
+                    value={quoteData.vehicle.make || undefined}
+                    onValueChange={handleMakeSelection}
+                  >
+                    <SelectTrigger id="make">
+                      <SelectValue
+                        placeholder={
+                          vehicleMakesLoading && vehicleMakes.length === 0
+                            ? "Loading makes..."
+                            : "Select make"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicleMakesError ? (
+                        <SelectItem value="__makes_error" disabled>
+                          Unable to load vehicle makes
+                        </SelectItem>
+                      ) : vehicleMakes.length > 0 ? (
+                        vehicleMakes.map((make) => (
+                          <SelectItem key={make} value={make}>
+                            {make}
+                          </SelectItem>
+                        ))
+                      ) : vehicleMakesLoading ? (
+                        <SelectItem value="__makes_loading" disabled>
+                          Loading vehicle makes...
+                        </SelectItem>
+                      ) : (
+                        <SelectItem value="__no_makes" disabled>
+                          No vehicle makes found
+                        </SelectItem>
+                      )}
+                      <SelectItem value="__manual_make">Make not listed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {vehicleMakesError ? (
+                    <p className="text-sm text-red-600">
+                      We couldn't load vehicle makes. Please enter your make manually.
+                    </p>
+                  ) : null}
+                </div>
               )}
             </div>
             <div>
@@ -360,7 +434,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                     onChange={(e) => handleVehicleChange("model", e.target.value)}
                     required
                   />
-                  {!manualMake && (
+                  {canShowModelSelectButton && (
                     <Button
                       type="button"
                       variant="link"
@@ -373,26 +447,52 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                       Select model from list
                     </Button>
                   )}
+                  {vehicleModelsError ? (
+                    <p className="text-sm text-red-600">
+                      We couldn't load vehicle models. Please enter your model manually.
+                    </p>
+                  ) : noModelsAvailable ? (
+                    <p className="text-sm text-muted-foreground">
+                      We couldn't find models for this make. Enter your model manually.
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <Select
                   value={quoteData.vehicle.model || undefined}
                   onValueChange={handleModelSelection}
-                  disabled={availableModels.length === 0}
                 >
                   <SelectTrigger id="model">
-                    <SelectValue placeholder={
-                      availableModels.length > 0
-                        ? "Select model"
-                        : "No models available"
-                    } />
+                    <SelectValue
+                      placeholder={
+                        vehicleModelsLoading
+                          ? "Loading models..."
+                          : vehicleModels.length > 0
+                            ? "Select model"
+                            : "No models found"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableModels.map((model) => (
-                      <SelectItem key={model} value={model}>
-                        {model}
+                    {vehicleModelsError ? (
+                      <SelectItem value="__models_error" disabled>
+                        Unable to load vehicle models
                       </SelectItem>
-                    ))}
+                    ) : vehicleModelsLoading ? (
+                      <SelectItem value="__models_loading" disabled>
+                        Loading vehicle models...
+                      </SelectItem>
+                    ) : vehicleModels.length > 0 ? (
+                      vehicleModels.map((model) => (
+                        <SelectItem key={model} value={model}>
+                          {model}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <SelectItem value="__no_models" disabled>
+                        No models found for this make
+                      </SelectItem>
+                    )}
                     <SelectItem value="__manual_model">Model not listed</SelectItem>
                   </SelectContent>
                 </Select>
