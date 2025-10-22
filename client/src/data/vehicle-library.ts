@@ -121,8 +121,27 @@ export async function fetchVehicleMakes(signal?: AbortSignal): Promise<string[]>
   return dedupeAndSort(makes);
 }
 
+function isValidModelYear(year?: string | null): year is string {
+  if (!year) return false;
+
+  const trimmedYear = year.trim();
+  if (!/^\d{4}$/.test(trimmedYear)) {
+    return false;
+  }
+
+  const numericYear = Number(trimmedYear);
+  if (!Number.isFinite(numericYear)) {
+    return false;
+  }
+
+  const currentYear = new Date().getFullYear();
+
+  return numericYear >= 1900 && numericYear <= currentYear + 1;
+}
+
 export async function fetchVehicleModels(
   make: string,
+  year?: string,
   signal?: AbortSignal,
 ): Promise<string[]> {
   const trimmedMake = make.trim();
@@ -130,7 +149,12 @@ export async function fetchVehicleModels(
     return [];
   }
 
-  const endpoint = `GetModelsForMake/${encodeURIComponent(trimmedMake)}?format=json`;
+  const endpoint = isValidModelYear(year)
+    ? `GetModelsForMakeYear/make/${encodeURIComponent(trimmedMake)}/modelyear/${encodeURIComponent(
+        year.trim(),
+      )}?format=json`
+    : `GetModelsForMake/${encodeURIComponent(trimmedMake)}?format=json`;
+
   const data = await fetchFromNhtsa<NhtsaModelResult>(endpoint, signal);
   const models = data.Results?.map((result) => result.Model_Name) ?? [];
 

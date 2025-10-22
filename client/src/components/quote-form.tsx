@@ -93,14 +93,24 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     });
 
     const normalizedSelectedMake = quoteData.vehicle.make.trim();
+    const normalizedSelectedYear = quoteData.vehicle.year.trim();
+    const isFourDigitYear = /^\d{4}$/.test(normalizedSelectedYear);
+    const yearFilterForModels = isFourDigitYear ? normalizedSelectedYear : undefined;
+    const noModelsPlaceholder = yearFilterForModels
+      ? "No models found for selected year"
+      : "No models found";
+    const noModelsHelperText = yearFilterForModels
+      ? `We couldn't find models for this make in ${yearFilterForModels}. Enter your model manually.`
+      : "We couldn't find models for this make. Enter your model manually.";
 
     const {
       data: fetchedVehicleModels,
       isLoading: vehicleModelsLoading,
       isError: vehicleModelsError,
     } = useQuery({
-      queryKey: ["vehicle-models", normalizedSelectedMake],
-      queryFn: ({ signal }) => fetchVehicleModels(normalizedSelectedMake, signal),
+      queryKey: ["vehicle-models", normalizedSelectedMake, yearFilterForModels ?? null],
+      queryFn: ({ signal }) =>
+        fetchVehicleModels(normalizedSelectedMake, yearFilterForModels, signal),
       enabled: !manualMake && normalizedSelectedMake.length > 0,
     });
 
@@ -266,11 +276,23 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       submitQuoteMutation.mutate(quoteData);
     };
 
-    const handleVehicleChange = (field: string, value: string) => {
-      setQuoteData((prev) => ({
-        ...prev,
-        vehicle: { ...prev.vehicle, [field]: value },
-      }));
+    const handleVehicleChange = (field: keyof QuoteData["vehicle"], value: string) => {
+      setQuoteData((prev) => {
+        const nextVehicle = { ...prev.vehicle, [field]: value };
+
+        if (field === "year" && value !== prev.vehicle.year) {
+          nextVehicle.model = "";
+        }
+
+        if (field === "make" && value !== prev.vehicle.make) {
+          nextVehicle.model = "";
+        }
+
+        return {
+          ...prev,
+          vehicle: nextVehicle,
+        };
+      });
     };
 
     const handleOwnerChange = (field: string, value: string) => {
@@ -452,9 +474,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                       We couldn't load vehicle models. Please enter your model manually.
                     </p>
                   ) : noModelsAvailable ? (
-                    <p className="text-sm text-muted-foreground">
-                      We couldn't find models for this make. Enter your model manually.
-                    </p>
+                    <p className="text-sm text-muted-foreground">{noModelsHelperText}</p>
                   ) : null}
                 </div>
               ) : (
@@ -469,7 +489,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                           ? "Loading models..."
                           : vehicleModels.length > 0
                             ? "Select model"
-                            : "No models found"
+                            : noModelsPlaceholder
                       }
                     />
                   </SelectTrigger>
@@ -490,7 +510,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                       ))
                     ) : (
                       <SelectItem value="__no_models" disabled>
-                        No models found for this make
+                        {noModelsPlaceholder}
                       </SelectItem>
                     )}
                     <SelectItem value="__manual_model">Model not listed</SelectItem>
