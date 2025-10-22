@@ -6147,16 +6147,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const policyFileUploadParser = express.raw({
+    type: () => true,
+    limit: '10mb',
+  });
+
   // Admin: upload file to policy
-  app.post('/api/admin/policies/:id/files', express.raw({ type: 'application/octet-stream', limit: '10mb' }), async (req, res) => {
+  app.post('/api/admin/policies/:id/files', policyFileUploadParser, async (req, res) => {
     try {
       const filename = req.header('x-filename');
-      if (!filename || !req.body || !(req.body instanceof Buffer)) {
+      const fileBuffer = Buffer.isBuffer(req.body) ? req.body : null;
+      if (!filename || !fileBuffer || fileBuffer.length === 0) {
         return res.status(400).json({ message: 'File data missing' });
       }
       fs.mkdirSync('uploads', { recursive: true });
       const filePath = path.join('uploads', `${Date.now()}-${filename}`);
-      fs.writeFileSync(filePath, req.body);
+      fs.writeFileSync(filePath, fileBuffer);
       const file = await storage.createPolicyFile({ policyId: req.params.id, fileName: filename, filePath });
       res.json({ data: file, message: 'File uploaded successfully' });
     } catch (error) {
