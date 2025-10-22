@@ -576,7 +576,10 @@ const calculateCoverageMonths = (start: Date | null, end: Date | null): number |
   let months = endMonthIndex - startMonthIndex;
 
   if (end.getDate() < start.getDate()) {
-    months -= 1;
+    const dayDifference = start.getDate() - end.getDate();
+    if (dayDifference > 1) {
+      months -= 1;
+    }
   }
 
   return months > 0 ? months : null;
@@ -605,18 +608,12 @@ const formatCoverageDuration = (months: number | null): string | null => {
     return null;
   }
 
-  const years = Math.floor(totalMonths / 12);
-  const remainingMonths = totalMonths % 12;
-  const durationParts: string[] = [];
-  if (years > 0) {
-    durationParts.push(`${years} ${years === 1 ? "year" : "years"}`);
+  if (totalMonths % 12 === 0) {
+    const years = totalMonths / 12;
+    return `${years} ${years === 1 ? "year" : "years"}`;
   }
-  if (remainingMonths > 0) {
-    durationParts.push(`${remainingMonths} ${remainingMonths === 1 ? "month" : "months"}`);
-  }
-  const friendly = durationParts.join(" ");
-  const monthLabel = `${totalMonths} ${totalMonths === 1 ? "month" : "months"}`;
-  return friendly ? `${friendly} / ${monthLabel}` : monthLabel;
+
+  return `${totalMonths} ${totalMonths === 1 ? "month" : "months"}`;
 };
 
 const formatQuoteValidUntil = (value: Date | string | null | undefined): string => {
@@ -2196,7 +2193,6 @@ const buildQuoteEmail = ({
     ? formatCurrencyFromCents(quote.priceTotal)
     : null;
   const deductible = formatCurrencyFromDollars(quote.deductible);
-  const term = formatTerm(quote.termMonths);
   const validUntil = formatQuoteValidUntil(quote.validUntil ?? undefined);
   const currentMiles = formatOdometer(vehicle?.odometer);
   const expirationMilesValue =
@@ -2227,6 +2223,13 @@ const buildQuoteEmail = ({
       ? Math.round(quote.termMonths)
       : null;
   const defaultCoverageMonths = 60;
+  const termMonthsForDisplay =
+    paymentPreference === 'one-time'
+      ? rawTermMonths && rawTermMonths > 0
+        ? rawTermMonths
+        : defaultCoverageMonths
+      : rawTermMonths;
+  const term = formatTerm(termMonthsForDisplay);
   const coverageMonths =
     coverageMonthsFromPolicy ??
     (paymentPreference === 'monthly'
@@ -2236,7 +2239,10 @@ const buildQuoteEmail = ({
         : defaultCoverageMonths);
   const coverageRange = formatCoverageRange(policyStart, policyEnd);
   const coverageDuration = formatCoverageDuration(coverageMonths);
-  const defaultCoverageDuration = '5 years / 60 months';
+  const defaultCoverageDuration =
+    formatCoverageDuration(defaultCoverageMonths) ??
+    formatTerm(defaultCoverageMonths) ??
+    '60 months';
   const coverageLengthValue = (() => {
     if (coverageRange && coverageDuration) {
       return `${coverageRange} (${coverageDuration})`;
@@ -2257,14 +2263,15 @@ const buildQuoteEmail = ({
         ? term
         : null);
 
+  const ratePlaceholder = 'We’ll finalize your rate together.';
   const highlightLabel =
     paymentPreference === "monthly"
       ? "Monthly Investment"
       : "Pay-in-Full Investment";
   const highlightValue =
     paymentPreference === "monthly"
-      ? monthly ?? "We’ll finalize your monthly amount together."
-      : total ?? "We’ll finalize your pay-in-full amount together.";
+      ? monthly ?? ratePlaceholder
+      : total ?? ratePlaceholder;
   const highlightSupporting =
     paymentPreference === "monthly"
       ? total
@@ -2283,7 +2290,7 @@ const buildQuoteEmail = ({
       : [
           {
             label: "Pay-in-Full Investment",
-            value: total ?? "We’ll finalize your pay-in-full amount together.",
+            value: total ?? ratePlaceholder,
           },
         ];
 
