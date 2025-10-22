@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,48 @@ export function SearchableSelect({
   contentClassName,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
+  const touchInteractionRef = useRef({
+    pointerId: null as number | null,
+    startX: 0,
+    startY: 0,
+    moved: false,
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const detectTouchDevice = () => {
+      const coarsePointer =
+        typeof window.matchMedia === "function"
+          ? window.matchMedia("(pointer: coarse)").matches
+          : false;
+      const hasTouchPoints =
+        typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
+
+      setIsTouchDevice(coarsePointer || hasTouchPoints);
+    };
+
+    detectTouchDevice();
+
+    if (typeof window.matchMedia === "function") {
+      const mediaQuery = window.matchMedia("(pointer: coarse)");
+
+      const handleChange = () => {
+        detectTouchDevice();
+      };
+
+      if (typeof mediaQuery.addEventListener === "function") {
+        mediaQuery.addEventListener("change", handleChange);
+        return () => mediaQuery.removeEventListener("change", handleChange);
+      }
+
+      if (typeof mediaQuery.addListener === "function") {
+        mediaQuery.addListener(handleChange);
+        return () => mediaQuery.removeListener(handleChange);
+      }
+    }
+  }, []);
 
   const selectedOption = useMemo(() => {
     if (!value) return undefined;
@@ -57,6 +100,82 @@ export function SearchableSelect({
   }, [options, value]);
 
   const displayLabel = selectedOption?.label ?? value ?? placeholder;
+
+  const handleOptionSelect = (optionValue: string) => {
+    onSelect?.(optionValue);
+    setOpen(false);
+  };
+
+  const resetTouchInteraction = () => {
+    touchInteractionRef.current.pointerId = null;
+    touchInteractionRef.current.moved = false;
+    touchInteractionRef.current.startX = 0;
+    touchInteractionRef.current.startY = 0;
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isTouchDevice) {
+      return;
+    }
+
+    if (event.pointerType === "touch") {
+      touchInteractionRef.current.pointerId = event.pointerId;
+      touchInteractionRef.current.startX = event.clientX;
+      touchInteractionRef.current.startY = event.clientY;
+      touchInteractionRef.current.moved = false;
+    }
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isTouchDevice || event.pointerType !== "touch") {
+      return;
+    }
+
+    const interaction = touchInteractionRef.current;
+
+    if (interaction.pointerId !== event.pointerId || interaction.moved) {
+      return;
+    }
+
+    const deltaX = Math.abs(event.clientX - interaction.startX);
+    const deltaY = Math.abs(event.clientY - interaction.startY);
+
+    if (deltaX > 10 || deltaY > 10) {
+      interaction.moved = true;
+    }
+  };
+
+  const handlePointerUp = (
+    event: ReactPointerEvent<HTMLDivElement>,
+    optionValue: string,
+  ) => {
+    if (!isTouchDevice) {
+      return;
+    }
+
+    if (event.pointerType === "touch") {
+      const interaction = touchInteractionRef.current;
+
+      if (interaction.pointerId === event.pointerId && !interaction.moved) {
+        handleOptionSelect(optionValue);
+      }
+
+      resetTouchInteraction();
+      return;
+    }
+
+    handleOptionSelect(optionValue);
+  };
+
+  const handlePointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isTouchDevice || event.pointerType !== "touch") {
+      return;
+    }
+
+    if (touchInteractionRef.current.pointerId === event.pointerId) {
+      resetTouchInteraction();
+    }
+  };
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (disabled) return;
@@ -108,10 +227,12 @@ export function SearchableSelect({
                   key={option.value}
                   value={option.value}
                   disabled={option.disabled}
-                  onSelect={() => {
-                    onSelect?.(option.value);
-                    setOpen(false);
-                  }}
+                  onSelect={() => handleOptionSelect(option.value)}
+                  disablePointerSelection={isTouchDevice}
+                  onPointerDown={handlePointerDown}
+                  onPointerMove={handlePointerMove}
+                  onPointerUp={(event) => handlePointerUp(event, option.value)}
+                  onPointerCancel={handlePointerCancel}
                 >
                   <Check
                     className={cn(
