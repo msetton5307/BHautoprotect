@@ -11,6 +11,14 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
@@ -182,26 +190,99 @@ export function SearchableSelect({
     setOpen(nextOpen);
   };
 
+  const triggerButton = (
+    <Button
+      id={id}
+      type="button"
+      variant="outline"
+      role="combobox"
+      aria-expanded={open}
+      disabled={disabled}
+      className={cn(
+        "w-full justify-between text-left font-normal",
+        !value && "text-muted-foreground",
+        triggerClassName,
+      )}
+    >
+      <span className="truncate">{displayLabel}</span>
+      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+    </Button>
+  );
+
+  const commandContent = (
+    <Command
+      className={cn(
+        "flex-1 overflow-hidden",
+        isTouchDevice && "rounded-xl border border-border bg-background shadow-sm",
+      )}
+    >
+      <CommandInput placeholder={searchPlaceholder} />
+      <CommandList
+        className={cn(
+          "flex-1 overflow-y-auto overscroll-contain",
+          isTouchDevice
+            ? "max-h-none"
+            : "max-h-[min(calc(100vh-12rem),20rem)]",
+        )}
+      >
+        <CommandEmpty>{emptyMessage}</CommandEmpty>
+        {loading ? (
+          <CommandItem value="__loading" disabled>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            {loadingMessage}
+          </CommandItem>
+        ) : null}
+        <CommandGroup>
+          {options.map((option) => (
+            <CommandItem
+              key={option.value}
+              value={option.value}
+              disabled={option.disabled}
+              onSelect={() => handleOptionSelect(option.value)}
+              disablePointerSelection={isTouchDevice}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={(event) => handlePointerUp(event, option.value)}
+              onPointerCancel={handlePointerCancel}
+            >
+              <Check
+                className={cn(
+                  "mr-2 h-4 w-4",
+                  option.value === value ? "opacity-100" : "opacity-0",
+                )}
+              />
+              {option.label}
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </Command>
+  );
+
+  if (isTouchDevice) {
+    return (
+      <Drawer open={open} onOpenChange={handleOpenChange} shouldScaleBackground={false}>
+        <DrawerTrigger asChild>{triggerButton}</DrawerTrigger>
+        <DrawerContent className="h-[85vh] max-h-[90vh] rounded-t-2xl border-0 bg-background">
+          <DrawerHeader className="px-4 pb-2 text-left">
+            <DrawerTitle>Select an option</DrawerTitle>
+            <DrawerDescription>
+              {selectedOption
+                ? `Current selection: ${selectedOption.label}`
+                : "Scroll or search to choose an option."}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="flex h-full flex-col gap-4 px-4 pb-6">
+            {commandContent}
+          </div>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          id={id}
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          disabled={disabled}
-          className={cn(
-            "w-full justify-between text-left font-normal",
-            !value && "text-muted-foreground",
-            triggerClassName,
-          )}
-        >
-          <span className="truncate">{displayLabel}</span>
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{triggerButton}</PopoverTrigger>
       <PopoverContent
         align="start"
         className={cn(
@@ -211,43 +292,7 @@ export function SearchableSelect({
           contentClassName,
         )}
       >
-        <Command className="flex-1 overflow-hidden">
-          <CommandInput placeholder={searchPlaceholder} />
-          <CommandList
-            className="flex-1 overflow-y-auto overscroll-contain max-h-[min(calc(100vh-12rem),20rem)]"
-          >
-            <CommandEmpty>{emptyMessage}</CommandEmpty>
-            {loading ? (
-              <CommandItem value="__loading" disabled>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {loadingMessage}
-              </CommandItem>
-            ) : null}
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value}
-                  disabled={option.disabled}
-                  onSelect={() => handleOptionSelect(option.value)}
-                  disablePointerSelection={isTouchDevice}
-                  onPointerDown={handlePointerDown}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={(event) => handlePointerUp(event, option.value)}
-                  onPointerCancel={handlePointerCancel}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      option.value === value ? "opacity-100" : "opacity-0",
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+        {commandContent}
       </PopoverContent>
     </Popover>
   );
