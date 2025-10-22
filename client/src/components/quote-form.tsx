@@ -1,16 +1,20 @@
-import { FormEvent, forwardRef, useEffect, useState } from "react";
+import { FormEvent, forwardRef, useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { US_STATES } from "@/lib/constants";
-import { fetchVehicleMakes, fetchVehicleModels } from "@/data/vehicle-library";
+import {
+  VehicleMake,
+  fetchVehicleMakes,
+  fetchVehicleModels,
+} from "@/data/vehicle-library";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface QuoteFormProps {
   className?: string;
@@ -92,30 +96,74 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       queryFn: ({ signal }) => fetchVehicleMakes(signal),
     });
 
+    const vehicleMakes = fetchedVehicleMakes ?? [];
+
     const normalizedSelectedMake = quoteData.vehicle.make.trim();
     const normalizedSelectedYear = quoteData.vehicle.year.trim();
     const isFourDigitYear = /^\d{4}$/.test(normalizedSelectedYear);
     const yearFilterForModels = isFourDigitYear ? normalizedSelectedYear : undefined;
-    const noModelsPlaceholder = yearFilterForModels
+    const modelEmptyMessage = isFourDigitYear
       ? "No models found for selected year"
-      : "No models found";
-    const noModelsHelperText = yearFilterForModels
+      : "Enter the vehicle year to browse models";
+    const noModelsHelperText = isFourDigitYear
       ? `We couldn't find models for this make in ${yearFilterForModels}. Enter your model manually.`
-      : "We couldn't find models for this make. Enter your model manually.";
+      : "Enter your vehicle year to see models available in the United States or enter your model manually.";
+
+    const selectedMake = useMemo<VehicleMake | null>(() => {
+      if (!normalizedSelectedMake) return null;
+      const target = normalizedSelectedMake.toLowerCase();
+      return (
+        vehicleMakes.find((make) => make.name.toLowerCase() === target) ?? null
+      );
+    }, [vehicleMakes, normalizedSelectedMake]);
+
+    const shouldLoadModels =
+      !manualMake && !!selectedMake && !!yearFilterForModels;
 
     const {
       data: fetchedVehicleModels,
       isLoading: vehicleModelsLoading,
       isError: vehicleModelsError,
     } = useQuery({
-      queryKey: ["vehicle-models", normalizedSelectedMake, yearFilterForModels ?? null],
+      queryKey: [
+        "vehicle-models",
+        selectedMake?.id ?? null,
+        yearFilterForModels ?? null,
+      ],
       queryFn: ({ signal }) =>
-        fetchVehicleModels(normalizedSelectedMake, yearFilterForModels, signal),
-      enabled: !manualMake && normalizedSelectedMake.length > 0,
+        fetchVehicleModels(
+          selectedMake as VehicleMake,
+          yearFilterForModels as string,
+          signal,
+        ),
+      enabled: shouldLoadModels,
     });
 
-    const vehicleMakes = fetchedVehicleMakes ?? [];
     const vehicleModels = fetchedVehicleModels ?? [];
+
+    const makeOptions = useMemo(
+      () => [
+        ...vehicleMakes.map((make) => ({
+          label: make.name,
+          value: make.name,
+        })),
+        { label: "Make not listed", value: "__manual_make" },
+      ],
+      [vehicleMakes],
+    );
+
+    const modelOptions = useMemo(
+      () => [
+        ...vehicleModels.map((model) => ({
+          label: model,
+          value: model,
+        })),
+        { label: "Model not listed", value: "__manual_model" },
+      ],
+      [vehicleModels],
+    );
+
+    const disableModelCombobox = !isFourDigitYear || !selectedMake;
 
     useEffect(() => {
       if (manualMake) {
@@ -123,7 +171,12 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         return;
       }
 
-      if (!normalizedSelectedMake) {
+      if (!selectedMake) {
+        setManualModel(false);
+        return;
+      }
+
+      if (!isFourDigitYear) {
         setManualModel(false);
         return;
       }
@@ -139,23 +192,32 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
       if (vehicleModels.length === 0) {
         setManualModel(true);
+        return;
       }
+
+      setManualModel(false);
     }, [
+      isFourDigitYear,
       manualMake,
-      normalizedSelectedMake,
+      selectedMake,
       vehicleModels,
       vehicleModelsError,
       vehicleModelsLoading,
     ]);
 
     const noModelsAvailable =
+      isFourDigitYear &&
       !vehicleModelsLoading &&
       !vehicleModelsError &&
-      normalizedSelectedMake.length > 0 &&
+      !!selectedMake &&
       vehicleModels.length === 0;
 
     const canShowModelSelectButton =
-      !manualMake && !vehicleModelsError && (vehicleModels.length > 0 || vehicleModelsLoading);
+      !manualMake &&
+      !vehicleModelsError &&
+      isFourDigitYear &&
+      !!selectedMake &&
+      (vehicleModels.length > 0 || vehicleModelsLoading);
 
     const { toast } = useToast();
     const [, navigate] = useLocation();
@@ -401,42 +463,21 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Select
+                  <SearchableSelect
+                    id="make"
                     value={quoteData.vehicle.make || undefined}
-                    onValueChange={handleMakeSelection}
-                  >
-                    <SelectTrigger id="make">
-                      <SelectValue
-                        placeholder={
-                          vehicleMakesLoading && vehicleMakes.length === 0
-                            ? "Loading makes..."
-                            : "Select make"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicleMakesError ? (
-                        <SelectItem value="__makes_error" disabled>
-                          Unable to load vehicle makes
-                        </SelectItem>
-                      ) : vehicleMakes.length > 0 ? (
-                        vehicleMakes.map((make) => (
-                          <SelectItem key={make} value={make}>
-                            {make}
-                          </SelectItem>
-                        ))
-                      ) : vehicleMakesLoading ? (
-                        <SelectItem value="__makes_loading" disabled>
-                          Loading vehicle makes...
-                        </SelectItem>
-                      ) : (
-                        <SelectItem value="__no_makes" disabled>
-                          No vehicle makes found
-                        </SelectItem>
-                      )}
-                      <SelectItem value="__manual_make">Make not listed</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onSelect={handleMakeSelection}
+                    options={makeOptions}
+                    placeholder={
+                      vehicleMakesLoading && vehicleMakes.length === 0
+                        ? "Loading makes..."
+                        : "Search or select make"
+                    }
+                    emptyMessage="No vehicle makes found"
+                    searchPlaceholder="Search makes..."
+                    loading={vehicleMakesLoading && vehicleMakes.length === 0}
+                    loadingMessage="Loading vehicle makes..."
+                  />
                   {vehicleMakesError ? (
                     <p className="text-sm text-red-600">
                       We couldn't load vehicle makes. Please enter your make manually.
@@ -478,44 +519,41 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                   ) : null}
                 </div>
               ) : (
-                <Select
-                  value={quoteData.vehicle.model || undefined}
-                  onValueChange={handleModelSelection}
-                >
-                  <SelectTrigger id="model">
-                    <SelectValue
-                      placeholder={
-                        vehicleModelsLoading
+                <div className="space-y-2">
+                  <SearchableSelect
+                    id="model"
+                    value={quoteData.vehicle.model || undefined}
+                    onSelect={handleModelSelection}
+                    options={modelOptions}
+                    placeholder={
+                      !isFourDigitYear || !selectedMake
+                        ? "Enter year to search models"
+                        : vehicleModelsLoading && vehicleModels.length === 0
                           ? "Loading models..."
-                          : vehicleModels.length > 0
-                            ? "Select model"
-                            : noModelsPlaceholder
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicleModelsError ? (
-                      <SelectItem value="__models_error" disabled>
-                        Unable to load vehicle models
-                      </SelectItem>
-                    ) : vehicleModelsLoading ? (
-                      <SelectItem value="__models_loading" disabled>
-                        Loading vehicle models...
-                      </SelectItem>
-                    ) : vehicleModels.length > 0 ? (
-                      vehicleModels.map((model) => (
-                        <SelectItem key={model} value={model}>
-                          {model}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="__no_models" disabled>
-                        {noModelsPlaceholder}
-                      </SelectItem>
-                    )}
-                    <SelectItem value="__manual_model">Model not listed</SelectItem>
-                  </SelectContent>
-                </Select>
+                          : "Search or select model"
+                    }
+                    emptyMessage={modelEmptyMessage}
+                    searchPlaceholder="Search models..."
+                    loading={
+                      !disableModelCombobox && vehicleModelsLoading && vehicleModels.length === 0
+                    }
+                    loadingMessage="Loading vehicle models..."
+                    disabled={disableModelCombobox}
+                  />
+                  {vehicleModelsError ? (
+                    <p className="text-sm text-red-600">
+                      We couldn't load vehicle models. Please enter your model manually.
+                    </p>
+                  ) : disableModelCombobox ? (
+                    <p className="text-sm text-muted-foreground">
+                      {selectedMake
+                        ? "Enter your vehicle year to see models available in the United States or enter your model manually."
+                        : "Select a make to browse models or enter your model manually."}
+                    </p>
+                  ) : noModelsAvailable ? (
+                    <p className="text-sm text-muted-foreground">{noModelsHelperText}</p>
+                  ) : null}
+                </div>
               )}
             </div>
             <div>
