@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, Link, useLocation } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,6 +73,21 @@ type PolicyChargeRecord = {
   status: "pending" | "processing" | "paid" | "failed" | "refunded";
   chargedAt: string;
   notes: string | null;
+  reference: string | null;
+  invoiceFileName: string | null;
+  invoiceFilePath: string | null;
+  invoiceFileType: string | null;
+  invoiceFileSize: number | null;
+};
+
+type ChargeFormState = {
+  description: string;
+  amount: string;
+  chargedAt: string;
+  status: PolicyChargeRecord["status"];
+  reference: string;
+  notes: string;
+  invoiceFile: File | null;
 };
 
 const formatCurrency = (value: number | null | undefined): string => {
@@ -125,6 +140,26 @@ const formatChargeDate = (value: string | null | undefined): string => {
   if (Number.isNaN(parsed.valueOf())) return "—";
   return parsed.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 };
+
+const MAX_CHARGE_INVOICE_BYTES = 10 * 1024 * 1024;
+
+const readFileAsBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        const [, base64 = result] = result.split(",");
+        resolve(base64.replace(/\s+/g, ""));
+      } else {
+        reject(new Error("Unable to read file"));
+      }
+    };
+    reader.onerror = () => {
+      reject(reader.error ?? new Error("Unable to read file"));
+    };
+    reader.readAsDataURL(file);
+  });
 
 const formatCardExpiry = (month: number | null | undefined, year: number | null | undefined): string => {
   if (month == null || year == null) return "—";
@@ -209,6 +244,11 @@ const chargeStatusStyles: Record<PolicyChargeRecord["status"], { label: string; 
   failed: { label: "Failed", className: "border-rose-200 bg-rose-50 text-rose-700" },
   refunded: { label: "Refunded", className: "border-slate-200 bg-slate-100 text-slate-700" },
 };
+
+const chargeStatusOptions = (Object.entries(chargeStatusStyles) as Array<[
+  PolicyChargeRecord["status"],
+  { label: string; className: string },
+]>).map(([value, meta]) => ({ value, label: meta.label }));
 
 const formatDate = (value: string | Date | null | undefined): string => {
   if (!value) return "N/A";
@@ -362,6 +402,16 @@ const createPolicyFormState = (policy: any) => ({
       : "",
   vehicleUsage: policy?.vehicle?.usage ?? "",
   vehicleIsEv: policy?.vehicle?.ev ? "true" : "false",
+});
+
+const createChargeFormState = (): ChargeFormState => ({
+  description: "",
+  amount: "",
+  chargedAt: formatDateInputValue(new Date()),
+  status: "pending",
+  reference: "",
+  notes: "",
+  invoiceFile: null,
 });
 
 const sanitizeHtmlForPreview = (value: string): string =>
@@ -945,6 +995,9 @@ export default function AdminPolicyDetail() {
     bodyHtml: "",
   };
 
+  const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false);
+  const [isSavingCharge, setIsSavingCharge] = useState(false);
+  const [chargeForm, setChargeForm] = useState<ChargeFormState>(() => createChargeFormState());
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState<string>(leadEmail);
   const [emailSubject, setEmailSubject] = useState<string>(initialTemplate.subject);
@@ -962,6 +1015,116 @@ export default function AdminPolicyDetail() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingPolicy, setIsDeletingPolicy] = useState(false);
   const [policyForm, setPolicyForm] = useState(() => createPolicyFormState(policy));
+
+  const resetChargeForm = () => {
+    setChargeForm(createChargeFormState());
+  };
+
+  const handleChargeFieldChange = <K extends keyof ChargeFormState>(field: K, value: ChargeFormState[K]) => {
+    setChargeForm(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleInvoiceFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    setChargeForm(prev => ({ ...prev, invoiceFile: file }));
+    event.target.value = "";
+  };
+
+  const handleChargeSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!policy) {
+      toast({ title: "Policy unavailable", description: "Load the policy before adding a charge.", variant: "destructive" });
+      return;
+    }
+
+    const description = chargeForm.description.trim();
+    if (!description) {
+      toast({ title: "Description required", description: "Add a short summary for the charge.", variant: "destructive" });
+      return;
+    }
+
+    const amountCents = parseCurrencyInput(chargeForm.amount);
+    if (amountCents == null || amountCents <= 0) {
+      toast({ title: "Invalid amount", description: "Enter the charge in dollars and cents.", variant: "destructive" });
+      return;
+    }
+
+    let chargedAtIso: string | undefined;
+    if (chargeForm.chargedAt) {
+      const raw = chargeForm.chargedAt;
+      const candidate = raw.includes("T") ? raw : `${raw}T00:00:00`;
+      const parsedDate = new Date(candidate);
+      if (Number.isNaN(parsedDate.valueOf())) {
+        toast({ title: "Invalid date", description: "Choose a valid charge date.", variant: "destructive" });
+        return;
+      }
+      chargedAtIso = parsedDate.toISOString();
+    }
+
+    let invoicePayload: { fileName: string; fileType?: string; fileData: string } | undefined;
+    if (chargeForm.invoiceFile) {
+      const invoice = chargeForm.invoiceFile;
+      if (invoice.size > MAX_CHARGE_INVOICE_BYTES) {
+        toast({
+          title: "Invoice too large",
+          description: "Upload a file that is 10 MB or smaller.",
+          variant: "destructive",
+        });
+        return;
+      }
+      try {
+        const fileData = await readFileAsBase64(invoice);
+        invoicePayload = {
+          fileName: invoice.name,
+          fileType: invoice.type || undefined,
+          fileData,
+        };
+      } catch (error) {
+        toast({
+          title: "File error",
+          description: error instanceof Error ? error.message : "We couldn't read the invoice file.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setIsSavingCharge(true);
+    try {
+      const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/charges`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          description,
+          amountCents,
+          chargedAt: chargedAtIso,
+          status: chargeForm.status,
+          reference: chargeForm.reference.trim() || undefined,
+          notes: chargeForm.notes.trim() || undefined,
+          invoice: invoicePayload,
+        }),
+      });
+      ensureAuthorized(response);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = payload?.message ?? "Failed to save charge";
+        throw new Error(message);
+      }
+
+      toast({ title: "Charge saved", description: "The charge was recorded successfully." });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id, "charges"] });
+      resetChargeForm();
+      setIsChargeDialogOpen(false);
+    } catch (error) {
+      toast({
+        title: "Could not save charge",
+        description: error instanceof Error ? error.message : "Failed to save charge",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingCharge(false);
+    }
+  };
 
   useEffect(() => {
     setPolicyForm(createPolicyFormState(policy));
@@ -2146,11 +2309,23 @@ export default function AdminPolicyDetail() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Charge history</h3>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-slate-900">Charge history</h3>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        resetChargeForm();
+                        setIsChargeDialogOpen(true);
+                      }}
+                    >
+                      Log charge
+                    </Button>
+                  </div>
                   {isLoadingCharges ? (
                     <p className="mt-2 text-xs text-muted-foreground">Loading charges…</p>
                   ) : charges.length === 0 ? (
-                    <p className="mt-2 text-xs text-muted-foreground">No charges logged for this policy.</p>
+                    <p className="mt-2 text-xs text-muted-foreground">No charges logged yet.</p>
                   ) : (
                     <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
                       <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -2159,6 +2334,8 @@ export default function AdminPolicyDetail() {
                             <th className="px-4 py-3 text-left">Description</th>
                             <th className="px-4 py-3 text-left">Date</th>
                             <th className="px-4 py-3 text-left">Status</th>
+                            <th className="px-4 py-3 text-left">Reference</th>
+                            <th className="px-4 py-3 text-left">Invoice</th>
                             <th className="px-4 py-3 text-right">Amount</th>
                           </tr>
                         </thead>
@@ -2177,6 +2354,24 @@ export default function AdminPolicyDetail() {
                                     {status.label}
                                   </Badge>
                                 </td>
+                                <td className="px-4 py-3 text-slate-600">
+                                  {charge.reference && charge.reference.trim().length > 0 ? charge.reference : "—"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {charge.invoiceFilePath ? (
+                                    <a
+                                      href={`/${charge.invoiceFilePath}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                                    >
+                                      View invoice
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-sm text-slate-400">—</span>
+                                  )}
+                                </td>
                                 <td className="px-4 py-3 text-right font-semibold text-slate-900">
                                   {formatChargeAmount(charge.amountCents)}
                                 </td>
@@ -2193,6 +2388,125 @@ export default function AdminPolicyDetail() {
           </div>
         </div>
       </div>
+      <Dialog
+        open={isChargeDialogOpen}
+        onOpenChange={(open) => {
+          setIsChargeDialogOpen(open);
+          if (!open) {
+            resetChargeForm();
+            setIsSavingCharge(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Log policy charge</DialogTitle>
+            <DialogDescription>
+              Track manual charges so the team can see the history alongside this policy.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleChargeSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="charge-description">Description</Label>
+              <Input
+                id="charge-description"
+                value={chargeForm.description}
+                onChange={(event) => handleChargeFieldChange("description", event.target.value)}
+                placeholder="Example: Down payment collected"
+                required
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="charge-amount">Amount</Label>
+                <Input
+                  id="charge-amount"
+                  value={chargeForm.amount}
+                  onChange={(event) => handleChargeFieldChange("amount", event.target.value)}
+                  placeholder="0.00"
+                />
+                <p className="text-xs text-muted-foreground">Enter the total in USD.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="charge-date">Charge date</Label>
+                <Input
+                  id="charge-date"
+                  type="date"
+                  value={chargeForm.chargedAt}
+                  onChange={(event) => handleChargeFieldChange("chargedAt", event.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="charge-status">Status</Label>
+                <Select
+                  value={chargeForm.status}
+                  onValueChange={(value) => handleChargeFieldChange("status", value as PolicyChargeRecord["status"])}
+                >
+                  <SelectTrigger id="charge-status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {chargeStatusOptions.map(option => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="charge-reference">Reference</Label>
+                <Input
+                  id="charge-reference"
+                  value={chargeForm.reference}
+                  onChange={(event) => handleChargeFieldChange("reference", event.target.value)}
+                  placeholder="Internal reference (optional)"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="charge-invoice">Invoice</Label>
+              <Input id="charge-invoice" type="file" onChange={handleInvoiceFileChange} />
+              {chargeForm.invoiceFile ? (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="truncate pr-4">{chargeForm.invoiceFile.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-0 text-primary"
+                    onClick={() => handleChargeFieldChange("invoiceFile", null)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">Attach a PDF or image up to 10 MB (optional).</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="charge-notes">Internal notes</Label>
+              <Textarea
+                id="charge-notes"
+                value={chargeForm.notes}
+                onChange={(event) => handleChargeFieldChange("notes", event.target.value)}
+                rows={3}
+                placeholder="Add context for teammates (optional)"
+              />
+            </div>
+            <DialogFooter className="gap-2 sm:gap-3">
+              <Button type="button" variant="outline" onClick={() => setIsChargeDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSavingCharge}>
+                {isSavingCharge ? "Saving…" : "Save charge"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={isEmailDialogOpen}
         onOpenChange={(open) => {
