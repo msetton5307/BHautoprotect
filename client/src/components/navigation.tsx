@@ -42,10 +42,10 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
               <Phone className="w-4 h-4" /> (302) 406-8053
             </a>
             <a
-              href="mailto:hello@bhautoprotect.com"
+              href="mailto:info@bhautoprotect.com"
               className="flex items-center gap-2 font-medium hover:text-blue-100 transition-colors"
             >
-              <Mail className="w-4 h-4" /> hello@bhautoprotect.com
+              <Mail className="w-4 h-4" /> info@bhautoprotect.com
             </a>
           </div>
         </div>
@@ -120,10 +120,10 @@ export default function Navigation({ onGetQuote }: NavigationProps) {
                   <Phone className="w-4 h-4" /> (302) 406-8053
                 </a>
                 <a
-                  href="mailto:hello@bhautoprotect.com"
+                  href="mailto:info@bhautoprotect.com"
                   className="flex items-center justify-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-700"
                 >
-                  <Mail className="w-4 h-4" /> hello@bhautoprotect.com
+                  <Mail className="w-4 h-4" /> info@bhautoprotect.com
                 </a>
                 <Button
                   className="w-full bg-gradient-to-r from-primary via-secondary to-primary text-white"
