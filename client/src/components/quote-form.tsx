@@ -1,4 +1,4 @@
-import { FormEvent, forwardRef, useState } from "react";
+import { FormEvent, forwardRef, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { US_STATES } from "@/lib/constants";
+import { VEHICLE_LIBRARY } from "@/data/vehicle-library";
 import { cn } from "@/lib/utils";
 
 interface QuoteFormProps {
@@ -79,6 +80,23 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         terms: false,
       },
     });
+    const [manualMake, setManualMake] = useState(false);
+    const [manualModel, setManualModel] = useState(false);
+
+    const vehicleMakes = useMemo(
+      () => VEHICLE_LIBRARY.map((entry) => entry.make),
+      [],
+    );
+
+    const selectedMakeDefinition = useMemo(() => {
+      if (manualMake) {
+        return null;
+      }
+
+      return VEHICLE_LIBRARY.find((entry) => entry.make === quoteData.vehicle.make) ?? null;
+    }, [manualMake, quoteData.vehicle.make]);
+
+    const availableModels = selectedMakeDefinition?.models ?? [];
 
     const { toast } = useToast();
     const [, navigate] = useLocation();
@@ -153,9 +171,44 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         },
         consent: {
           tcpa: false,
-          terms: false,
-        },
-      });
+        terms: false,
+      },
+    });
+      setManualMake(false);
+      setManualModel(false);
+    };
+
+    const handleMakeSelection = (value: string) => {
+      if (value === "__manual_make") {
+        setManualMake(true);
+        setManualModel(true);
+        handleVehicleChange("make", "");
+        handleVehicleChange("model", "");
+        return;
+      }
+
+      setManualMake(false);
+      handleVehicleChange("make", value);
+
+      const definition = VEHICLE_LIBRARY.find((entry) => entry.make === value);
+      if (definition && definition.models.length > 0) {
+        setManualModel(false);
+        handleVehicleChange("model", "");
+      } else {
+        setManualModel(true);
+        handleVehicleChange("model", "");
+      }
+    };
+
+    const handleModelSelection = (value: string) => {
+      if (value === "__manual_model") {
+        setManualModel(true);
+        handleVehicleChange("model", "");
+        return;
+      }
+
+      setManualModel(false);
+      handleVehicleChange("model", value);
     };
 
     const submitQuote = () => {
@@ -254,23 +307,96 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             </div>
             <div>
               <Label htmlFor="make">Make</Label>
-              <Input
-                id="make"
-                placeholder="e.g., Toyota"
-                value={quoteData.vehicle.make}
-                onChange={(e) => handleVehicleChange("make", e.target.value)}
-                required
-              />
+              {manualMake ? (
+                <div className="space-y-2">
+                  <Input
+                    id="make"
+                    placeholder="Start typing your vehicle make"
+                    value={quoteData.vehicle.make}
+                    onChange={(e) => handleVehicleChange("make", e.target.value)}
+                    required
+                  />
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto px-0"
+                    onClick={() => {
+                      setManualMake(false);
+                      setManualModel(false);
+                      handleVehicleChange("make", "");
+                      handleVehicleChange("model", "");
+                    }}
+                  >
+                    Select make from list
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={quoteData.vehicle.make || undefined}
+                  onValueChange={handleMakeSelection}
+                >
+                  <SelectTrigger id="make">
+                    <SelectValue placeholder="Select make" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vehicleMakes.map((make) => (
+                      <SelectItem key={make} value={make}>
+                        {make}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__manual_make">Make not listed</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div>
               <Label htmlFor="model">Model</Label>
-              <Input
-                id="model"
-                placeholder="e.g., Camry"
-                value={quoteData.vehicle.model}
-                onChange={(e) => handleVehicleChange("model", e.target.value)}
-                required
-              />
+              {manualModel || manualMake ? (
+                <div className="space-y-2">
+                  <Input
+                    id="model"
+                    placeholder="Start typing your vehicle model"
+                    value={quoteData.vehicle.model}
+                    onChange={(e) => handleVehicleChange("model", e.target.value)}
+                    required
+                  />
+                  {!manualMake && (
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto px-0"
+                      onClick={() => {
+                        setManualModel(false);
+                        handleVehicleChange("model", "");
+                      }}
+                    >
+                      Select model from list
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <Select
+                  value={quoteData.vehicle.model || undefined}
+                  onValueChange={handleModelSelection}
+                  disabled={availableModels.length === 0}
+                >
+                  <SelectTrigger id="model">
+                    <SelectValue placeholder={
+                      availableModels.length > 0
+                        ? "Select model"
+                        : "No models available"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableModels.map((model) => (
+                      <SelectItem key={model} value={model}>
+                        {model}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__manual_model">Model not listed</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div>
               <Label htmlFor="trim">Trim (Optional)</Label>
