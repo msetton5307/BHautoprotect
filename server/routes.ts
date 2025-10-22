@@ -2112,7 +2112,7 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
   }
 
   const descriptionHtml = plan.description
-    ? `<p class="coverage-card-text" style="margin:0 0 16px;font-size:14px;line-height:1.6;background:transparent;color:#475569;">${escapeHtml(plan.description)}</p>`
+    ? `<p class="coverage-card-text" style="margin:0 0 16px;font-size:14px;line-height:1.6;background:transparent;color:#475569;text-align:center;">${escapeHtml(plan.description)}</p>`
     : "";
 
   const featureRows = plan.features
@@ -2149,13 +2149,13 @@ const renderPlanCoverageBlock = (plan: CoveragePlanDefinition | null): string =>
     .join("");
 
   return `
-    <div class="coverage-card" style="margin-bottom:24px;padding:22px;border-radius:16px;border:1px solid #e0e7ff;background:linear-gradient(180deg,#eef2ff 0%,#ffffff 100%);color:#0f172a;">
-      <div class="coverage-card-label" style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#6366f1;margin-bottom:8px;background:transparent;">
+    <div class="coverage-card" style="margin-bottom:24px;padding:22px;border-radius:16px;border:1px solid #e0e7ff;background:linear-gradient(180deg,#eef2ff 0%,#ffffff 100%);color:#0f172a;text-align:center;">
+      <div class="coverage-card-label" style="font-size:12px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:#6366f1;margin-bottom:8px;background:transparent;text-align:center;">
         Coverage highlights
       </div>
-      <div class="coverage-card-title" style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:10px;background:transparent;">${escapeHtml(plan.name)} protection at a glance</div>
+      <div class="coverage-card-title" style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:10px;background:transparent;text-align:center;">${escapeHtml(plan.name)} protection at a glance</div>
       ${descriptionHtml}
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="coverage-card-table" bgcolor="#ffffff" style="border-collapse:separate;margin:0;padding:0;background:#ffffff;color:#1f2937;">
+      <table role="presentation" cellpadding="0" cellspacing="0" class="coverage-card-table" bgcolor="#ffffff" style="border-collapse:separate;margin:0 auto;padding:0;background:#ffffff;color:#1f2937;text-align:left;">
         ${featureRows}
       </table>
     </div>
@@ -2319,19 +2319,15 @@ const buildQuoteEmail = ({
       label: 'Next Step',
       value:
         paymentPreference === 'monthly'
-          ? 'Reply with your preferred start date and we’ll finalize the monthly arrangement together.'
-          : 'Reply to confirm and we’ll send a quick checkout link to activate your coverage.',
+          ? 'Reply with your preferred start date and we’ll finalize the monthly plan.'
+          : 'Reply to confirm and we’ll send a quick checkout link to activate coverage.',
     },
     {
-      label: 'Need adjustments?',
+      label: 'Support',
       value:
         paymentPreference === 'monthly'
-          ? 'Want to compare monthly versus pay-in-full? Let us know and we’ll tailor it for you.'
-          : 'Prefer monthly payments instead? Reply and we’ll prepare a financing option in minutes.',
-    },
-    {
-      label: 'Concierge Support',
-      value: 'We’ll walk you through the final paperwork in minutes.',
+          ? 'Questions or need tweaks? Reply anytime and our team will tailor the coverage for you.'
+          : 'Questions or need tweaks? Reply anytime and our team will handle the paperwork in minutes.',
     },
   ];
 
@@ -2344,13 +2340,13 @@ const buildQuoteEmail = ({
   const logoTextStyle =
     "font-size:12px;letter-spacing:0.28em;text-transform:uppercase;color:#0f172a;";
   const logoMarkup = logoAvailable && logoUrl
-    ? `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;">
+    ? `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:center;">
         <div class="email-logo-badge" style="${logoBadgeStyle}">
           <img src="${logoUrl}" alt="BH Auto Protect" class="email-logo-light" style="display:block;${logoImageStyle}" />
           <img src="${logoUrl}" alt="BH Auto Protect" class="email-logo-dark" style="display:none;${logoImageStyle}" />
         </div>
       </div>`
-    : `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:left;">
+    : `<div class="email-logo-wrapper" style="margin-bottom:16px;text-align:center;">
         <div class="email-logo-badge" style="${logoBadgeStyle}">
           <span class="email-logo-light email-logo-text" style="display:inline-block;${logoTextStyle}">BH AUTO PROTECT</span>
           <span class="email-logo-dark email-logo-text" style="display:none;${logoTextStyle}">BH AUTO PROTECT</span>
@@ -2616,7 +2612,7 @@ const buildQuoteEmail = ({
         <td align="center" bgcolor="#f1f5f9" style="background:#f1f5f9;color:#0f172a;">
           <table role="presentation" cellpadding="0" cellspacing="0" width="640" class="email-container" bgcolor="#ffffff" style="width:640px;max-width:94%;background:#ffffff;color:#0f172a;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.1);">
             <tr>
-              <td class="email-header" bgcolor="#111827" style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;">
+              <td class="email-header" bgcolor="#111827" style="background:linear-gradient(135deg,#111827,#2563eb);padding:28px 32px;color:#ffffff;text-align:center;">
                 ${logoMarkup}
                 <div class="email-header-title" style="font-size:24px;font-weight:700;margin-top:10px;background:transparent;color:#ffffff;">Your ${escapeHtml(planName)} Quote is Ready</div>
                 <div class="email-header-subtitle" style="margin-top:12px;font-size:14px;opacity:0.85;background:transparent;color:#ffffff;">Quote • ${escapeHtml(quoteId)}</div>
@@ -2640,7 +2636,7 @@ const buildQuoteEmail = ({
                 </table>
                 ${instructionsBlock}
                 ${coverageBlock}
-                <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:28px;background:#ffffff;color:#0f172a;">
+                <div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:28px;background:#ffffff;color:#0f172a;">
                   <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" bgcolor="#ffffff" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#ffffff;color:#0f172a;min-width:240px;">
                     <tbody>
                       ${renderCompactRows(vehicleRows)}
@@ -2653,7 +2649,7 @@ const buildQuoteEmail = ({
                   </table>
                 </div>
                 <p class="email-paragraph" style="margin:0 0 18px;font-size:15px;line-height:1.7;background:#ffffff;color:#0f172a;">
-                  Ready to lock in this rate or curious about coverage details? Reply to this email and our concierge team will take care of everything for you.
+                  Ready to lock in this rate or curious about coverage details? Reply to this email and our team will take care of everything for you.
                 </p>
                 <div class="email-callout email-callout--guarantee" style="background-color:#0f172a;color:#f8fafc;padding:18px 24px;border-radius:12px;margin-bottom:24px;font-size:15px;line-height:1.6;">
                   <strong>Our Promise:</strong> Enjoy our 30-Day Price Match Promise and 30-Day full money-back guarantee. If you find a better qualifying rate or change your mind within 30 days, we’ll make it right—no risk, no hassle.
