@@ -1,4 +1,4 @@
-import type { Express, Request, RequestHandler, Response } from "express";
+import type { Express, NextFunction, Request, RequestHandler, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
@@ -136,6 +136,7 @@ const POLICY_CHARGE_STATUS_VALUES = policyChargeStatusEnum.enumValues as [
 ];
 
 const MAX_INVOICE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_POLICY_FILE_BYTES = 10 * 1024 * 1024;
 
 const DOCUMENT_REQUEST_TYPE_COPY: Record<(typeof DOCUMENT_REQUEST_TYPE_VALUES)[number], { label: string; hint: string }> = {
   vin_photo: {
@@ -6155,15 +6156,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: upload file to policy
   app.post('/api/admin/policies/:id/files', policyFileUploadParser, async (req, res) => {
     try {
-      const filename = req.header('x-filename');
-      const fileBuffer = Buffer.isBuffer(req.body) ? req.body : null;
-      if (!filename || !fileBuffer || fileBuffer.length === 0) {
-        return res.status(400).json({ message: 'File data missing' });
+      const headerFilename = req.header('x-filename');
+      const originalFileName = typeof headerFilename === 'string' ? headerFilename.trim() : '';
+
+      const body = req.body;
+      let fileBuffer: Buffer | null = null;
+      if (Buffer.isBuffer(body)) {
+        fileBuffer = body;
+      } else if (body instanceof ArrayBuffer) {
+        fileBuffer = Buffer.from(body);
+      } else if (ArrayBuffer.isView(body)) {
+        fileBuffer = Buffer.from(body.buffer, body.byteOffset, body.byteLength);
       }
+
+      if (!originalFileName) {
+        res.status(400).json({ message: 'File name missing' });
+        return;
+      }
+
+      if (!fileBuffer || fileBuffer.length === 0) {
+        res.status(400).json({ message: 'File data missing' });
+        return;
+      }
+
+      if (fileBuffer.length > MAX_POLICY_FILE_BYTES) {
+        res.status(400).json({ message: 'File is too large (max 10 MB)' });
+        return;
+      }
+
       fs.mkdirSync('uploads', { recursive: true });
-      const filePath = path.join('uploads', `${Date.now()}-${filename}`);
+      const safeName = sanitizeFileName(originalFileName) || 'document';
+      const storedName = `${Date.now()}-${safeName}`;
+      const filePath = path.join('uploads', storedName);
       fs.writeFileSync(filePath, fileBuffer);
-      const file = await storage.createPolicyFile({ policyId: req.params.id, fileName: filename, filePath });
+
+      const normalizedPath = filePath.split(path.sep).join('/');
+      const file = await storage.createPolicyFile({
+        policyId: req.params.id,
+        fileName: originalFileName,
+        filePath: normalizedPath,
+      });
       res.json({ data: file, message: 'File uploaded successfully' });
     } catch (error) {
       console.error('Error uploading policy file:', error);
@@ -6306,6 +6338,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error updating claim:', error);
       res.status(400).json({ message: 'Invalid claim data' });
     }
+  });
+
+  app.use((error: unknown, req: Request, res: Response, next: NextFunction) => {
+    const maybeType = typeof error === 'object' && error !== null ? (error as { type?: string }).type : undefined;
+    if (maybeType === 'entity.too.large') {
+      console.error('File upload rejected because it exceeded size limits:', error);
+      res.status(413).json({ message: 'File is too large (max 10 MB)' });
+      return;
+    }
+    next(error);
   });
 
   const httpServer = createServer(app);

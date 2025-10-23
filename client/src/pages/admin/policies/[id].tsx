@@ -142,6 +142,7 @@ const formatChargeDate = (value: string | null | undefined): string => {
 };
 
 const MAX_CHARGE_INVOICE_BYTES = 10 * 1024 * 1024;
+const MAX_POLICY_FILE_BYTES = 10 * 1024 * 1024;
 
 const readFileAsBase64 = (file: File): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -1949,15 +1950,48 @@ export default function AdminPolicyDetail() {
                       });
                       return;
                     }
+
+                    if (file.size === 0) {
+                      toast({
+                        title: "Empty file",
+                        description: "The selected file is empty. Please choose another file.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    if (file.size > MAX_POLICY_FILE_BYTES) {
+                      toast({
+                        title: "File too large",
+                        description: "Files must be 10 MB or smaller.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
                     try {
+                      const headers: Record<string, string> = { "x-filename": file.name, ...getAuthHeaders() };
+                      if (file.type) {
+                        headers["Content-Type"] = file.type;
+                      }
+
                       const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/files`, {
                         method: "POST",
-                        headers: { "x-filename": file.name, ...getAuthHeaders() },
+                        headers,
                         body: file,
                       });
                       ensureAuthorized(response);
                       if (!response.ok) {
-                        throw new Error("Failed to upload file");
+                        let message = "Failed to upload file";
+                        try {
+                          const data = await response.json();
+                          if (data && typeof data.message === "string") {
+                            message = data.message;
+                          }
+                        } catch {
+                          // ignore JSON parsing errors
+                        }
+                        throw new Error(message);
                       }
                       queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
                       formElement.reset();
