@@ -6153,13 +6153,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     limit: '10mb',
   });
 
+  const logPolicyFileUploadFailure = (
+    policyId: string,
+    reason: string,
+    details: Record<string, unknown> = {},
+  ): void => {
+    const metadata = {
+      policyId,
+      ...details,
+    };
+    console.warn(`[PolicyFileUpload] ${reason}`, metadata);
+  };
+
   // Admin: upload file to policy
   app.post('/api/admin/policies/:id/files', policyFileUploadParser, async (req, res) => {
     try {
+      const policyId = req.params.id;
       const headerFilename = req.header('x-filename');
       const originalFileName = typeof headerFilename === 'string' ? headerFilename.trim() : '';
 
-      const body = req.body;
+      const body: unknown = req.body;
       let fileBuffer: Buffer | null = null;
       if (Buffer.isBuffer(body)) {
         fileBuffer = body;
@@ -6170,16 +6183,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!originalFileName) {
+        logPolicyFileUploadFailure(policyId, 'Missing file name header', {
+          headerValue: headerFilename,
+        });
         res.status(400).json({ message: 'File name missing' });
         return;
       }
 
       if (!fileBuffer || fileBuffer.length === 0) {
+        const bodyConstructorName =
+          body && typeof body === 'object' && (body as { constructor?: { name?: string } }).constructor
+            ? (body as { constructor: { name?: string } }).constructor.name ?? 'Object'
+            : undefined;
+        const bodyType = bodyConstructorName ?? typeof body;
+        logPolicyFileUploadFailure(policyId, 'No file data received', {
+          fileName: originalFileName,
+          bodyType,
+          isBuffer: Buffer.isBuffer(body),
+          isArrayBuffer: body instanceof ArrayBuffer,
+          isView: ArrayBuffer.isView(body),
+        });
         res.status(400).json({ message: 'File data missing' });
         return;
       }
 
       if (fileBuffer.length > MAX_POLICY_FILE_BYTES) {
+        logPolicyFileUploadFailure(policyId, 'File exceeded size limit', {
+          fileName: originalFileName,
+          fileSize: fileBuffer.length,
+          maxSize: MAX_POLICY_FILE_BYTES,
+        });
         res.status(400).json({ message: 'File is too large (max 10 MB)' });
         return;
       }
@@ -6192,14 +6225,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const normalizedPath = filePath.split(path.sep).join('/');
       const file = await storage.createPolicyFile({
-        policyId: req.params.id,
+        policyId,
         fileName: originalFileName,
         filePath: normalizedPath,
       });
       res.json({ data: file, message: 'File uploaded successfully' });
     } catch (error) {
-      console.error('Error uploading policy file:', error);
-      res.status(400).json({ message: 'Invalid file data' });
+      const policyId = req.params.id;
+      const headerFilename = req.header('x-filename');
+      console.error('Error uploading policy file:', {
+        error,
+        policyId,
+        fileName: typeof headerFilename === 'string' ? headerFilename.trim() : undefined,
+      });
+      const rawMessage = error instanceof Error ? error.message : undefined;
+      const normalized = rawMessage ? rawMessage.toLowerCase() : '';
+      const message =
+        rawMessage && !normalized.includes('failed to upload file')
+          ? `Failed to upload file: ${rawMessage}`
+          : 'Failed to upload file';
+      res.status(500).json({ message });
     }
   });
 
