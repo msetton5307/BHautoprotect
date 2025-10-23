@@ -1705,7 +1705,7 @@ export default function AdminPolicyDetail() {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[2fr,1fr] xl:gap-8">
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
               <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-blue-700 px-6 py-6 text-white sm:px-8 sm:py-8">
                 <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -1777,27 +1777,27 @@ export default function AdminPolicyDetail() {
               </div>
             </div>
               <div className="grid gap-4 border-t border-slate-200 bg-white px-6 py-5 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-5">
-                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Coverage window</p>
-                  <p className="mt-2 text-base font-semibold text-slate-900">
+                  <p className="mt-2 break-words text-base font-semibold text-slate-900">
                     {coverageStartDisplay} → {coverageEndDisplay}
                   </p>
                 </div>
-                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Monthly payment</p>
-                  <p className="mt-2 text-base font-semibold text-slate-900">{monthlyPaymentDisplay}</p>
+                  <p className="mt-2 break-words text-base font-semibold text-slate-900">{monthlyPaymentDisplay}</p>
                 </div>
-                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Total premium</p>
-                  <p className="mt-2 text-base font-semibold text-slate-900">{totalPremiumDisplay}</p>
+                  <p className="mt-2 break-words text-base font-semibold text-slate-900">{totalPremiumDisplay}</p>
                 </div>
-                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Deductible</p>
-                  <p className="mt-2 text-base font-semibold text-slate-900">{deductibleDisplay}</p>
+                  <p className="mt-2 break-words text-base font-semibold text-slate-900">{deductibleDisplay}</p>
                 </div>
-                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Expiration mileage</p>
-                  <p className="mt-2 text-base font-semibold text-slate-900">{expirationMilesDisplay}</p>
+                  <p className="mt-2 break-words text-base font-semibold text-slate-900">{expirationMilesDisplay}</p>
                 </div>
               </div>
             </section>
@@ -1873,47 +1873,47 @@ export default function AdminPolicyDetail() {
               </CardHeader>
               <CardContent>
                 <dl className="grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Package</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{formatPolicyName(policy.package) || "N/A"}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{formatPolicyName(policy.package) || "N/A"}</dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Policy start</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{coverageStartDisplay}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{coverageStartDisplay}</dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Expiration date</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{coverageEndDisplay}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{coverageEndDisplay}</dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Expiration mileage</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{expirationMilesDisplay}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{expirationMilesDisplay}</dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Deductible</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{deductibleDisplay}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{deductibleDisplay}</dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Total premium</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{totalPremiumDisplay}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{totalPremiumDisplay}</dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Down payment</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{downPaymentDisplay}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{downPaymentDisplay}</dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Monthly payment</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{monthlyPaymentDisplay}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{monthlyPaymentDisplay}</dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Total payments</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">
                       {policy.totalPayments != null ? formatPaymentCount(policy.totalPayments) : "N/A"}
                     </dd>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Created</dt>
-                    <dd className="mt-2 text-sm font-semibold text-slate-900">{policyCreatedDisplay}</dd>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{policyCreatedDisplay}</dd>
                   </div>
                 </dl>
               </CardContent>
@@ -2088,7 +2088,7 @@ export default function AdminPolicyDetail() {
             </Card>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
               <CardHeader>
                 <CardTitle className="text-lg font-semibold text-slate-900">Customer snapshot</CardTitle>
@@ -2097,7 +2097,7 @@ export default function AdminPolicyDetail() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-5 text-sm text-slate-600">
-                <section className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <section className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</h3>
                   <dl className="mt-3 space-y-3">
                     <div>
@@ -2133,7 +2133,7 @@ export default function AdminPolicyDetail() {
                   </dl>
                 </section>
 
-                <section className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <section className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">Vehicle</h3>
                   <dl className="mt-3 grid grid-cols-1 gap-3">
                     <div>
@@ -2175,7 +2175,7 @@ export default function AdminPolicyDetail() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6 text-sm text-slate-600">
-                <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Payment status</p>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <Badge variant="outline" className={`rounded-full px-3 py-1 text-xs font-medium ${autopayBadgeClass}`}>
@@ -2190,13 +2190,13 @@ export default function AdminPolicyDetail() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <p className="text-xs uppercase tracking-wide text-slate-500">Billing address</p>
                     <p className="mt-2 text-sm font-medium text-slate-900 whitespace-pre-line">
                       {billingAddressDisplay ?? "N/A"}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <p className="text-xs uppercase tracking-wide text-slate-500">Shipping address</p>
                     <p className="mt-2 text-sm font-medium text-slate-900 whitespace-pre-line">
                       {shippingAddressDisplay ?? "N/A"}
@@ -2208,11 +2208,11 @@ export default function AdminPolicyDetail() {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <p className="text-xs uppercase tracking-wide text-slate-500">Monthly payment</p>
                     <p className="mt-2 text-base font-semibold text-slate-900">{monthlyPaymentDisplay}</p>
                   </div>
-                  <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <p className="text-xs uppercase tracking-wide text-slate-500">Down payment</p>
                     <p className="mt-2 text-base font-semibold text-slate-900">{downPaymentDisplay}</p>
                   </div>
@@ -2327,9 +2327,9 @@ export default function AdminPolicyDetail() {
                   ) : charges.length === 0 ? (
                     <p className="mt-2 text-xs text-muted-foreground">No charges logged yet.</p>
                   ) : (
-                    <div className="mt-3 rounded-xl border border-slate-200">
-                      <div className="overflow-x-auto">
-                        <table className="w-full divide-y divide-slate-200 text-sm">
+                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="hidden md:block">
+                        <table className="min-w-full table-fixed divide-y divide-slate-200 text-sm">
                           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
                             <tr>
                               <th className="px-4 py-3 text-left">Description</th>
@@ -2340,13 +2340,13 @@ export default function AdminPolicyDetail() {
                               <th className="px-4 py-3 text-right">Amount</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 bg-white">
+                          <tbody className="divide-y divide-slate-100">
                             {charges.map(charge => {
                               const status = chargeStatusStyles[charge.status];
                               return (
                                 <tr key={charge.id}>
                                   <td className="px-4 py-3 align-top">
-                                    <div className="font-medium text-slate-900">{charge.description}</div>
+                                    <div className="min-w-0 break-words font-medium text-slate-900">{charge.description}</div>
                                     {charge.notes ? <div className="text-xs text-slate-500">{charge.notes}</div> : null}
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap text-slate-600">
@@ -2383,6 +2383,66 @@ export default function AdminPolicyDetail() {
                             })}
                           </tbody>
                         </table>
+                      </div>
+                      <div className="grid gap-3 p-4 text-sm text-slate-600 md:hidden">
+                        {charges.map(charge => {
+                          const status = chargeStatusStyles[charge.status];
+                          return (
+                            <div key={`${charge.id}-mobile`} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                              <div className="flex flex-wrap items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="break-words font-medium text-slate-900">{charge.description}</div>
+                                  {charge.notes ? (
+                                    <p className="mt-1 text-xs text-slate-500 break-words">{charge.notes}</p>
+                                  ) : null}
+                                </div>
+                                <div className="text-right font-semibold text-slate-900">
+                                  {formatChargeAmount(charge.amountCents)}
+                                </div>
+                              </div>
+                              <dl className="mt-3 grid gap-2 text-xs uppercase tracking-wide text-slate-500">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <dt>Date</dt>
+                                  <dd className="text-sm font-medium normal-case text-slate-900">
+                                    {formatChargeDate(charge.chargedAt)}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <dt>Status</dt>
+                                  <dd>
+                                    <Badge variant="outline" className={status.className}>
+                                      {status.label}
+                                    </Badge>
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt>Reference</dt>
+                                  <dd className="text-sm font-medium normal-case text-slate-900 break-words">
+                                    {charge.reference && charge.reference.trim().length > 0 ? charge.reference : "—"}
+                                  </dd>
+                                </div>
+                                <div className="flex flex-col gap-1">
+                                  <dt>Invoice</dt>
+                                  <dd>
+                                    {charge.invoiceFilePath ? (
+                                      <a
+                                        href={`/${charge.invoiceFilePath}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                                      >
+                                        View invoice
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                      </a>
+                                    ) : (
+                                      <span className="text-sm text-slate-400">—</span>
+                                    )}
+                                  </dd>
+                                </div>
+                              </dl>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
