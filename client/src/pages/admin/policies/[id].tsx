@@ -2329,7 +2329,7 @@ export default function AdminPolicyDetail() {
                   ) : (
                     <div className="mt-3 rounded-xl border border-slate-200">
                       <div className="overflow-x-auto">
-                        <table className="min-w-[720px] w-full divide-y divide-slate-200 text-sm">
+                        <table className="w-full divide-y divide-slate-200 text-sm">
                           <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
                             <tr>
                               <th className="px-4 py-3 text-left">Description</th>
