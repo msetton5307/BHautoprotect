@@ -2327,59 +2327,63 @@ export default function AdminPolicyDetail() {
                   ) : charges.length === 0 ? (
                     <p className="mt-2 text-xs text-muted-foreground">No charges logged yet.</p>
                   ) : (
-                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200">
-                      <table className="min-w-full divide-y divide-slate-200 text-sm">
-                        <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
-                          <tr>
-                            <th className="px-4 py-3 text-left">Description</th>
-                            <th className="px-4 py-3 text-left">Date</th>
-                            <th className="px-4 py-3 text-left">Status</th>
-                            <th className="px-4 py-3 text-left">Reference</th>
-                            <th className="px-4 py-3 text-left">Invoice</th>
-                            <th className="px-4 py-3 text-right">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
-                          {charges.map(charge => {
-                            const status = chargeStatusStyles[charge.status];
-                            return (
-                              <tr key={charge.id}>
-                                <td className="px-4 py-3">
-                                  <div className="font-medium text-slate-900">{charge.description}</div>
-                                  {charge.notes ? <div className="text-xs text-slate-500">{charge.notes}</div> : null}
-                                </td>
-                                <td className="px-4 py-3 text-slate-600">{formatChargeDate(charge.chargedAt)}</td>
-                                <td className="px-4 py-3">
-                                  <Badge variant="outline" className={status.className}>
-                                    {status.label}
-                                  </Badge>
-                                </td>
-                                <td className="px-4 py-3 text-slate-600">
-                                  {charge.reference && charge.reference.trim().length > 0 ? charge.reference : "—"}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {charge.invoiceFilePath ? (
-                                    <a
-                                      href={`/${charge.invoiceFilePath}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-                                    >
-                                      View invoice
-                                      <ExternalLink className="h-3.5 w-3.5" />
-                                    </a>
-                                  ) : (
-                                    <span className="text-sm text-slate-400">—</span>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 text-right font-semibold text-slate-900">
-                                  {formatChargeAmount(charge.amountCents)}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                    <div className="mt-3 rounded-xl border border-slate-200">
+                      <div className="overflow-x-auto">
+                        <table className="min-w-[720px] w-full divide-y divide-slate-200 text-sm">
+                          <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
+                            <tr>
+                              <th className="px-4 py-3 text-left">Description</th>
+                              <th className="px-4 py-3 text-left">Date</th>
+                              <th className="px-4 py-3 text-left">Status</th>
+                              <th className="px-4 py-3 text-left">Reference</th>
+                              <th className="px-4 py-3 text-left">Invoice</th>
+                              <th className="px-4 py-3 text-right">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {charges.map(charge => {
+                              const status = chargeStatusStyles[charge.status];
+                              return (
+                                <tr key={charge.id}>
+                                  <td className="px-4 py-3 align-top">
+                                    <div className="font-medium text-slate-900">{charge.description}</div>
+                                    {charge.notes ? <div className="text-xs text-slate-500">{charge.notes}</div> : null}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                                    {formatChargeDate(charge.chargedAt)}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    <Badge variant="outline" className={status.className}>
+                                      {status.label}
+                                    </Badge>
+                                  </td>
+                                  <td className="px-4 py-3 break-words text-slate-600">
+                                    {charge.reference && charge.reference.trim().length > 0 ? charge.reference : "—"}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap">
+                                    {charge.invoiceFilePath ? (
+                                      <a
+                                        href={`/${charge.invoiceFilePath}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                                      >
+                                        View invoice
+                                        <ExternalLink className="h-3.5 w-3.5" />
+                                      </a>
+                                    ) : (
+                                      <span className="text-sm text-slate-400">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-slate-900">
+                                    {formatChargeAmount(charge.amountCents)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   )}
                 </div>
