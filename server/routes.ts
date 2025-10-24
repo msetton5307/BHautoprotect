@@ -397,6 +397,80 @@ const getClientIp = (req: Request): string => {
   return ip ?? "unknown";
 };
 
+const RECAPTCHA_VERIFY_ENDPOINT = "https://www.google.com/recaptcha/api/siteverify";
+const recaptchaSecretKey =
+  process.env.RECAPTCHA_SECRET_KEY ??
+  process.env.RECAPTCHA_SECRET ??
+  "6LdzavUrAAAAAL08Q7i0Ej7ztIds_EyMXqPByL8p";
+
+class RecaptchaVerificationError extends Error {
+  status: number;
+
+  constructor(message: string, status = 400) {
+    super(message);
+    this.name = "RecaptchaVerificationError";
+    this.status = status;
+  }
+}
+
+type RecaptchaVerificationResponse = {
+  success: boolean;
+  challenge_ts?: string;
+  hostname?: string;
+  "error-codes"?: string[];
+};
+
+const verifyRecaptchaToken = async (
+  token: unknown,
+  remoteIp: string,
+): Promise<void> => {
+  const normalizedToken = normalizeString(token);
+  if (!normalizedToken) {
+    throw new RecaptchaVerificationError("Missing reCAPTCHA token");
+  }
+
+  if (!recaptchaSecretKey) {
+    throw new RecaptchaVerificationError(
+      "reCAPTCHA secret key is not configured",
+      500,
+    );
+  }
+
+  const params = new URLSearchParams();
+  params.append("secret", recaptchaSecretKey);
+  params.append("response", normalizedToken);
+  if (remoteIp && remoteIp !== "unknown") {
+    params.append("remoteip", remoteIp);
+  }
+
+  let verification: RecaptchaVerificationResponse;
+  try {
+    const response = await fetch(RECAPTCHA_VERIFY_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: params.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Verification responded with status ${response.status}`);
+    }
+
+    verification = (await response.json()) as RecaptchaVerificationResponse;
+  } catch (error) {
+    throw new RecaptchaVerificationError(
+      error instanceof Error ? error.message : "Failed to verify reCAPTCHA",
+      502,
+    );
+  }
+
+  if (!verification.success) {
+    const codes = verification["error-codes"]?.join(", ") ?? "verification failed";
+    throw new RecaptchaVerificationError(`reCAPTCHA verification failed: ${codes}`);
+  }
+};
+
 const leadWebhookPayloadSchema = z
   .object({
     first_name: z.string().optional(),
@@ -4716,6 +4790,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public lead submission endpoint (for quote flow)
   app.post('/api/leads', async (req, res) => {
     try {
+      const clientIp = getClientIp(req);
+      try {
+        await verifyRecaptchaToken(req.body?.recaptchaToken, clientIp);
+      } catch (error) {
+        const status =
+          error instanceof RecaptchaVerificationError ? error.status : 400;
+        const message =
+          error instanceof RecaptchaVerificationError
+            ? error.message
+            : 'reCAPTCHA verification failed';
+        console.error('reCAPTCHA verification failed:', error);
+        return res.status(status).json({ message });
+      }
+
       const leadData = insertLeadSchema.parse(req.body.lead);
       // The client doesn't include a leadId when submitting vehicle info.
       // We validate the vehicle data without the leadId and add it after
@@ -4724,16 +4812,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .omit({ leadId: true })
         .parse(req.body.vehicle);
 
+      let sanitizedPayload: Record<string, unknown> | undefined;
+      if (req.body && typeof req.body === 'object') {
+        sanitizedPayload = { ...req.body } as Record<string, unknown>;
+        delete sanitizedPayload.recaptchaToken;
+      }
+
       // Create lead
       const lead = await storage.createLead(
         {
           ...leadData,
           consentTimestamp: getEasternDate(),
           consentUserAgent: req.get('User-Agent') || '',
-          consentIP: getClientIp(req),
+          consentIP: clientIp,
         },
         {
-          originalPayload: req.body,
+          originalPayload: sanitizedPayload ?? req.body,
         },
       );
 

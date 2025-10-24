@@ -1,4 +1,11 @@
-import { FormEvent, forwardRef, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  forwardRef,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +61,24 @@ interface QuoteData {
     tcpa: boolean;
     terms: boolean;
   };
+}
+
+declare global {
+  interface Window {
+    grecaptcha?: {
+      render: (
+        container: HTMLElement,
+        parameters: {
+          sitekey: string;
+          callback: (token: string) => void;
+          "expired-callback"?: () => void;
+          "error-callback"?: () => void;
+        },
+      ) => number;
+      ready: (callback: () => void) => void;
+      reset: (widgetId?: number) => void;
+    };
+  }
 }
 
 export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
@@ -228,6 +253,80 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
     const { toast } = useToast();
     const [, navigate] = useLocation();
+    const recaptchaContainerRef = useRef<HTMLDivElement | null>(null);
+    const recaptchaWidgetIdRef = useRef<number | null>(null);
+    const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+    const [recaptchaReady, setRecaptchaReady] = useState(false);
+    const [recaptchaError, setRecaptchaError] = useState(false);
+    const recaptchaSiteKey =
+      import.meta.env.VITE_RECAPTCHA_SITE_KEY ??
+      "6LdzavUrAAAAAG40FqY9lEYBl451R5eDUHTAeSZg";
+
+    useEffect(() => {
+      if (typeof window === "undefined" || !recaptchaContainerRef.current) {
+        return;
+      }
+
+      const scriptSrc = "https://www.google.com/recaptcha/api.js?render=explicit";
+      let script = document.querySelector<HTMLScriptElement>(
+        `script[src="${scriptSrc}"]`,
+      );
+
+      const initializeRecaptcha = () => {
+        if (!window.grecaptcha || recaptchaWidgetIdRef.current !== null) {
+          return;
+        }
+
+        window.grecaptcha.ready(() => {
+          if (!recaptchaContainerRef.current || !window.grecaptcha) {
+            return;
+          }
+
+          recaptchaWidgetIdRef.current = window.grecaptcha.render(
+            recaptchaContainerRef.current,
+            {
+              sitekey: recaptchaSiteKey,
+              callback: (token: string) => {
+                setRecaptchaToken(token);
+                setRecaptchaError(false);
+              },
+              "expired-callback": () => {
+                setRecaptchaToken(null);
+              },
+              "error-callback": () => {
+                setRecaptchaToken(null);
+                setRecaptchaError(true);
+              },
+            },
+          );
+
+          setRecaptchaReady(true);
+        });
+      };
+
+      if (script) {
+        if (window.grecaptcha) {
+          initializeRecaptcha();
+          return;
+        }
+
+        script.addEventListener("load", initializeRecaptcha, { once: true });
+        return () => {
+          script?.removeEventListener("load", initializeRecaptcha);
+        };
+      }
+
+      script = document.createElement("script");
+      script.src = scriptSrc;
+      script.async = true;
+      script.defer = true;
+      script.addEventListener("load", initializeRecaptcha, { once: true });
+      document.body.appendChild(script);
+
+      return () => {
+        script?.removeEventListener("load", initializeRecaptcha);
+      };
+    }, [recaptchaSiteKey]);
 
     const submitQuoteMutation = useMutation({
       mutationFn: async (data: QuoteData) => {
@@ -251,6 +350,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             odometer: parseInt(data.vehicle.odometer),
             usage: data.vehicle.usage,
           },
+          recaptchaToken,
         });
       },
       onSuccess: () => {
@@ -299,11 +399,20 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         },
         consent: {
           tcpa: false,
-        terms: false,
-      },
-    });
+          terms: false,
+        },
+      });
       setManualMake(false);
       setManualModel(false);
+      setRecaptchaToken(null);
+      setRecaptchaError(false);
+      if (
+        typeof window !== "undefined" &&
+        window.grecaptcha &&
+        recaptchaWidgetIdRef.current !== null
+      ) {
+        window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+      }
     };
 
     const handleMakeSelection = (value: string) => {
@@ -337,6 +446,16 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         toast({
           title: "Consent Required",
           description: "Please accept all required consents to continue.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!recaptchaToken) {
+        setRecaptchaError(true);
+        toast({
+          title: "Verification Required",
+          description: "Please confirm you are not a robot before continuing.",
           variant: "destructive",
         });
         return;
@@ -712,6 +831,30 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                 <a href="/legal/terms" className="text-primary hover:underline">Terms of Service</a>.
               </Label>
             </div>
+          </div>
+        </section>
+
+        <section className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-3">
+          <div>
+            <h3 className="text-xl font-semibold text-gray-900">Verification</h3>
+            <p className="text-sm text-gray-500">
+              Complete the reCAPTCHA challenge so we can process your quote request.
+            </p>
+          </div>
+          <div>
+            <div
+              ref={recaptchaContainerRef}
+              className="mt-2"
+              data-sitekey={recaptchaSiteKey}
+            />
+            {!recaptchaReady && (
+              <p className="text-sm text-gray-500 mt-2">Loading verification...</p>
+            )}
+            {recaptchaError && (
+              <p className="text-sm font-medium text-destructive mt-2">
+                Please verify that you are not a robot.
+              </p>
+            )}
           </div>
         </section>
 
