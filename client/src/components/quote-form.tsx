@@ -466,13 +466,15 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
     const handleVehicleChange = (field: keyof QuoteData["vehicle"], value: string) => {
       setQuoteData((prev) => {
-        const nextVehicle = { ...prev.vehicle, [field]: value };
+        const nextValue =
+          field === "make" ? value.replace(/[^a-zA-Z\s]/g, "") : value;
+        const nextVehicle = { ...prev.vehicle, [field]: nextValue };
 
-        if (field === "year" && value !== prev.vehicle.year) {
+        if (field === "year" && nextValue !== prev.vehicle.year) {
           nextVehicle.model = "";
         }
 
-        if (field === "make" && value !== prev.vehicle.make) {
+        if (field === "make" && nextValue !== prev.vehicle.make) {
           nextVehicle.model = "";
         }
 
