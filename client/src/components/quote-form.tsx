@@ -364,8 +364,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           );
         }
 
-        const encodedSource = encodeURIComponent(leadSource);
-        navigate(`/thank-you?source=${encodedSource}`);
+        navigate("/thank-you");
         onSubmitted?.();
         resetForm();
       },
