@@ -324,6 +324,26 @@ const normalizeString = (value: unknown): string | undefined => {
   }
 };
 
+const normalizeInteger = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  if (typeof value === "string") {
+    const sanitized = value.replace(/,/g, "").trim();
+    if (sanitized.length === 0) {
+      return undefined;
+    }
+
+    const parsed = Number.parseInt(sanitized, 10);
+    if (!Number.isNaN(parsed)) {
+      return parsed;
+    }
+  }
+
+  return undefined;
+};
+
 const normalizeEmail = (value: unknown): string | undefined => {
   const normalized = normalizeString(value);
   return normalized ? normalized.toLowerCase() : undefined;
@@ -4780,14 +4800,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
         utmCampaign: normalizeString(payload.utm_campaign),
       } satisfies Partial<InsertLead>;
 
+      const vehicleYear = normalizeInteger(payload.year);
+      const vehicleMake = normalizeString(payload.make);
+      const vehicleModel = normalizeString(payload.model);
+      const vehicleOdometer = normalizeInteger(payload.mileage);
+      const vehicleVin = normalizeString(payload.vin);
+
+      let vehicleData: Omit<InsertVehicle, "leadId"> | undefined;
+      if (
+        vehicleYear !== undefined &&
+        vehicleMake !== undefined &&
+        vehicleModel !== undefined &&
+        vehicleOdometer !== undefined
+      ) {
+        vehicleData = insertVehicleSchema.omit({ leadId: true }).parse({
+          year: vehicleYear,
+          make: vehicleMake,
+          model: vehicleModel,
+          odometer: vehicleOdometer,
+          vin: vehicleVin,
+          usage: "personal",
+        });
+      }
+
       const leadData = insertLeadSchema.parse(leadInput);
       const lead = await storage.createLead(leadData, {
         originalPayload: req.body,
       });
 
+      let vehicle: Vehicle | undefined;
+      if (vehicleData) {
+        vehicle = await storage.createVehicle({
+          ...vehicleData,
+          leadId: lead.id,
+        });
+      }
+
       syncLeadMetaWithLead(lead);
 
-      void sendNewLeadNotification({ lead });
+      void sendNewLeadNotification({ lead, vehicle });
 
       res.status(201).json({ ok: true, id: lead.id });
     } catch (error) {
