@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Filter, ArrowUpDown, LayoutList } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
 import AdminLogin from "@/components/admin-login";
@@ -23,17 +23,33 @@ const authJsonHeaders = () => ({
 
 const ITEMS_PER_PAGE = 25;
 
+const parsePageFromSearch = (search: string | null | undefined): number => {
+  if (!search) return 1;
+  const query = search.startsWith("?") ? search.slice(1) : search;
+  if (!query) return 1;
+  const params = new URLSearchParams(query);
+  const raw = params.get("pg");
+  if (!raw) return 1;
+  const digits = raw.match(/\d+/);
+  if (!digits) return 1;
+  const parsed = Number(digits[0]);
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.floor(parsed);
+};
+
 export default function AdminLeads() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [, navigate] = useLocation();
+  const searchString = useSearch();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortField, setSortField] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [hideDuplicates, setHideDuplicates] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(() => parsePageFromSearch(searchString));
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const hasInitializedFiltersRef = useRef(false);
 
   const queriesEnabled = authenticated && !checking;
 
@@ -202,16 +218,56 @@ export default function AdminLeads() {
       : String(bVal).localeCompare(String(aVal));
   });
 
+  const updatePage = useCallback((page: number, options?: { replace?: boolean }) => {
+    const normalizedPage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
+    setCurrentPage(normalizedPage);
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      params.set('pg', `pg_${normalizedPage}`);
+      const nextQuery = params.toString();
+      const nextSearch = nextQuery ? `?${nextQuery}` : '';
+      const nextPath = `/admin/leads${nextSearch}`;
+      const shouldNavigate =
+        window.location.pathname !== '/admin/leads' || window.location.search !== nextSearch;
+
+      if (shouldNavigate || options?.replace) {
+        navigate(nextPath, { replace: options?.replace });
+      }
+    } else {
+      navigate(`/admin/leads?pg=pg_${normalizedPage}`, { replace: options?.replace });
+    }
+  }, [navigate]);
+
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter, sortField, sortOrder, hideDuplicates, leads.length]);
+    const parsedPage = parsePageFromSearch(searchString);
+    setCurrentPage((prev) => (prev === parsedPage ? prev : parsedPage));
+  }, [searchString]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('pg')) {
+      updatePage(currentPage, { replace: true });
+    }
+  }, [currentPage, updatePage]);
+
+  useEffect(() => {
+    if (!hasInitializedFiltersRef.current) {
+      hasInitializedFiltersRef.current = true;
+      return;
+    }
+    updatePage(1, { replace: true });
+  }, [searchTerm, statusFilter, sortField, sortOrder, hideDuplicates, leads.length, updatePage]);
 
   useEffect(() => {
     const maxPages = Math.max(1, Math.ceil(sortedLeads.length / ITEMS_PER_PAGE));
     if (currentPage > maxPages) {
-      setCurrentPage(maxPages);
+      updatePage(maxPages, { replace: true });
     }
-  }, [currentPage, sortedLeads.length]);
+  }, [currentPage, sortedLeads.length, updatePage]);
 
   const totalPages = Math.max(1, Math.ceil(sortedLeads.length / ITEMS_PER_PAGE));
   const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -251,7 +307,7 @@ export default function AdminLeads() {
           type="button"
           variant={page === currentPage ? 'default' : 'outline'}
           size="sm"
-          onClick={() => setCurrentPage(page)}
+          onClick={() => updatePage(page)}
           aria-current={page === currentPage ? 'page' : undefined}
         >
           {page}
@@ -261,7 +317,7 @@ export default function AdminLeads() {
     }
 
     return nodes;
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, updatePage]);
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -305,9 +361,9 @@ export default function AdminLeads() {
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'auto' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
-  }, []);
+  }, [currentPage]);
 
   if (checking) {
     return (
@@ -608,7 +664,7 @@ export default function AdminLeads() {
                     variant="outline"
                     size="sm"
                     disabled={currentPage === 1}
-                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    onClick={() => updatePage(Math.max(1, currentPage - 1))}
                   >
                     Previous
                   </Button>
@@ -618,7 +674,7 @@ export default function AdminLeads() {
                     variant="outline"
                     size="sm"
                     disabled={currentPage === totalPages || sortedLeads.length === 0}
-                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    onClick={() => updatePage(Math.min(totalPages, currentPage + 1))}
                   >
                     Next
                   </Button>
