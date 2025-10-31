@@ -28,6 +28,7 @@ export default function AdminLeadNew() {
     year: '',
     make: '',
     model: '',
+    mileage: '',
     referrer: '',
   });
 
@@ -50,7 +51,7 @@ export default function AdminLeadNew() {
             year: Number(data.year),
             make: data.make,
             model: data.model,
-            odometer: 0,
+            odometer: Number(data.mileage) || 0,
           },
         }),
       });
@@ -143,6 +144,16 @@ export default function AdminLeadNew() {
                   <Label htmlFor="model">Model</Label>
                   <Input id="model" value={form.model} onChange={e => handleChange('model', e.target.value)} />
                 </div>
+              </div>
+              <div>
+                <Label htmlFor="mileage">Mileage</Label>
+                <Input
+                  id="mileage"
+                  type="number"
+                  min={0}
+                  value={form.mileage}
+                  onChange={e => handleChange('mileage', e.target.value)}
+                />
               </div>
               <div>
                 <Label htmlFor="referrer">Referrer</Label>
