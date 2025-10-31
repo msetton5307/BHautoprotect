@@ -2342,6 +2342,26 @@ const renderSalesRepBlock = (salesRep: QuoteSalesRepContact | null | undefined):
   `;
 };
 
+const readBreakdownNumber = (
+  breakdown: Record<string, unknown> | null | undefined,
+  key: string,
+): number | null => {
+  if (!breakdown || !Object.prototype.hasOwnProperty.call(breakdown, key)) {
+    return null;
+  }
+  const value = (breakdown as Record<string, unknown>)[key];
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.round(value);
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return Math.round(parsed);
+    }
+  }
+  return null;
+};
+
 const buildQuoteEmail = ({
   lead,
   vehicle,
@@ -2397,6 +2417,14 @@ const buildQuoteEmail = ({
       : null;
   const paymentPreference: 'monthly' | 'one-time' =
     paymentOptionRaw === 'monthly' ? 'monthly' : 'one-time';
+  const downPaymentCents = readBreakdownNumber(breakdown, 'downPayment');
+  const paymentCountValue = readBreakdownNumber(breakdown, 'paymentCount');
+  const downPaymentDisplay =
+    downPaymentCents !== null ? formatCurrencyFromCents(downPaymentCents) : null;
+  const paymentCountDisplay =
+    paymentCountValue !== null && paymentCountValue > 0
+      ? paymentCountValue.toLocaleString()
+      : null;
 
   const policyStart = policy?.policyStartDate ? new Date(policy.policyStartDate) : null;
   const policyEnd = policy?.expirationDate ? new Date(policy.expirationDate) : null;
@@ -2449,17 +2477,30 @@ const buildQuoteEmail = ({
   const ratePlaceholder = 'We’ll finalize your rate together.';
   const highlightLabel =
     paymentPreference === "monthly"
-      ? "Monthly Investment"
+      ? "Monthly Payment"
       : "Pay-in-Full Investment";
   const highlightValue =
     paymentPreference === "monthly"
       ? monthly ?? ratePlaceholder
       : total ?? ratePlaceholder;
+  const monthlyHighlightDetails: string[] = [];
+  if (paymentPreference === "monthly") {
+    if (downPaymentDisplay) {
+      monthlyHighlightDetails.push(`Down payment of ${downPaymentDisplay}.`);
+    }
+    if (paymentCountDisplay && monthly) {
+      monthlyHighlightDetails.push(`${paymentCountDisplay} payments of ${monthly}.`);
+    } else if (monthly) {
+      monthlyHighlightDetails.push(`Monthly payment of ${monthly}.`);
+    }
+    if (total) {
+      monthlyHighlightDetails.push(`Pay in full anytime for ${total}.`);
+    }
+  }
   const highlightSupporting =
     paymentPreference === "monthly"
-      ? total
-        ? `Total of ${total} across ${term}.`
-        : "Want the pay-in-full total as well? Reply and we’ll prepare it instantly."
+      ? monthlyHighlightDetails.join(" ") ||
+        "Want the pay-in-full total as well? Reply and we’ll prepare it instantly."
       : coverageDurationForHighlight
         ? `${coverageDurationForHighlight} of protection with a single payment.`
         : "Flexible coverage length with a single payment.";
@@ -2467,7 +2508,9 @@ const buildQuoteEmail = ({
   const paymentRows =
     paymentPreference === "monthly"
       ? [
-          ...(monthly ? [{ label: "Monthly Investment", value: monthly }] : []),
+          ...(downPaymentDisplay ? [{ label: "Down Payment", value: downPaymentDisplay }] : []),
+          ...(monthly ? [{ label: "Monthly Payment", value: monthly }] : []),
+          ...(paymentCountDisplay ? [{ label: "Number of Payments", value: paymentCountDisplay }] : []),
           ...(total ? [{ label: "One-Time Total", value: total }] : []),
         ]
       : [
@@ -3442,9 +3485,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       policyData.totalPremium = quote.priceTotal;
       policyData.monthlyPayment = quote.priceMonthly;
+      const quoteBreakdown = (quote.breakdown ?? null) as Record<string, unknown> | null;
+      const breakdownPaymentCount = readBreakdownNumber(quoteBreakdown, 'paymentCount');
+      const breakdownDownPayment = readBreakdownNumber(quoteBreakdown, 'downPayment');
       const termMonths = quote.termMonths ?? 0;
-      policyData.totalPayments = termMonths > 0 ? termMonths : null;
-      policyData.downPayment = quote.priceMonthly;
+      policyData.totalPayments =
+        breakdownPaymentCount !== null && breakdownPaymentCount > 0
+          ? breakdownPaymentCount
+          : termMonths > 0
+            ? termMonths
+            : null;
+      policyData.downPayment =
+        breakdownDownPayment !== null && breakdownDownPayment >= 0
+          ? breakdownDownPayment
+          : quote.priceMonthly;
     }
 
     let policy = await storage.getPolicyByLeadId(contract.leadId);
@@ -5009,8 +5063,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       deductible: z.coerce.number(),
       termMonths: z.coerce.number().default(36),
       priceMonthly: z.coerce.number(),
+      priceTotal: z.coerce.number(),
       expirationMiles: z.coerce.number().nonnegative().optional(),
       paymentOption: z.enum(['monthly', 'one-time']).optional(),
+      downPayment: z.coerce.number().nonnegative().optional(),
+      paymentCount: z.coerce.number().int().nonnegative().optional(),
     });
 
     try {
@@ -5062,8 +5119,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const policyPromise = storage.getPolicyByLeadId(leadId).catch(() => undefined);
       const instructionsPromise = resolveQuoteEmailInstructions();
 
-      const priceMonthlyCents = Math.round(data.priceMonthly * 100);
-      const priceTotalCents = priceMonthlyCents * data.termMonths;
+      const priceMonthlyCents = Math.max(0, Math.round(data.priceMonthly * 100));
+      const priceTotalCents = Number.isFinite(data.priceTotal)
+        ? Math.max(0, Math.round(data.priceTotal * 100))
+        : priceMonthlyCents * data.termMonths;
+      const downPaymentCents =
+        typeof data.downPayment === 'number' && Number.isFinite(data.downPayment)
+          ? Math.max(0, Math.round(data.downPayment * 100))
+          : null;
+      const paymentCount =
+        typeof data.paymentCount === 'number' && Number.isFinite(data.paymentCount)
+          ? Math.max(0, Math.round(data.paymentCount))
+          : null;
       const createdAt = getEasternDate();
       const validUntil = new Date(createdAt.getTime() + 14 * 24 * 60 * 60 * 1000);
 
@@ -5073,6 +5140,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (data.paymentOption) {
         breakdown.paymentOption = data.paymentOption;
+      }
+      if (downPaymentCents !== null) {
+        breakdown.downPayment = downPaymentCents;
+      }
+      if (paymentCount !== null) {
+        breakdown.paymentCount = paymentCount;
       }
       const breakdownPayload = Object.keys(breakdown).length > 0 ? breakdown : undefined;
 

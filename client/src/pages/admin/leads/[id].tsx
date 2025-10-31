@@ -65,6 +65,8 @@ type QuoteFormState = {
   priceMonthly: number | null;
   expirationMiles: number | null;
   paymentOption: "monthly" | "one-time";
+  downPayment: number | null;
+  paymentCount: number | null;
 };
 
 type CreateQuotePayload = {
@@ -75,6 +77,8 @@ type CreateQuotePayload = {
   priceMonthly: number;
   expirationMiles?: number | null;
   paymentOption: QuoteFormState['paymentOption'];
+  downPayment: number | null;
+  paymentCount: number | null;
 };
 
 type ShippingFieldKey = 'shippingAddress' | 'shippingCity' | 'shippingState' | 'shippingZip';
@@ -95,6 +99,8 @@ const DEFAULT_QUOTE_FORM: QuoteFormState = {
   priceMonthly: 8331,
   expirationMiles: null,
   paymentOption: "one-time",
+  downPayment: 8331,
+  paymentCount: 36,
 };
 
 const normalizePaymentOption = (value: unknown): QuoteFormState['paymentOption'] =>
@@ -223,6 +229,26 @@ export default function AdminLeadDetail() {
     return `${Math.round(numeric).toLocaleString()} miles`;
   };
 
+  const extractBreakdownNumber = (
+    breakdown: Record<string, unknown> | null,
+    key: string,
+  ): number | null => {
+    if (!breakdown || !Object.prototype.hasOwnProperty.call(breakdown, key)) {
+      return null;
+    }
+    const rawValue = (breakdown as Record<string, unknown>)[key];
+    if (typeof rawValue === 'number' && Number.isFinite(rawValue)) {
+      return Math.round(rawValue);
+    }
+    if (typeof rawValue === 'string') {
+      const parsed = Number(rawValue);
+      if (Number.isFinite(parsed)) {
+        return Math.round(parsed);
+      }
+    }
+    return null;
+  };
+
   const parseCurrencyToCents = (input: string): number | null => {
     const normalized = input.replace(/[$,]/g, '').trim();
     if (normalized.length === 0) {
@@ -271,6 +297,32 @@ export default function AdminLeadDetail() {
     setLastEditedPriceField('monthly');
   };
 
+  const handleDownPaymentChange = (value: string) => {
+    setQuoteForm((prev) => {
+      if (value.trim().length === 0) {
+        return { ...prev, downPayment: null };
+      }
+      const cents = parseCurrencyToCents(value);
+      if (cents === null) {
+        return prev;
+      }
+      return { ...prev, downPayment: cents };
+    });
+  };
+
+  const handlePaymentCountChange = (value: string) => {
+    setQuoteForm((prev) => {
+      if (value.trim().length === 0) {
+        return { ...prev, paymentCount: null };
+      }
+      const parsed = Number.parseInt(value, 10);
+      if (Number.isNaN(parsed)) {
+        return prev;
+      }
+      return { ...prev, paymentCount: Math.max(parsed, 0) };
+    });
+  };
+
   const handleTermMonthsChange = (value: string) => {
     setQuoteForm((prev) => {
       if (value.trim().length === 0) {
@@ -290,10 +342,16 @@ export default function AdminLeadDetail() {
         } else if (prev.priceTotal !== null) {
           next.priceMonthly = Math.round(prev.priceTotal / term);
         }
+        if (prev.paymentCount === prev.termMonths || prev.paymentCount === null) {
+          next.paymentCount = term;
+        }
       } else if (lastEditedPriceField === 'monthly') {
         next.priceTotal = null;
       } else {
         next.priceMonthly = null;
+        if (prev.paymentCount === prev.termMonths) {
+          next.paymentCount = null;
+        }
       }
       return next;
     });
@@ -419,11 +477,20 @@ export default function AdminLeadDetail() {
         deductible: quoteData.deductible,
         termMonths: quoteData.termMonths,
         priceMonthly: quoteData.priceMonthly / 100,
+        priceTotal: quoteData.priceTotal / 100,
         paymentOption: quoteData.paymentOption,
       };
 
       if (quoteData.expirationMiles !== undefined && quoteData.expirationMiles !== null) {
         payload.expirationMiles = quoteData.expirationMiles;
+      }
+
+      if (quoteData.downPayment !== null) {
+        payload.downPayment = quoteData.downPayment / 100;
+      }
+
+      if (quoteData.paymentCount !== null) {
+        payload.paymentCount = quoteData.paymentCount;
       }
 
       const res = await fetch(`/api/leads/${id}/coverage`, {
@@ -696,13 +763,21 @@ export default function AdminLeadDetail() {
     if (quotesList.length > 0) {
       const latestQuote = quotesList[0];
       const breakdown = (latestQuote.breakdown ?? null) as Record<string, unknown> | null;
-      let expirationMiles: number | null = null;
-      if (breakdown && Object.prototype.hasOwnProperty.call(breakdown, 'expirationMiles')) {
-        const raw = (breakdown as Record<string, unknown>).expirationMiles;
-        if (typeof raw === 'number' && Number.isFinite(raw)) {
-          expirationMiles = Math.round(raw);
-        }
-      }
+      const expirationMiles = extractBreakdownNumber(breakdown, 'expirationMiles');
+      const downPayment = extractBreakdownNumber(breakdown, 'downPayment');
+      const paymentCountRaw = extractBreakdownNumber(breakdown, 'paymentCount');
+      const normalizedPaymentCount =
+        paymentCountRaw !== null
+          ? paymentCountRaw
+          : typeof latestQuote.termMonths === 'number' && Number.isFinite(latestQuote.termMonths)
+            ? latestQuote.termMonths
+            : null;
+      const normalizedDownPayment =
+        downPayment !== null
+          ? downPayment
+          : typeof latestQuote.priceMonthly === 'number' && Number.isFinite(latestQuote.priceMonthly)
+            ? latestQuote.priceMonthly
+            : null;
 
       setQuoteForm({
         plan:
@@ -727,6 +802,8 @@ export default function AdminLeadDetail() {
             : DEFAULT_QUOTE_FORM.priceMonthly,
         expirationMiles,
         paymentOption: normalizePaymentOption(breakdown?.paymentOption),
+        downPayment: normalizedDownPayment,
+        paymentCount: normalizedPaymentCount,
       });
       setLastEditedPriceField('total');
       setQuoteFormInitialized(true);
@@ -764,10 +841,15 @@ export default function AdminLeadDetail() {
         typeof policy.monthlyPayment === 'number' && Number.isFinite(policy.monthlyPayment)
           ? policy.monthlyPayment
           : null;
+      const downPaymentValue =
+        typeof policy.downPayment === 'number' && Number.isFinite(policy.downPayment)
+          ? policy.downPayment
+          : null;
 
       let resolvedTerm: number | null = totalPaymentsCount && totalPaymentsCount > 0 ? totalPaymentsCount : null;
       let resolvedTotal = totalPremium ?? null;
       let resolvedMonthly = monthlyValue ?? null;
+      let resolvedDownPayment = downPaymentValue ?? null;
 
       if (!resolvedTerm && resolvedTotal && resolvedMonthly && resolvedMonthly > 0) {
         resolvedTerm = Math.max(1, Math.round(resolvedTotal / resolvedMonthly));
@@ -785,6 +867,10 @@ export default function AdminLeadDetail() {
         resolvedTotal = resolvedMonthly * resolvedTerm;
       }
 
+      if (resolvedDownPayment === null && resolvedMonthly !== null) {
+        resolvedDownPayment = resolvedMonthly;
+      }
+
       const paymentOption: QuoteFormState['paymentOption'] = (() => {
         if (typeof policy.paymentOption === 'string') {
           return policy.paymentOption === 'monthly' ? 'monthly' : 'one-time';
@@ -800,6 +886,8 @@ export default function AdminLeadDetail() {
         priceMonthly: resolvedMonthly ?? DEFAULT_QUOTE_FORM.priceMonthly,
         expirationMiles: expirationMilesValue,
         paymentOption,
+        downPayment: resolvedDownPayment ?? DEFAULT_QUOTE_FORM.downPayment,
+        paymentCount: resolvedTerm,
       });
       setLastEditedPriceField('total');
       setQuoteFormInitialized(true);
@@ -857,6 +945,7 @@ export default function AdminLeadDetail() {
 
       const totalFromPolicy = parseCurrencyInput(policyForm.totalPremium);
       const monthlyFromPolicy = parseCurrencyInput(policyForm.monthlyPayment);
+      const downPaymentFromPolicy = parseCurrencyInput(policyForm.downPayment);
 
       if (totalFromPolicy !== null) {
         next.priceTotal = totalFromPolicy;
@@ -882,6 +971,16 @@ export default function AdminLeadDetail() {
         next.termMonths > 0
       ) {
         next.priceTotal = monthlyFromPolicy * next.termMonths;
+      }
+
+      if (downPaymentFromPolicy !== null) {
+        next.downPayment = downPaymentFromPolicy;
+      } else if (next.priceMonthly !== null) {
+        next.downPayment = next.priceMonthly;
+      }
+
+      if (next.paymentCount === null && next.termMonths !== null) {
+        next.paymentCount = next.termMonths;
       }
 
       if (policyForm.paymentOption === 'monthly') {
@@ -1012,6 +1111,8 @@ export default function AdminLeadDetail() {
 
     let priceTotal = quoteForm.priceTotal;
     let priceMonthly = quoteForm.priceMonthly;
+    let downPayment = quoteForm.downPayment;
+    let paymentCount = quoteForm.paymentCount;
 
     if ((priceTotal === null || priceMonthly === null) && quoteForm.termMonths > 0) {
       if (priceTotal === null && priceMonthly !== null) {
@@ -1033,11 +1134,36 @@ export default function AdminLeadDetail() {
       return;
     }
 
+    if (quoteForm.paymentOption === 'monthly') {
+      if (downPayment === null) {
+        toast({
+          title: 'Missing payment details',
+          description: 'Monthly quotes require a down payment amount.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (paymentCount === null || paymentCount <= 0) {
+        toast({
+          title: 'Missing payment details',
+          description: 'Monthly quotes require the number of payments.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    } else {
+      downPayment = null;
+      paymentCount = null;
+    }
+
     if (priceMonthly !== quoteForm.priceMonthly || priceTotal !== quoteForm.priceTotal) {
       setQuoteForm((prev) => ({
         ...prev,
         priceMonthly,
         priceTotal,
+        downPayment,
+        paymentCount,
       }));
     }
 
@@ -1049,6 +1175,8 @@ export default function AdminLeadDetail() {
       priceMonthly,
       paymentOption: quoteForm.paymentOption,
       expirationMiles: quoteForm.expirationMiles ?? undefined,
+      downPayment,
+      paymentCount,
     });
   };
 
@@ -1803,17 +1931,38 @@ export default function AdminLeadDetail() {
                         onValueChange={(value) =>
                           setQuoteForm((prev) => {
                             const nextOption = value as QuoteFormState['paymentOption'];
-                            if (
-                              nextOption === 'monthly' &&
-                              (prev.priceMonthly === null || prev.priceMonthly === 0) &&
-                              prev.priceTotal !== null &&
-                              prev.termMonths &&
-                              prev.termMonths > 0
-                            ) {
+                            if (nextOption === 'monthly') {
+                              const resolvedMonthly = (() => {
+                                if (prev.priceMonthly && prev.priceMonthly > 0) {
+                                  return prev.priceMonthly;
+                                }
+                                if (prev.priceTotal !== null && prev.termMonths && prev.termMonths > 0) {
+                                  return Math.round(prev.priceTotal / prev.termMonths);
+                                }
+                                return prev.priceMonthly;
+                              })();
+
+                              const resolvedPaymentCount = (() => {
+                                if (prev.paymentCount && prev.paymentCount > 0) {
+                                  return prev.paymentCount;
+                                }
+                                if (prev.termMonths && prev.termMonths > 0) {
+                                  return prev.termMonths;
+                                }
+                                return prev.paymentCount;
+                              })();
+
+                              const resolvedDownPayment =
+                                prev.downPayment !== null && prev.downPayment >= 0
+                                  ? prev.downPayment
+                                  : resolvedMonthly;
+
                               return {
                                 ...prev,
                                 paymentOption: nextOption,
-                                priceMonthly: Math.round(prev.priceTotal / prev.termMonths),
+                                priceMonthly: resolvedMonthly ?? prev.priceMonthly,
+                                downPayment: resolvedDownPayment ?? prev.downPayment,
+                                paymentCount: resolvedPaymentCount ?? prev.paymentCount,
                               };
                             }
 
@@ -1826,10 +1975,15 @@ export default function AdminLeadDetail() {
                                 ...prev,
                                 paymentOption: nextOption,
                                 priceMonthly: resolvedMonthly,
+                                downPayment: null,
+                                paymentCount: null,
                               };
                             }
 
-                            return { ...prev, paymentOption: nextOption };
+                            return {
+                              ...prev,
+                              paymentOption: nextOption,
+                            };
                           })
                         }
                       >
@@ -1873,16 +2027,41 @@ export default function AdminLeadDetail() {
                       />
                     </div>
                     {quoteForm.paymentOption === 'monthly' ? (
-                      <div>
-                        <Label>Monthly Price ($)</Label>
-                        <Input
-                          type="text"
-                          inputMode="decimal"
-                          value={quoteForm.priceMonthly !== null ? quoteForm.priceMonthly / 100 : ''}
-                          onChange={(e) => handleMonthlyPriceChange(e.target.value)}
-                          placeholder="0.00"
-                        />
-                        <p className="mt-1 text-xs text-slate-500">Displayed in the customer email.</p>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <Label>Monthly Payment ($)</Label>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={quoteForm.priceMonthly !== null ? quoteForm.priceMonthly / 100 : ''}
+                            onChange={(e) => handleMonthlyPriceChange(e.target.value)}
+                            placeholder="0.00"
+                          />
+                          <p className="mt-1 text-xs text-slate-500">Displayed in the customer email.</p>
+                        </div>
+                        <div>
+                          <Label>Down Payment ($)</Label>
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            value={quoteForm.downPayment !== null ? quoteForm.downPayment / 100 : ''}
+                            onChange={(e) => handleDownPaymentChange(e.target.value)}
+                            placeholder="0.00"
+                          />
+                          <p className="mt-1 text-xs text-slate-500">Customers see this upfront amount in their quote.</p>
+                        </div>
+                        <div>
+                          <Label>Number of Payments</Label>
+                          <Input
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            value={quoteForm.paymentCount ?? ''}
+                            onChange={(e) => handlePaymentCountChange(e.target.value)}
+                            placeholder="0"
+                          />
+                          <p className="mt-1 text-xs text-slate-500">Displayed so customers know how many payments remain.</p>
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -1928,6 +2107,26 @@ export default function AdminLeadDetail() {
                           : null;
                       const paymentPreference: QuoteFormState['paymentOption'] =
                         paymentOptionRaw === 'monthly' ? 'monthly' : 'one-time';
+                      const downPaymentCents = extractBreakdownNumber(breakdown, 'downPayment');
+                      const downPaymentValue =
+                        downPaymentCents !== null
+                          ? downPaymentCents
+                          : typeof quote.priceMonthly === 'number' && Number.isFinite(quote.priceMonthly)
+                            ? quote.priceMonthly
+                            : null;
+                      const paymentCountExtracted = extractBreakdownNumber(breakdown, 'paymentCount');
+                      const paymentCountValue =
+                        paymentCountExtracted !== null
+                          ? paymentCountExtracted
+                          : typeof quote.termMonths === 'number' && Number.isFinite(quote.termMonths)
+                            ? quote.termMonths
+                            : null;
+                      const formattedDownPayment =
+                        downPaymentValue !== null ? `$${(downPaymentValue / 100).toFixed(2)}` : null;
+                      const formattedPaymentCount =
+                        paymentCountValue !== null && paymentCountValue > 0
+                          ? Number(paymentCountValue).toLocaleString()
+                          : null;
 
                       const formattedExpirationMiles =
                         expirationMilesValue !== null
@@ -1963,6 +2162,16 @@ export default function AdminLeadDetail() {
                                   ${(quote.priceMonthly / 100).toFixed(2)}
                                 </div>
                               )}
+                              {paymentPreference === 'monthly' && formattedDownPayment ? (
+                                <div className="flex justify-between">
+                                  <span className="font-medium">Down payment:</span> {formattedDownPayment}
+                                </div>
+                              ) : null}
+                              {paymentPreference === 'monthly' && formattedPaymentCount ? (
+                                <div className="flex justify-between">
+                                  <span className="font-medium">Number of payments:</span> {formattedPaymentCount}
+                                </div>
+                              ) : null}
                               <div className="flex justify-between">
                                 <span className="font-medium">Deductible:</span> ${quote.deductible}
                               </div>
