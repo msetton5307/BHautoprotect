@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Filter, ArrowUpDown, LayoutList } from "lucide-react";
@@ -302,6 +303,12 @@ export default function AdminLeads() {
     }
   }, [handleRowNavigate]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, []);
+
   if (checking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -325,15 +332,16 @@ export default function AdminLeads() {
   return (
     <div className="min-h-screen bg-slate-100 pb-16">
       <AdminNav />
-      <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-10 md:px-8">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold text-slate-900">Lead management</h1>
+      <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 md:px-8">
+        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-slate-500">Lead workspace</p>
+            <h1 className="text-3xl font-semibold text-slate-900">Leads overview</h1>
             <p className="text-sm text-slate-600">
-              Review lead activity, resolve duplicates, and keep statuses current.
+              Track lead activity, refine your list quickly, and jump straight into the records that need attention.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant={hideDuplicates ? 'default' : 'outline'}
               onClick={() => setHideDuplicates(!hideDuplicates)}
@@ -346,36 +354,36 @@ export default function AdminLeads() {
               <Link href="/admin/leads/new">Add lead</Link>
             </Button>
           </div>
-        </div>
+        </header>
 
-        <Card className="border border-slate-200 bg-white shadow-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="flex items-center gap-2 text-slate-900">
-              <Filter className="h-5 w-5" />
-              Focus your view
+        <Card className="border border-slate-200/80 bg-white shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
+              <Filter className="h-4 w-4" />
+              Filters & sorting
             </CardTitle>
-            <CardDescription className="text-sm text-slate-500">
-              Combine quick filters, sorting, and search to surface the leads that matter now.
+            <CardDescription className="text-xs text-slate-500">
+              Use the controls below to narrow the roster and keep the results tidy.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-              <div className="md:col-span-2">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Search</label>
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <div className="md:col-span-2 lg:col-span-2">
+                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Search</Label>
                 <div className="relative mt-2">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
                     placeholder="Name, email, phone, vehicle..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-11 rounded-xl border-slate-200 bg-white pl-10 text-sm shadow-sm"
+                    className="h-11 rounded-lg border-slate-200 bg-white pl-10 text-sm"
                   />
                 </div>
               </div>
               <div>
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Status</label>
+                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Status</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="mt-2 h-11 rounded-xl border-slate-200 bg-white text-sm shadow-sm">
+                  <SelectTrigger className="mt-2 h-11 rounded-lg border-slate-200 bg-white text-sm">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -394,11 +402,11 @@ export default function AdminLeads() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Sort</label>
-                <div className="flex items-center gap-2">
+              <div className="lg:col-span-2">
+                <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Sort</Label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                   <Select value={sortField} onValueChange={(value) => setSortField(value)}>
-                    <SelectTrigger className="h-11 flex-1 rounded-xl border-slate-200 bg-white text-sm shadow-sm">
+                    <SelectTrigger className="h-11 flex-1 rounded-lg border-slate-200 bg-white text-sm">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>
@@ -413,42 +421,45 @@ export default function AdminLeads() {
                     type="button"
                     variant="outline"
                     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="h-11 w-24 rounded-xl border-slate-200 bg-white text-sm shadow-sm"
+                    className="h-11 w-full shrink-0 rounded-lg border-slate-200 bg-white text-sm sm:w-28"
                   >
-                    <ArrowUpDown className="h-4 w-4" />
+                    <ArrowUpDown className="mr-2 h-4 w-4" />
                     {sortOrder === 'asc' ? 'Asc' : 'Desc'}
                   </Button>
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-              <div className="flex flex-wrap items-center gap-3">
-                <Badge variant="outline" className="rounded-full border-slate-200 bg-white px-3 py-1 text-xs text-slate-500">
-                  Showing {sortedLeads.length === 0 ? 0 : `${showingFrom}-${showingTo}`} · {sortedLeads.length} filtered · {leads.length} total
-                </Badge>
-                <Badge variant="outline" className="rounded-full border-slate-200 bg-white px-3 py-1 text-xs text-slate-500">
+            <div className="flex flex-col gap-3 rounded-lg border border-slate-200/70 bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+              <div className="space-y-1 sm:space-y-0">
+                <p>
+                  Showing {sortedLeads.length === 0 ? 0 : `${showingFrom}-${showingTo}`} of {sortedLeads.length} filtered leads
+                  {` · ${leads.length} total`}
+                </p>
+                <p className="text-xs text-slate-500">
                   Sorted by {sortFieldLabel} · {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
-                </Badge>
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
                 {hideDuplicates && (
                   <Badge className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
                     Duplicates hidden
                   </Badge>
                 )}
+                <Button variant="ghost" size="sm" onClick={resetFilters}>
+                  Reset filters
+                </Button>
               </div>
-              <Button variant="ghost" size="sm" onClick={resetFilters}>
-                Reset
-              </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="border border-slate-200 bg-white shadow-sm">
-          <CardHeader className="pb-4">
+        <Card className="border border-slate-200/80 bg-white shadow-sm">
+          <CardHeader className="pb-2">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <CardTitle className="text-xl text-slate-900">Lead roster</CardTitle>
+                <CardTitle className="text-xl font-semibold text-slate-900">Lead roster</CardTitle>
                 <CardDescription className="text-sm text-slate-500">
-                  Manage statuses, spot duplicates instantly, and jump into detailed records.
+                  Manage statuses, review details, and open any record for a deeper look.
                 </CardDescription>
               </div>
               <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
@@ -457,7 +468,7 @@ export default function AdminLeads() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="overflow-hidden rounded-xl border border-slate-200">
+            <div className="overflow-hidden rounded-lg border border-slate-200">
               <Table className="text-sm">
                 <TableHeader className="bg-slate-50/80">
                   <TableRow className="border-slate-200">
@@ -509,7 +520,7 @@ export default function AdminLeads() {
                               onKeyDown={(event) => event.stopPropagation()}
                             >
                               <Select value={lead.status} onValueChange={(value) => handleStatusChange(lead.id, value)}>
-                                <SelectTrigger className="h-9 w-full justify-between rounded-lg border-slate-200 text-xs">
+                                <SelectTrigger className="h-9 w-full justify-between rounded-md border-slate-200 text-xs">
                                   <SelectValue>
                                     <span className="flex items-center gap-2">
                                       <span className={cn('h-2 w-2 rounded-full', {
