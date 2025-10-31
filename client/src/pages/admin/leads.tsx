@@ -330,15 +330,15 @@ export default function AdminLeads() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 pb-16">
+    <div className="min-h-screen bg-slate-100">
       <AdminNav />
-      <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 md:px-8">
-        <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-slate-500">Lead workspace</p>
-            <h1 className="text-3xl font-semibold text-slate-900">Leads overview</h1>
+      <main className="mx-auto w-full max-w-6xl space-y-8 px-4 py-10 md:px-8">
+        <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-slate-500">Leads</p>
+            <h1 className="text-3xl font-semibold text-slate-900">Lead management</h1>
             <p className="text-sm text-slate-600">
-              Track lead activity, refine your list quickly, and jump straight into the records that need attention.
+              Review incoming opportunities, quickly clean up duplicates, and drill into the records that matter.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -356,34 +356,34 @@ export default function AdminLeads() {
           </div>
         </header>
 
-        <Card className="border border-slate-200/80 bg-white shadow-sm">
-          <CardHeader className="pb-2">
+        <Card className="border border-slate-200/70 bg-white shadow-sm">
+          <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-900">
               <Filter className="h-4 w-4" />
-              Filters & sorting
+              Filters
             </CardTitle>
             <CardDescription className="text-xs text-slate-500">
-              Use the controls below to narrow the roster and keep the results tidy.
+              Keep things tidy by narrowing results and sorting how you need.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-              <div className="md:col-span-2 lg:col-span-2">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="md:col-span-2">
                 <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Search</Label>
                 <div className="relative mt-2">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
-                    placeholder="Name, email, phone, vehicle..."
+                    placeholder="Search by name, email, phone, vehicle..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="h-11 rounded-lg border-slate-200 bg-white pl-10 text-sm"
+                    className="h-11 rounded-md border-slate-200 bg-white pl-10 text-sm"
                   />
                 </div>
               </div>
               <div>
                 <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Status</Label>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="mt-2 h-11 rounded-lg border-slate-200 bg-white text-sm">
+                  <SelectTrigger className="mt-2 h-11 rounded-md border-slate-200 bg-white text-sm">
                     <SelectValue placeholder="Filter by status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -402,11 +402,11 @@ export default function AdminLeads() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="lg:col-span-2">
+              <div>
                 <Label className="text-xs font-medium uppercase tracking-wide text-slate-500">Sort</Label>
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                <div className="mt-2 flex gap-2">
                   <Select value={sortField} onValueChange={(value) => setSortField(value)}>
-                    <SelectTrigger className="h-11 flex-1 rounded-lg border-slate-200 bg-white text-sm">
+                    <SelectTrigger className="h-11 flex-1 rounded-md border-slate-200 bg-white text-sm">
                       <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
                     <SelectContent>
@@ -421,7 +421,7 @@ export default function AdminLeads() {
                     type="button"
                     variant="outline"
                     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="h-11 w-full shrink-0 rounded-lg border-slate-200 bg-white text-sm sm:w-28"
+                    className="h-11 w-24 shrink-0 rounded-md border-slate-200 bg-white text-sm"
                   >
                     <ArrowUpDown className="mr-2 h-4 w-4" />
                     {sortOrder === 'asc' ? 'Asc' : 'Desc'}
@@ -429,8 +429,8 @@ export default function AdminLeads() {
                 </div>
               </div>
             </div>
-            <div className="flex flex-col gap-3 rounded-lg border border-slate-200/70 bg-slate-50 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-              <div className="space-y-1 sm:space-y-0">
+            <div className="flex flex-col gap-2 rounded-md border border-slate-200/70 bg-slate-50 px-4 py-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
+              <div className="space-y-1">
                 <p>
                   Showing {sortedLeads.length === 0 ? 0 : `${showingFrom}-${showingTo}`} of {sortedLeads.length} filtered leads
                   {` · ${leads.length} total`}
@@ -453,13 +453,13 @@ export default function AdminLeads() {
           </CardContent>
         </Card>
 
-        <Card className="border border-slate-200/80 bg-white shadow-sm">
-          <CardHeader className="pb-2">
+        <Card className="border border-slate-200/70 bg-white shadow-sm">
+          <CardHeader className="pb-3">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
-                <CardTitle className="text-xl font-semibold text-slate-900">Lead roster</CardTitle>
+                <CardTitle className="text-xl font-semibold text-slate-900">Lead list</CardTitle>
                 <CardDescription className="text-sm text-slate-500">
-                  Manage statuses, review details, and open any record for a deeper look.
+                  A compact overview of every lead with quick status controls.
                 </CardDescription>
               </div>
               <Badge variant="outline" className="rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-500">
@@ -468,15 +468,17 @@ export default function AdminLeads() {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            <div className="overflow-hidden rounded-lg border border-slate-200">
-              <Table className="text-sm">
+            <div className="overflow-x-auto">
+              <Table className="min-w-[960px] text-sm">
                 <TableHeader className="bg-slate-50/80">
                   <TableRow className="border-slate-200">
-                    <TableHead className="px-4 py-3">Lead</TableHead>
-                    <TableHead className="px-4 py-3">Contact</TableHead>
-                    <TableHead className="px-4 py-3">Location & Vehicle</TableHead>
+                    <TableHead className="w-[220px] px-4 py-3">Lead</TableHead>
+                    <TableHead className="w-[220px] px-4 py-3">Contact</TableHead>
+                    <TableHead className="px-4 py-3">Location</TableHead>
+                    <TableHead className="px-4 py-3">Vehicle</TableHead>
+                    <TableHead className="w-[180px] px-4 py-3">Status</TableHead>
                     <TableHead className="px-4 py-3">Source</TableHead>
-                    <TableHead className="px-4 py-3">Created</TableHead>
+                    <TableHead className="w-[140px] px-4 py-3 text-right">Created</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -498,59 +500,16 @@ export default function AdminLeads() {
                         onKeyDown={(event) => handleRowKeyDown(event, lead.id)}
                       >
                         <TableCell className="px-4 py-4">
-                          <div className="flex flex-col gap-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="font-medium text-slate-900">
-                                {[lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'}
-                              </span>
-                              {isDuplicate && (
-                                <Badge className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">
-                                  Duplicate
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                              <span className="font-mono text-[11px] text-slate-500">{lead.id}</span>
-                              <span className="capitalize text-slate-500">{lead.status.replace('-', ' ')}</span>
-                              <span>{lead.source || lead.referrer || 'Source unknown'}</span>
-                            </div>
-                            <div
-                              className="max-w-[170px]"
-                              onClick={(event) => event.stopPropagation()}
-                              onKeyDown={(event) => event.stopPropagation()}
-                            >
-                              <Select value={lead.status} onValueChange={(value) => handleStatusChange(lead.id, value)}>
-                                <SelectTrigger className="h-9 w-full justify-between rounded-md border-slate-200 text-xs">
-                                  <SelectValue>
-                                    <span className="flex items-center gap-2">
-                                      <span className={cn('h-2 w-2 rounded-full', {
-                                        'bg-sky-500': lead.status === 'new',
-                                        'bg-indigo-500': lead.status === 'quoted',
-                                        'bg-emerald-500': lead.status === 'sold',
-                                        'bg-amber-500': lead.status === 'duplicate-lead',
-                                        'bg-rose-500': lead.status === 'fake-lead',
-                                        'bg-slate-400':
-                                          !['new', 'quoted', 'sold', 'duplicate-lead', 'fake-lead'].includes(lead.status),
-                                      })} />
-                                      <span className="capitalize">{lead.status.replace('-', ' ')}</span>
-                                    </span>
-                                  </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="new">New</SelectItem>
-                                  <SelectItem value="quoted">Quoted</SelectItem>
-                                  <SelectItem value="callback">Callback</SelectItem>
-                                  <SelectItem value="left-message">Left message</SelectItem>
-                                  <SelectItem value="no-contact">No contact</SelectItem>
-                                  <SelectItem value="wrong-number">Wrong number</SelectItem>
-                                  <SelectItem value="fake-lead">Fake lead</SelectItem>
-                                  <SelectItem value="not-interested">Not interested</SelectItem>
-                                  <SelectItem value="duplicate-lead">Duplicate lead</SelectItem>
-                                  <SelectItem value="dnc">DNC</SelectItem>
-                                  <SelectItem value="sold">Sold</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
+                          <div className="space-y-1">
+                            <p className="font-medium text-slate-900">
+                              {[lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'}
+                            </p>
+                            <p className="font-mono text-xs text-slate-500">{lead.id}</p>
+                            {isDuplicate && (
+                              <Badge className="mt-1 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-700">
+                                Duplicate
+                              </Badge>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-4 text-slate-700">
@@ -560,11 +519,50 @@ export default function AdminLeads() {
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-4 text-slate-700">
-                          <div className="space-y-1">
-                            <span>{[lead.city || lead.shippingCity, lead.state].filter(Boolean).join(', ') || '—'}</span>
-                            <span className="text-xs text-slate-500">
-                              {[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle pending'}
-                            </span>
+                          <span>{[lead.city || lead.shippingCity, lead.state].filter(Boolean).join(', ') || '—'}</span>
+                        </TableCell>
+                        <TableCell className="px-4 py-4 text-slate-700">
+                          <span className="text-sm text-slate-600">
+                            {[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle pending'}
+                          </span>
+                        </TableCell>
+                        <TableCell className="px-4 py-4">
+                          <div
+                            className="max-w-[180px]"
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          >
+                            <Select value={lead.status} onValueChange={(value) => handleStatusChange(lead.id, value)}>
+                              <SelectTrigger className="h-9 w-full justify-between rounded-md border-slate-200 text-xs">
+                                <SelectValue>
+                                  <span className="flex items-center gap-2">
+                                    <span className={cn('h-2 w-2 rounded-full', {
+                                      'bg-sky-500': lead.status === 'new',
+                                      'bg-indigo-500': lead.status === 'quoted',
+                                      'bg-emerald-500': lead.status === 'sold',
+                                      'bg-amber-500': lead.status === 'duplicate-lead',
+                                      'bg-rose-500': lead.status === 'fake-lead',
+                                      'bg-slate-400':
+                                        !['new', 'quoted', 'sold', 'duplicate-lead', 'fake-lead'].includes(lead.status),
+                                    })} />
+                                    <span className="capitalize text-slate-700">{lead.status.replace('-', ' ')}</span>
+                                  </span>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="new">New</SelectItem>
+                                <SelectItem value="quoted">Quoted</SelectItem>
+                                <SelectItem value="callback">Callback</SelectItem>
+                                <SelectItem value="left-message">Left message</SelectItem>
+                                <SelectItem value="no-contact">No contact</SelectItem>
+                                <SelectItem value="wrong-number">Wrong number</SelectItem>
+                                <SelectItem value="fake-lead">Fake lead</SelectItem>
+                                <SelectItem value="not-interested">Not interested</SelectItem>
+                                <SelectItem value="duplicate-lead">Duplicate lead</SelectItem>
+                                <SelectItem value="dnc">DNC</SelectItem>
+                                <SelectItem value="sold">Sold</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                         </TableCell>
                         <TableCell className="px-4 py-4 text-slate-700">
@@ -576,7 +574,7 @@ export default function AdminLeads() {
                             <span className="text-xs text-slate-400">—</span>
                           )}
                         </TableCell>
-                        <TableCell className="px-4 py-4 text-xs text-slate-500">
+                        <TableCell className="px-4 py-4 text-right text-xs text-slate-500">
                           {lead.createdAt
                             ? new Date(lead.createdAt).toLocaleString('en-US', {
                                 timeZone: 'America/New_York',
@@ -592,7 +590,7 @@ export default function AdminLeads() {
                   })}
                   {paginatedLeads.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                      <TableCell colSpan={7} className="px-6 py-12 text-center text-slate-500">
                         No leads match your filters yet. Try expanding your search or resetting filters.
                       </TableCell>
                     </TableRow>
