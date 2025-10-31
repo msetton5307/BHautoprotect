@@ -472,11 +472,11 @@ export default function AdminLeads() {
               <Table className="min-w-[960px] text-sm">
                 <TableHeader className="bg-slate-50/80">
                   <TableRow className="border-slate-200">
+                    <TableHead className="w-[180px] px-4 py-3">Status</TableHead>
                     <TableHead className="w-[220px] px-4 py-3">Lead</TableHead>
                     <TableHead className="w-[220px] px-4 py-3">Contact</TableHead>
                     <TableHead className="px-4 py-3">Location</TableHead>
                     <TableHead className="px-4 py-3">Vehicle</TableHead>
-                    <TableHead className="w-[180px] px-4 py-3">Status</TableHead>
                     <TableHead className="px-4 py-3">Source</TableHead>
                     <TableHead className="w-[140px] px-4 py-3 text-right">Created</TableHead>
                   </TableRow>
@@ -499,33 +499,6 @@ export default function AdminLeads() {
                         onClick={() => handleRowNavigate(lead.id)}
                         onKeyDown={(event) => handleRowKeyDown(event, lead.id)}
                       >
-                        <TableCell className="px-4 py-4">
-                          <div className="space-y-1">
-                            <p className="font-medium text-slate-900">
-                              {[lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'}
-                            </p>
-                            <p className="font-mono text-xs text-slate-500">{lead.id}</p>
-                            {isDuplicate && (
-                              <Badge className="mt-1 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-700">
-                                Duplicate
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-4 text-slate-700">
-                          <div className="space-y-1">
-                            <span>{lead.email || '—'}</span>
-                            <span className="text-xs text-slate-500">{lead.phone || 'No phone'}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-4 text-slate-700">
-                          <span>{[lead.city || lead.shippingCity, lead.state].filter(Boolean).join(', ') || '—'}</span>
-                        </TableCell>
-                        <TableCell className="px-4 py-4 text-slate-700">
-                          <span className="text-sm text-slate-600">
-                            {[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle pending'}
-                          </span>
-                        </TableCell>
                         <TableCell className="px-4 py-4">
                           <div
                             className="max-w-[180px]"
@@ -564,6 +537,33 @@ export default function AdminLeads() {
                               </SelectContent>
                             </Select>
                           </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-4">
+                          <div className="space-y-1">
+                            <p className="font-medium text-slate-900">
+                              {[lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'}
+                            </p>
+                            <p className="font-mono text-xs text-slate-500">{lead.id}</p>
+                            {isDuplicate && (
+                              <Badge className="mt-1 inline-flex items-center rounded-full bg-amber-500/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-amber-700">
+                                Duplicate
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-4 text-slate-700">
+                          <div className="space-y-1">
+                            <p>{lead.email || '—'}</p>
+                            <p className="text-xs text-slate-500">{lead.phone || 'No phone'}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-4 text-slate-700">
+                          <span>{[lead.city || lead.shippingCity, lead.state].filter(Boolean).join(', ') || '—'}</span>
+                        </TableCell>
+                        <TableCell className="px-4 py-4 text-slate-700">
+                          <span className="text-sm text-slate-600">
+                            {[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle pending'}
+                          </span>
                         </TableCell>
                         <TableCell className="px-4 py-4 text-slate-700">
                           {lead.referrer || lead.source ? (
