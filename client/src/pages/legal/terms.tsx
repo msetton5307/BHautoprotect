@@ -58,7 +58,7 @@ export default function TermsPage() {
                 <li>Consent is not required to purchase or receive any services or products.</li>
               </ul>
               <p className="mb-2">
-                You may call us directly at <a href="tel:+13024068053" className="font-semibold text-primary">(302) 406-8053</a>
+                You may call us directly at <a href="tel:+18339400234" className="font-semibold text-primary">(833) 940-0234</a>
                 for more information or to enroll without providing consent for automated communications.
               </p>
               <p>
@@ -80,7 +80,7 @@ export default function TermsPage() {
                 <li>BH Auto Protect will send informational and promotional messages related to quotes, coverage updates, renewals, and special offers.</li>
                 <li>Message frequency may vary by customer engagement level.</li>
                 <li>Carriers are not liable for delayed or undelivered messages.</li>
-                <li>For help, reply HELP or call <a href="tel:+13024068053" className="font-semibold text-primary">(302) 406-8053</a>.</li>
+                <li>For help, reply HELP or call <a href="tel:+18339400234" className="font-semibold text-primary">(833) 940-0234</a>.</li>
                 <li>For opt-out, reply STOP at any time to cancel future messages.</li>
               </ul>
             </section>
@@ -157,7 +157,7 @@ export default function TermsPage() {
                 <p className="font-semibold">Contact BH Auto Protect</p>
                 <p>📍 800 N King St, Suite 304-2390, Wilmington, DE 19801</p>
                 <p>
-                  📞 <a href="tel:+13024068053" className="text-primary font-semibold">(302) 406-8053</a>
+                  📞 <a href="tel:+18339400234" className="text-primary font-semibold">(833) 940-0234</a>
                 </p>
                 <p>📧 privacy@bhautoprotect.com</p>
                 <p>🌐 www.bhautoprotect.com</p>

@@ -811,7 +811,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                 </span>
                 <span>
                   Reply STOP to unsubscribe. Consent is not required to receive services and I may call BH Auto Protect
-                  directly at <a href="tel:+13024068053" className="text-primary font-semibold">(302) 406-8053</a>. I
+                  directly at <a href="tel:+18339400234" className="text-primary font-semibold">(833) 940-0234</a>. I
                   consent to BH Auto Protect's <a href="/legal/terms" className="text-primary hover:underline">mobile terms
                   and conditions</a> and <a href="/legal/privacy" className="text-primary hover:underline">privacy
                   statement</a>.

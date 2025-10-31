@@ -80,7 +80,7 @@ export default function PrivacyPage() {
               <ul className="list-disc pl-6 space-y-2 mb-4">
                 <li>Message and data rates may apply. Message frequency may vary.</li>
                 <li>You may opt out at any time by replying STOP to any message. Reply HELP for help or call
-                  <a href="tel:+13024068053" className="text-primary font-semibold ml-1">(302) 406-8053</a>.
+                  <a href="tel:+18339400234" className="text-primary font-semibold ml-1">(833) 940-0234</a>.
                 </li>
                 <li>No mobile information will be shared with third parties or affiliates for marketing or promotional purposes.</li>
                 <li>All the above categories exclude text messaging originator opt-in data and consent; this information will not be shared with any third parties.</li>
@@ -119,7 +119,7 @@ export default function PrivacyPage() {
               </ul>
               <p className="mt-4">
                 To exercise your rights, contact us at <a href="mailto:privacy@bhautoprotect.com" className="text-primary font-semibold">privacy@bhautoprotect.com</a> or call
-                <a href="tel:+13024068053" className="text-primary font-semibold ml-1">(302) 406-8053</a>.
+                <a href="tel:+18339400234" className="text-primary font-semibold ml-1">(833) 940-0234</a>.
               </p>
             </section>
 
@@ -157,7 +157,7 @@ export default function PrivacyPage() {
                 <p><strong>BH Auto Protect</strong></p>
                 <p>📍 800 N King St, Suite 304-2390, Wilmington, DE 19801</p>
                 <p>
-                  📞 <a href="tel:+13024068053" className="text-primary font-semibold">(302) 406-8053</a>
+                  📞 <a href="tel:+18339400234" className="text-primary font-semibold">(833) 940-0234</a>
                 </p>
                 <p>📧 privacy@bhautoprotect.com</p>
                 <p>🌐 www.bhautoprotect.com</p>

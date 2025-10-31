@@ -669,7 +669,7 @@ const buildDefaultEmailTemplates = (policy: any, brandingLogoUrl?: string | null
     <div style="text-align:center;margin:24px 0;">
       <a href="${escapeHtml(CUSTOMER_PORTAL_URL)}" style="display:inline-flex;align-items:center;justify-content:center;padding:14px 28px;border-radius:9999px;background:#2563eb;color:#ffffff;font-weight:600;text-decoration:none;">Open Customer Portal</a>
     </div>
-    <p style="margin:0;font-size:15px;line-height:1.7;">Need a hand? Reply to this email or call <a href="tel:+13024068053" style="color:#2563eb;text-decoration:none;font-weight:600;">(302) 406-8053</a> and we’ll walk you through it.</p>
+    <p style="margin:0;font-size:15px;line-height:1.7;">Need a hand? Reply to this email or call <a href="tel:+18339400234" style="color:#2563eb;text-decoration:none;font-weight:600;">(833) 940-0234</a> and we’ll walk you through it.</p>
   `;
 
   templates.push({

@@ -114,7 +114,7 @@ export default function TCPAPage() {
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Phone Calls</h3>
                   <ul className="list-disc pl-6 space-y-1">
                     <li>Ask to be placed on our Do-Not-Call list during any call</li>
-                  <li>Call our customer service line at (302) 406-8053</li>
+                  <li>Call our customer service line at (833) 940-0234</li>
                   </ul>
                 </div>
                 
@@ -165,7 +165,7 @@ export default function TCPAPage() {
               </p>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <p><strong>BH Auto Protect</strong></p>
-                <p>Customer Service: (302) 406-8053</p>
+                <p>Customer Service: (833) 940-0234</p>
                 <p>Email: privacy@bhautoprotect.com</p>
                 <p>Address: 800 N King St, Suite 304-2390, Wilmington, DE 19801</p>
                 <p>Business Hours: Monday-Friday 8AM-8PM, Saturday 9AM-5PM EST</p>
