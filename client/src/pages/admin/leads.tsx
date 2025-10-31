@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Search, Filter, ArrowUpDown, LayoutList } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +20,8 @@ const authJsonHeaders = () => ({
   'Content-Type': 'application/json',
 });
 
+const ITEMS_PER_PAGE = 25;
+
 export default function AdminLeads() {
   const { authenticated, checking, markAuthenticated, markLoggedOut } = useAdminAuth();
   const [, navigate] = useLocation();
@@ -29,6 +30,7 @@ export default function AdminLeads() {
   const [sortField, setSortField] = useState<string>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [hideDuplicates, setHideDuplicates] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -199,6 +201,67 @@ export default function AdminLeads() {
       : String(bVal).localeCompare(String(aVal));
   });
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, sortField, sortOrder, hideDuplicates, leads.length]);
+
+  useEffect(() => {
+    const maxPages = Math.max(1, Math.ceil(sortedLeads.length / ITEMS_PER_PAGE));
+    if (currentPage > maxPages) {
+      setCurrentPage(maxPages);
+    }
+  }, [currentPage, sortedLeads.length]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedLeads.length / ITEMS_PER_PAGE));
+  const pageStart = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedLeads = sortedLeads.slice(pageStart, pageStart + ITEMS_PER_PAGE);
+  const showingFrom = sortedLeads.length === 0 ? 0 : pageStart + 1;
+  const showingTo = Math.min(pageStart + ITEMS_PER_PAGE, sortedLeads.length);
+
+  const pageButtons = useMemo(() => {
+    if (totalPages <= 1) {
+      return [] as JSX.Element[];
+    }
+    const pageSet = new Set<number>([1, totalPages, currentPage]);
+    if (currentPage > 1) pageSet.add(currentPage - 1);
+    if (currentPage > 2) pageSet.add(currentPage - 2);
+    if (currentPage < totalPages) pageSet.add(currentPage + 1);
+    if (currentPage < totalPages - 1) pageSet.add(currentPage + 2);
+    if (totalPages > 2) pageSet.add(2);
+    if (totalPages > 3) pageSet.add(totalPages - 1);
+
+    const sortedPages = Array.from(pageSet)
+      .filter((page) => page >= 1 && page <= totalPages)
+      .sort((a, b) => a - b);
+
+    const nodes: JSX.Element[] = [];
+    let lastPage = 0;
+    for (const page of sortedPages) {
+      if (lastPage && page - lastPage > 1) {
+        nodes.push(
+          <span key={`ellipsis-${page}`} className="px-1 text-xs text-slate-400">
+            …
+          </span>
+        );
+      }
+      nodes.push(
+        <Button
+          key={`page-${page}`}
+          type="button"
+          variant={page === currentPage ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setCurrentPage(page)}
+          aria-current={page === currentPage ? 'page' : undefined}
+        >
+          {page}
+        </Button>
+      );
+      lastPage = page;
+    }
+
+    return nodes;
+  }, [currentPage, totalPages]);
+
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
@@ -218,25 +281,6 @@ export default function AdminLeads() {
     { value: 'year', label: 'Vehicle year' },
     { value: 'make', label: 'Vehicle make' },
   ];
-
-  const statusBadgeClass = (status: string) => {
-    switch (status) {
-      case 'new':
-        return 'border-sky-200 bg-sky-50 text-sky-700';
-      case 'quoted':
-        return 'border-indigo-200 bg-indigo-50 text-indigo-700';
-      case 'sold':
-        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-      case 'duplicate-lead':
-        return 'border-amber-200 bg-amber-50 text-amber-700';
-      case 'fake-lead':
-        return 'border-rose-200 bg-rose-50 text-rose-700';
-      case 'dnc':
-        return 'border-slate-200 bg-slate-50 text-slate-700';
-      default:
-        return 'border-slate-200 bg-slate-50 text-slate-600';
-    }
-  };
 
   const sortFieldLabel = sortOptions.find((option) => option.value === sortField)?.label || 'Date created';
 
@@ -380,7 +424,7 @@ export default function AdminLeads() {
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
               <div className="flex flex-wrap items-center gap-3">
                 <Badge variant="outline" className="rounded-full border-slate-200 bg-white px-3 py-1 text-xs text-slate-500">
-                  {filteredLeads.length} showing · {leads.length} total
+                  Showing {sortedLeads.length === 0 ? 0 : `${showingFrom}-${showingTo}`} · {sortedLeads.length} filtered · {leads.length} total
                 </Badge>
                 <Badge variant="outline" className="rounded-full border-slate-200 bg-white px-3 py-1 text-xs text-slate-500">
                   Sorted by {sortFieldLabel} · {sortOrder === 'asc' ? 'Ascending' : 'Descending'}
@@ -412,47 +456,63 @@ export default function AdminLeads() {
               </Badge>
             </div>
           </CardHeader>
-          <CardContent>
-            <ScrollArea className="w-full">
-              <div className="min-w-[960px] overflow-hidden rounded-xl border border-slate-200">
-                <Table className="text-sm">
-                  <TableHeader className="bg-slate-50/80">
-                    <TableRow className="border-slate-200">
-                      <TableHead className="whitespace-nowrap px-4 py-3">Status</TableHead>
-                      <TableHead className="whitespace-nowrap px-4 py-3">ID</TableHead>
-                      <TableHead className="whitespace-nowrap px-4 py-3">Lead</TableHead>
-                      <TableHead className="whitespace-nowrap px-4 py-3">Contact</TableHead>
-                      <TableHead className="whitespace-nowrap px-4 py-3">Location</TableHead>
-                      <TableHead className="whitespace-nowrap px-4 py-3">Vehicle</TableHead>
-                      <TableHead className="whitespace-nowrap px-4 py-3">Referrer</TableHead>
-                      <TableHead className="whitespace-nowrap px-4 py-3">Created</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedLeads.map((item: any) => {
-                      const lead = item.lead;
-                      const vehicle = item.vehicle || {};
-                      const isDuplicate = duplicateIds.has(lead.id);
-                      return (
-                        <TableRow
-                          key={lead.id}
-                          className={cn(
-                            'border-slate-200/80 transition-colors hover:bg-slate-50 focus-visible:bg-slate-100 focus-visible:outline-none cursor-pointer',
-                            isDuplicate && 'bg-amber-50/70 hover:bg-amber-50'
-                          )}
-                          role="button"
-                          tabIndex={0}
-                          aria-label={`Open lead ${lead.id}`}
-                          onClick={() => handleRowNavigate(lead.id)}
-                          onKeyDown={(event) => handleRowKeyDown(event, lead.id)}
-                        >
-                          <TableCell className="px-4 py-3">
-                            <div onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
+          <CardContent className="space-y-6">
+            <div className="overflow-hidden rounded-xl border border-slate-200">
+              <Table className="text-sm">
+                <TableHeader className="bg-slate-50/80">
+                  <TableRow className="border-slate-200">
+                    <TableHead className="px-4 py-3">Lead</TableHead>
+                    <TableHead className="px-4 py-3">Contact</TableHead>
+                    <TableHead className="px-4 py-3">Location & Vehicle</TableHead>
+                    <TableHead className="px-4 py-3">Source</TableHead>
+                    <TableHead className="px-4 py-3">Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedLeads.map((item: any) => {
+                    const lead = item.lead;
+                    const vehicle = item.vehicle || {};
+                    const isDuplicate = duplicateIds.has(lead.id);
+                    return (
+                      <TableRow
+                        key={lead.id}
+                        className={cn(
+                          'border-slate-200/80 transition-colors hover:bg-slate-50 focus-visible:bg-slate-100 focus-visible:outline-none cursor-pointer',
+                          isDuplicate && 'bg-amber-50/70 hover:bg-amber-50'
+                        )}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Open lead ${lead.id}`}
+                        onClick={() => handleRowNavigate(lead.id)}
+                        onKeyDown={(event) => handleRowKeyDown(event, lead.id)}
+                      >
+                        <TableCell className="px-4 py-4">
+                          <div className="flex flex-col gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="font-medium text-slate-900">
+                                {[lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'}
+                              </span>
+                              {isDuplicate && (
+                                <Badge className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">
+                                  Duplicate
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                              <span className="font-mono text-[11px] text-slate-500">{lead.id}</span>
+                              <span className="capitalize text-slate-500">{lead.status.replace('-', ' ')}</span>
+                              <span>{lead.source || lead.referrer || 'Source unknown'}</span>
+                            </div>
+                            <div
+                              className="max-w-[170px]"
+                              onClick={(event) => event.stopPropagation()}
+                              onKeyDown={(event) => event.stopPropagation()}
+                            >
                               <Select value={lead.status} onValueChange={(value) => handleStatusChange(lead.id, value)}>
-                                <SelectTrigger className="h-10 w-[150px] justify-between rounded-lg border-slate-200 text-sm">
+                                <SelectTrigger className="h-9 w-full justify-between rounded-lg border-slate-200 text-xs">
                                   <SelectValue>
                                     <span className="flex items-center gap-2">
-                                      <span className={cn('h-2.5 w-2.5 rounded-full', {
+                                      <span className={cn('h-2 w-2 rounded-full', {
                                         'bg-sky-500': lead.status === 'new',
                                         'bg-indigo-500': lead.status === 'quoted',
                                         'bg-emerald-500': lead.status === 'sold',
@@ -480,89 +540,82 @@ export default function AdminLeads() {
                                 </SelectContent>
                               </Select>
                             </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 font-mono text-xs text-slate-500">
-                            <div className="flex items-center gap-2">
-                              {lead.id}
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  'rounded-full border px-2 py-0.5 text-[10px] font-medium capitalize',
-                                  statusBadgeClass(lead.status)
-                                )}
-                              >
-                                {lead.status.replace('-', ' ')}
-                              </Badge>
-                              {isDuplicate && (
-                                <Badge className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">
-                                  Duplicate
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-slate-700">
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {[lead.firstName, lead.lastName].filter(Boolean).join(' ') || '—'}
-                              </span>
-                              <span className="text-xs text-slate-500">{lead.source || lead.referrer || 'Source unknown'}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-slate-700">
-                            <div className="flex flex-col gap-1">
-                              <span>{lead.email || '—'}</span>
-                              <span className="text-xs text-slate-500">{lead.phone || 'No phone'}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-slate-700">
-                            <div className="flex flex-col gap-1">
-                              <span>{lead.state || '—'}</span>
-                              <span className="text-xs text-slate-500">{lead.city || lead.shippingCity || 'Unknown city'}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-slate-700">
-                            <div className="flex flex-col gap-1">
-                              <span>
-                                {[vehicle.year, vehicle.make].filter(Boolean).join(' ') || '—'}
-                              </span>
-                              <span className="text-xs text-slate-500">{vehicle.model || 'Model pending'}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-slate-700">
-                            {lead.referrer || lead.source ? (
-                              <Badge className="rounded-full bg-slate-900/5 px-3 py-1 text-xs font-medium text-slate-600">
-                                {lead.referrer || lead.source}
-                              </Badge>
-                            ) : (
-                              <span className="text-sm text-slate-400">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="px-4 py-3 text-slate-600">
-                            {lead.createdAt
-                              ? new Date(lead.createdAt).toLocaleString('en-US', {
-                                  timeZone: 'America/New_York',
-                                  month: 'short',
-                                  day: 'numeric',
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                })
-                              : '—'}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {sortedLeads.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={8} className="px-6 py-12 text-center text-slate-500">
-                          No leads match your filters yet. Try expanding your search or resetting filters.
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-4 text-slate-700">
+                          <div className="space-y-1">
+                            <span>{lead.email || '—'}</span>
+                            <span className="text-xs text-slate-500">{lead.phone || 'No phone'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-4 text-slate-700">
+                          <div className="space-y-1">
+                            <span>{[lead.city || lead.shippingCity, lead.state].filter(Boolean).join(', ') || '—'}</span>
+                            <span className="text-xs text-slate-500">
+                              {[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Vehicle pending'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-4 py-4 text-slate-700">
+                          {lead.referrer || lead.source ? (
+                            <Badge className="rounded-full bg-slate-900/5 px-3 py-1 text-xs font-medium text-slate-600">
+                              {lead.referrer || lead.source}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-4 py-4 text-xs text-slate-500">
+                          {lead.createdAt
+                            ? new Date(lead.createdAt).toLocaleString('en-US', {
+                                timeZone: 'America/New_York',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })
+                            : '—'}
                         </TableCell>
                       </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+                    );
+                  })}
+                  {paginatedLeads.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                        No leads match your filters yet. Try expanding your search or resetting filters.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+
+            {sortedLeads.length > 0 && (
+              <div className="flex flex-col gap-3 text-sm text-slate-600 md:flex-row md:items-center md:justify-between">
+                <span>{`Showing ${showingFrom}-${showingTo} of ${sortedLeads.length} leads`}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  >
+                    Previous
+                  </Button>
+                  {pageButtons}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === totalPages || sortedLeads.length === 0}
+                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
-              <ScrollBar orientation="horizontal" className="mt-2" />
-            </ScrollArea>
+            )}
           </CardContent>
         </Card>
       </main>
