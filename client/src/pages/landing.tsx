@@ -142,7 +142,7 @@ export default function Landing() {
         />
         <div className="absolute -top-20 -right-32 h-72 w-72 rounded-full bg-blue-400/40 blur-3xl" aria-hidden />
         <div className="absolute bottom-0 left-1/2 h-48 w-48 -translate-x-1/2 rounded-full bg-cyan-400/40 blur-3xl" aria-hidden />
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28">
+        <div className="relative z-10 mx-auto max-w-7xl px-2 sm:px-4 lg:px-6 py-20 lg:py-28">
           <div className="grid lg:grid-cols-[1.05fr_0.95fr] gap-16 items-center">
             <motion.div initial="hidden" animate="visible" variants={fadeIn(0.1)} className="text-white">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium uppercase tracking-[0.3em] text-blue-100 backdrop-blur">

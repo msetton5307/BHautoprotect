@@ -537,7 +537,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           <p className="text-gray-500">{description}</p>
         </div>
 
-        <section className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+        <section className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-slate-900">
           <div className="flex items-start justify-between mb-6">
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Vehicle information</h3>
@@ -715,7 +715,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           </div>
         </section>
 
-        <section className="bg-gray-50 rounded-2xl p-6 border border-gray-100">
+        <section className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-slate-900">
           <div className="flex items-start justify-between mb-6">
             <div>
               <h3 className="text-xl font-semibold text-gray-900">Contact details</h3>
@@ -788,7 +788,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           </div>
         </section>
 
-        <section className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-4">
+        <section className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-slate-900 space-y-4">
           <div>
             <h3 className="text-xl font-semibold text-gray-900">Consent &amp; terms</h3>
             <p className="text-sm text-gray-500">
@@ -833,7 +833,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           </div>
         </section>
 
-        <section className="bg-gray-50 rounded-2xl p-6 border border-gray-100 space-y-3">
+        <section className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-slate-900 space-y-3">
           <div>
             <h3 className="text-xl font-semibold text-gray-900">Verification</h3>
             <p className="text-sm text-gray-500">
