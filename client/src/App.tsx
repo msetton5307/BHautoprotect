@@ -7,6 +7,7 @@ import Footer from "@/components/footer";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import AdvertisingLanding from "@/pages/advertising";
+import PromoPage from "@/pages/promo";
 import Quote from "@/pages/quote";
 import PrivacyPage from "@/pages/legal/privacy";
 import TermsPage from "@/pages/legal/terms";
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/contact" component={Contact} />
       <Route path="/thank-you" component={ThankYou} />
       <Route path="/campaign" component={AdvertisingLanding} />
+      <Route path="/promo" component={PromoPage} />
       <Route path="/legal/privacy" component={PrivacyPage} />
       <Route path="/legal/terms" component={TermsPage} />
       <Route path="/legal/tcpa" component={TCPAPage} />
