@@ -58,6 +58,17 @@ type LeadMeta = {
 
 const leadMeta: Record<string, LeadMeta> = {};
 
+const PUBLIC_FILES_DIRECTORY = "/var/www/html/files";
+const QUALIFIED_LEADS_FILE_PATH = path.join(
+  PUBLIC_FILES_DIRECTORY,
+  "qualified.txt",
+);
+const CONVERTED_LEADS_FILE_PATH = path.join(
+  PUBLIC_FILES_DIRECTORY,
+  "converted.txt",
+);
+const CONVERTED_STATUS_VALUES: LeadStatus[] = ['converted', 'sold'];
+
 const createDefaultLeadMeta = (): LeadMeta => ({
   tags: [],
   status: 'new',
@@ -75,11 +86,55 @@ const syncLeadMetaWithLead = (lead: Lead): LeadMeta => {
   return next;
 };
 
+const isConvertedStatus = (status: LeadStatus | undefined): boolean => {
+  return status !== undefined && CONVERTED_STATUS_VALUES.includes(status);
+};
+
+const appendSubIdToFile = async (
+  filePath: string,
+  subId: string,
+): Promise<void> => {
+  const normalized = subId.trim();
+  if (!normalized) {
+    return;
+  }
+
+  try {
+    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.promises.appendFile(filePath, `${normalized}\n`, { encoding: 'utf8' });
+  } catch (error) {
+    console.error(`Failed to append sub_id to ${filePath}:`, error);
+  }
+};
+
+const handleLeadStatusSideEffects = async (
+  previousLead: Lead | undefined,
+  updatedLead: Lead,
+): Promise<void> => {
+  const subId = typeof updatedLead.subId === 'string' ? updatedLead.subId.trim() : '';
+  if (!subId) {
+    return;
+  }
+
+  const previousStatus = previousLead?.status;
+  const currentStatus = updatedLead.status;
+
+  if (currentStatus === 'qualified' && previousStatus !== 'qualified') {
+    await appendSubIdToFile(QUALIFIED_LEADS_FILE_PATH, subId);
+  }
+
+  if (isConvertedStatus(currentStatus) && !isConvertedStatus(previousStatus)) {
+    await appendSubIdToFile(CONVERTED_LEADS_FILE_PATH, subId);
+  }
+};
+
 const updateLeadStatus = async (
   leadId: string,
   status: LeadStatus,
 ): Promise<Lead> => {
+  const previousLead = await storage.getLead(leadId);
   const updatedLead = await storage.updateLead(leadId, { status });
+  await handleLeadStatusSideEffects(previousLead, updatedLead);
   syncLeadMetaWithLead(updatedLead);
   return updatedLead;
 };
@@ -4837,7 +4892,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         normalizeString(payload.consent_user_agent ?? payload.user_agent) ??
         normalizeString(req.get("User-Agent"));
 
-      const leadInput = {
+      const referrer = normalizeString(payload.referrer);
+      const subId =
+        referrer?.toUpperCase() === 'BWF'
+          ? normalizeString(payload.sub_id)
+          : undefined;
+
+      const leadInput: Partial<InsertLead> = {
         firstName: normalizeString(payload.first_name),
         lastName: normalizeString(payload.last_name),
         email,
@@ -4852,7 +4913,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         utmSource: normalizeString(payload.utm_source),
         utmMedium: normalizeString(payload.utm_medium),
         utmCampaign: normalizeString(payload.utm_campaign),
-      } satisfies Partial<InsertLead>;
+      };
+
+      if (subId) {
+        leadInput.subId = subId;
+      }
 
       const vehicleYear = normalizeInteger(payload.year);
       const vehicleMake = normalizeString(payload.make);
@@ -5509,7 +5574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           syncLeadMetaWithLead(lead);
           const status = (lead.status ?? 'new') as LeadStatus;
           statusCounts[status] = (statusCounts[status] || 0) + 1;
-          if (status === 'sold') soldLeads++;
+          if (status === 'sold' || status === 'converted') soldLeads++;
           const quotes = await storage.getQuotesByLeadId(lead.id);
           if (quotes.length > 0) quotedLeads++;
         })
