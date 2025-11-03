@@ -59,7 +59,7 @@ type LeadMeta = {
 const leadMeta: Record<string, LeadMeta> = {};
 
 const PUBLIC_FILES_DIRECTORY = "/var/www/html/files";
-const QUALIFIED_LEADS_FILE_PATH = path.join(
+const QUOTED_LEADS_FILE_PATH = path.join(
   PUBLIC_FILES_DIRECTORY,
   "qualified.txt",
 );
@@ -107,6 +107,10 @@ const appendSubIdToFile = async (
   }
 };
 
+const isQuotedStatus = (status: LeadStatus | undefined): boolean => {
+  return status === 'quoted';
+};
+
 const handleLeadStatusSideEffects = async (
   previousLead: Lead | undefined,
   updatedLead: Lead,
@@ -119,8 +123,8 @@ const handleLeadStatusSideEffects = async (
   const previousStatus = previousLead?.status;
   const currentStatus = updatedLead.status;
 
-  if (currentStatus === 'qualified' && previousStatus !== 'qualified') {
-    await appendSubIdToFile(QUALIFIED_LEADS_FILE_PATH, subId);
+  if (isQuotedStatus(currentStatus) && !isQuotedStatus(previousStatus)) {
+    await appendSubIdToFile(QUOTED_LEADS_FILE_PATH, subId);
   }
 
   if (isConvertedStatus(currentStatus) && !isConvertedStatus(previousStatus)) {
@@ -4892,11 +4896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         normalizeString(payload.consent_user_agent ?? payload.user_agent) ??
         normalizeString(req.get("User-Agent"));
 
-      const referrer = normalizeString(payload.referrer);
-      const subId =
-        referrer?.toUpperCase() === 'BWF'
-          ? normalizeString(payload.sub_id)
-          : undefined;
+      const subId = normalizeString(payload.sub_id);
 
       const leadInput: Partial<InsertLead> = {
         firstName: normalizeString(payload.first_name),
