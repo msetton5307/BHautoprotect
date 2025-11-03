@@ -68,6 +68,77 @@ const CONVERTED_LEADS_FILE_PATH = path.join(
   "converted.txt",
 );
 const CONVERTED_STATUS_VALUES: LeadStatus[] = ['converted', 'sold'];
+const QUOTED_STATUS_VALUES: LeadStatus[] = ['quoted'];
+
+const normalizeSubId = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const ensureFileDirectory = async (filePath: string): Promise<void> => {
+  await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+};
+
+const writeSubIdsToFile = async (
+  filePath: string,
+  subIds: string[],
+): Promise<void> => {
+  try {
+    await ensureFileDirectory(filePath);
+    const content = subIds.join('\n');
+    const normalizedContent = content.length > 0 ? `${content}\n` : '';
+    await fs.promises.writeFile(filePath, normalizedContent, { encoding: 'utf8' });
+  } catch (error) {
+    console.error(`Failed to write sub_ids to ${filePath}:`, error);
+  }
+};
+
+const rebuildLeadStatusFiles = async (): Promise<void> => {
+  try {
+    const leads = await storage.getLeads({});
+    const quoted: string[] = [];
+    const converted: string[] = [];
+    const quotedSet = new Set<string>();
+    const convertedSet = new Set<string>();
+
+    const shouldTrackAsQuoted = (status: LeadStatus | undefined): boolean => {
+      if (!status) {
+        return false;
+      }
+      return QUOTED_STATUS_VALUES.includes(status) || isConvertedStatus(status);
+    };
+
+    for (const lead of leads.slice().reverse()) {
+      const subId = normalizeSubId(lead.subId);
+      if (!subId) {
+        continue;
+      }
+
+      const status = lead.status as LeadStatus | undefined;
+
+      if (shouldTrackAsQuoted(status) && !quotedSet.has(subId)) {
+        quotedSet.add(subId);
+        quoted.push(subId);
+      }
+
+      if (isConvertedStatus(status) && !convertedSet.has(subId)) {
+        convertedSet.add(subId);
+        converted.push(subId);
+      }
+    }
+
+    await Promise.all([
+      writeSubIdsToFile(QUOTED_LEADS_FILE_PATH, quoted),
+      writeSubIdsToFile(CONVERTED_LEADS_FILE_PATH, converted),
+    ]);
+  } catch (error) {
+    console.error('Failed to rebuild lead status files:', error);
+  }
+};
 
 const createDefaultLeadMeta = (): LeadMeta => ({
   tags: [],
@@ -94,13 +165,32 @@ const appendSubIdToFile = async (
   filePath: string,
   subId: string,
 ): Promise<void> => {
-  const normalized = subId.trim();
+  const normalized = normalizeSubId(subId);
   if (!normalized) {
     return;
   }
 
   try {
-    await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
+    await ensureFileDirectory(filePath);
+    let existingContent: string | null = null;
+    try {
+      existingContent = await fs.promises.readFile(filePath, 'utf8');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+        throw error;
+      }
+    }
+
+    if (existingContent) {
+      const lines = existingContent
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
+      if (lines.includes(normalized)) {
+        return;
+      }
+    }
+
     await fs.promises.appendFile(filePath, `${normalized}\n`, { encoding: 'utf8' });
   } catch (error) {
     console.error(`Failed to append sub_id to ${filePath}:`, error);
@@ -115,7 +205,7 @@ const handleLeadStatusSideEffects = async (
   previousLead: Lead | undefined,
   updatedLead: Lead,
 ): Promise<void> => {
-  const subId = typeof updatedLead.subId === 'string' ? updatedLead.subId.trim() : '';
+  const subId = normalizeSubId(updatedLead.subId);
   if (!subId) {
     return;
   }
@@ -2966,6 +3056,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await storage.ensureCustomerPaymentProfileCardFields();
   await storage.ensureDefaultAdminUser();
   await storage.ensureDefaultEmailTemplates();
+  await rebuildLeadStatusFiles();
 
   const uploadsDir = path.resolve("uploads");
   const brandingUploadsDir = path.join(uploadsDir, "branding");
