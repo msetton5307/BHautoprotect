@@ -526,26 +526,40 @@ export default function AdminLeadDetail() {
     },
   });
 
-  const buildPolicyPayloadFromForm = (form: PolicyFormState): Record<string, unknown> => {
+  const buildPolicyPayloadFromForm = (
+    form: PolicyFormState,
+    options: { includeNulls?: boolean } = {},
+  ): Record<string, unknown> => {
+    const { includeNulls = false } = options;
     const payload: Record<string, unknown> = {};
 
-    if (form.package.trim().length > 0) {
-      payload.package = form.package.trim();
+    const packageValue = form.package.trim();
+    if (packageValue.length > 0) {
+      payload.package = packageValue;
+    } else if (includeNulls) {
+      payload.package = null;
     }
 
     if (form.policyStartDate) {
       payload.policyStartDate = new Date(form.policyStartDate).toISOString();
+    } else if (includeNulls) {
+      payload.policyStartDate = null;
     }
 
     if (form.expirationDate) {
       payload.expirationDate = new Date(form.expirationDate).toISOString();
+    } else if (includeNulls) {
+      payload.expirationDate = null;
     }
 
-    if (form.expirationMiles.trim().length > 0) {
-      const miles = Number(form.expirationMiles);
+    const expirationMilesInput = form.expirationMiles.trim();
+    if (expirationMilesInput.length > 0) {
+      const miles = Number(expirationMilesInput);
       if (!Number.isNaN(miles)) {
         payload.expirationMiles = miles;
       }
+    } else if (includeNulls) {
+      payload.expirationMiles = null;
     }
 
     const currencyFields: (keyof PolicyFormState)[] = [
@@ -558,6 +572,8 @@ export default function AdminLeadDetail() {
       const cents = parseCurrencyInput(form[field]);
       if (cents !== null) {
         payload[field] = cents;
+      } else if (includeNulls && form[field].trim().length === 0) {
+        payload[field] = null;
       }
     }
 
@@ -567,14 +583,94 @@ export default function AdminLeadDetail() {
       if (!Number.isNaN(parsed)) {
         payload.totalPayments = parsed;
       }
+    } else if (includeNulls) {
+      payload.totalPayments = null;
     }
 
     const deductibleDollars = parseDollarInput(form.deductible);
     if (deductibleDollars !== null) {
       payload.deductible = deductibleDollars;
+    } else if (includeNulls && form.deductible.trim().length === 0) {
+      payload.deductible = null;
     }
 
     return payload;
+  };
+
+  const normalizePolicyDateValue = (value: unknown): string | null => {
+    if (!value) {
+      return null;
+    }
+    const date = value instanceof Date ? value : new Date(value as string);
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  };
+
+  const normalizePolicyNumberValue = (value: unknown): number | null => {
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : null;
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        return null;
+      }
+      const parsed = Number(trimmed);
+      return Number.isNaN(parsed) ? null : parsed;
+    }
+    return null;
+  };
+
+  const normalizePolicyStringValue = (value: unknown): string | null => {
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const buildPolicyUpdatePayload = (
+    form: PolicyFormState,
+    currentPolicy: any | undefined,
+  ): Record<string, unknown> => {
+    const includeNulls = Boolean(currentPolicy);
+    const candidate = buildPolicyPayloadFromForm(form, { includeNulls });
+
+    if (!currentPolicy) {
+      return candidate;
+    }
+
+    const updates: Record<string, unknown> = {};
+
+    for (const [field, nextValue] of Object.entries(candidate)) {
+      let currentNormalized: string | number | null | undefined;
+      let nextNormalized: string | number | null | undefined;
+
+      if (field === 'policyStartDate' || field === 'expirationDate') {
+        currentNormalized = normalizePolicyDateValue(currentPolicy[field]);
+        nextNormalized = normalizePolicyDateValue(nextValue);
+      } else if (field === 'package') {
+        currentNormalized = normalizePolicyStringValue(currentPolicy[field]);
+        nextNormalized = normalizePolicyStringValue(nextValue);
+      } else {
+        currentNormalized = normalizePolicyNumberValue(currentPolicy[field]);
+        nextNormalized = normalizePolicyNumberValue(nextValue);
+      }
+
+      if (nextNormalized === currentNormalized) {
+        continue;
+      }
+
+      if (
+        nextNormalized === null &&
+        (currentNormalized === null || currentNormalized === undefined)
+      ) {
+        continue;
+      }
+
+      updates[field] = nextValue;
+    }
+
+    return updates;
   };
 
   const convertLeadMutation = useMutation({
@@ -1250,10 +1346,8 @@ export default function AdminLeadDetail() {
     const sanitizedLeadUpdates = sanitizeLeadUpdates(leadUpdates);
     const payload: any = { ...sanitizedLeadUpdates };
     if (Object.keys(vehiclePayload).length > 0) payload.vehicle = vehiclePayload;
-    if (existingPolicy) {
-      const policyPayload = buildPolicyPayloadFromForm(policyForm);
-      if (Object.keys(policyPayload).length > 0) payload.policy = policyPayload;
-    }
+    const policyPayload = buildPolicyUpdatePayload(policyForm, existingPolicy);
+    if (Object.keys(policyPayload).length > 0) payload.policy = policyPayload;
     updateLeadMutation.mutate(payload);
   };
 
