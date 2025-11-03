@@ -21,6 +21,7 @@ export const planTypeEnum = pgEnum('plan_type', ['basic', 'silver', 'gold']);
 export const leadStatusEnum = pgEnum('lead_status', [
   'new',
   'quoted',
+  'qualified',
   'callback',
   'left-message',
   'no-contact',
@@ -29,6 +30,7 @@ export const leadStatusEnum = pgEnum('lead_status', [
   'not-interested',
   'duplicate-lead',
   'dnc',
+  'converted',
   'sold',
 ]);
 export const quoteStatusEnum = pgEnum('quote_status', ['draft', 'sent', 'accepted', 'rejected']);
@@ -113,6 +115,7 @@ export const leads = pgTable("leads", {
   utmSource: varchar("utm_source"),
   utmMedium: varchar("utm_medium"),
   utmCampaign: varchar("utm_campaign"),
+  subId: varchar('sub_id'),
   rawPayload: jsonb("raw_payload"),
   createdAt: timestamp("created_at").defaultNow(),
 });
