@@ -73,8 +73,8 @@ function formatDeductible(value: number | null | undefined): string {
   return currencyFormatter.format(value);
 }
 
-function computeMonthlyTotal(policies: CustomerPolicy[]): number {
-  return policies.reduce((total, policy) => total + (policy.monthlyPayment ?? 0), 0);
+function computeTotalPremium(policies: CustomerPolicy[]): number {
+  return policies.reduce((total, policy) => total + (policy.totalPremium ?? 0), 0);
 }
 
 function computeOpenClaims(claims: CustomerClaim[]): number {
@@ -123,7 +123,7 @@ export default function CustomerPortalOverview({ session }: Props) {
     [documentsQuery.data],
   );
 
-  const monthlyTotal = computeMonthlyTotal(policies);
+  const totalPremium = computeTotalPremium(policies);
   const activeClaims = computeOpenClaims(claims);
   const outstandingDocuments = useMemo(
     () =>
@@ -228,9 +228,9 @@ export default function CustomerPortalOverview({ session }: Props) {
             isLoading={claimsQuery.isLoading}
           />
           <StatCard
-            label="Monthly coverage"
-            value={monthlyTotal > 0 ? currencyFormatter.format(monthlyTotal) : "—"}
-            helper="Estimated recurring payment"
+            label="Total premium"
+            value={totalPremium > 0 ? formatFromCents(totalPremium) : "—"}
+            helper="Total premium on file"
             isLoading={policiesQuery.isLoading}
           />
           <StatCard
