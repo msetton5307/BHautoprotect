@@ -105,13 +105,6 @@ const rebuildLeadStatusFiles = async (): Promise<void> => {
     const quotedSet = new Set<string>();
     const convertedSet = new Set<string>();
 
-    const shouldTrackAsQuoted = (status: LeadStatus | undefined): boolean => {
-      if (!status) {
-        return false;
-      }
-      return QUOTED_STATUS_VALUES.includes(status) || isConvertedStatus(status);
-    };
-
     for (const lead of leads.slice().reverse()) {
       const subId = normalizeSubId(lead.subId);
       if (!subId) {
@@ -120,7 +113,7 @@ const rebuildLeadStatusFiles = async (): Promise<void> => {
 
       const status = lead.status as LeadStatus | undefined;
 
-      if (shouldTrackAsQuoted(status) && !quotedSet.has(subId)) {
+      if (shouldTrackAsQuotedStatus(status) && !quotedSet.has(subId)) {
         quotedSet.add(subId);
         quoted.push(subId);
       }
@@ -161,6 +154,15 @@ const isConvertedStatus = (status: LeadStatus | undefined): boolean => {
   return status !== undefined && CONVERTED_STATUS_VALUES.includes(status);
 };
 
+const shouldTrackAsQuotedStatus = (
+  status: LeadStatus | undefined,
+): boolean => {
+  if (!status) {
+    return false;
+  }
+  return QUOTED_STATUS_VALUES.includes(status) || isConvertedStatus(status);
+};
+
 const appendSubIdToFile = async (
   filePath: string,
   subId: string,
@@ -197,28 +199,49 @@ const appendSubIdToFile = async (
   }
 };
 
-const isQuotedStatus = (status: LeadStatus | undefined): boolean => {
-  return status === 'quoted';
-};
-
 const handleLeadStatusSideEffects = async (
   previousLead: Lead | undefined,
   updatedLead: Lead,
 ): Promise<void> => {
   const subId = normalizeSubId(updatedLead.subId);
+  const previousSubId = normalizeSubId(previousLead?.subId);
+  const previousStatus = previousLead?.status;
+  const currentStatus = updatedLead.status;
+  const previousQuoted = shouldTrackAsQuotedStatus(previousStatus as LeadStatus | undefined);
+  const currentQuoted = shouldTrackAsQuotedStatus(currentStatus as LeadStatus | undefined);
+  const previousConverted = isConvertedStatus(previousStatus as LeadStatus | undefined);
+  const currentConverted = isConvertedStatus(currentStatus as LeadStatus | undefined);
+  const subIdChanged = subId !== previousSubId;
+
   if (!subId) {
+    if (
+      (previousQuoted && previousSubId) ||
+      (previousConverted && previousSubId)
+    ) {
+      await rebuildLeadStatusFiles();
+    }
     return;
   }
 
-  const previousStatus = previousLead?.status;
-  const currentStatus = updatedLead.status;
+  const shouldAppendToQuoted =
+    currentQuoted && (!previousQuoted || subIdChanged);
+  const shouldAppendToConverted =
+    currentConverted && (!previousConverted || subIdChanged);
 
-  if (isQuotedStatus(currentStatus) && !isQuotedStatus(previousStatus)) {
+  if (shouldAppendToQuoted) {
     await appendSubIdToFile(QUOTED_LEADS_FILE_PATH, subId);
   }
 
-  if (isConvertedStatus(currentStatus) && !isConvertedStatus(previousStatus)) {
+  if (shouldAppendToConverted) {
     await appendSubIdToFile(CONVERTED_LEADS_FILE_PATH, subId);
+  }
+
+  if (
+    (previousQuoted && !currentQuoted) ||
+    (previousConverted && !currentConverted) ||
+    (previousSubId && subIdChanged && (previousQuoted || previousConverted))
+  ) {
+    await rebuildLeadStatusFiles();
   }
 };
 
@@ -3159,6 +3182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   );
 
   app.use("/uploads", express.static("uploads"));
+  app.use("/files", express.static(PUBLIC_FILES_DIRECTORY));
 
   const buildBrandingResponse = async () => {
     const setting = await storage.getSiteSetting(BRANDING_LOGO_SETTING_KEY);
