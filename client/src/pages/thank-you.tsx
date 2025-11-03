@@ -33,11 +33,20 @@ export default function ThankYou() {
               been successfully received, and our dedicated specialists are
               already reviewing your information.
             </p>
-            <p className="text-lg text-gray-700 mb-8">
-              A member of our team will be in touch within 24 hours to craft a
-              personalized protection plan for your vehicle. We look forward to
-              ensuring your driving experience remains smooth and worry-free.
-            </p>
+            <div className="mb-8 space-y-4 text-left">
+              <h2 className="text-2xl font-semibold text-gray-900">What's next?</h2>
+              <p className="text-lg text-gray-700">
+                A representative will reach out shortly with your personalized quote.
+                We automatically apply an exclusive $700 discount to whatever pricing we send your way.
+              </p>
+              <p className="text-lg text-gray-700">
+                Keep an eye on your inbox—we'll also email the offer so you have everything in writing.
+                The discount is yours to claim for the next 48 hours before it expires.
+              </p>
+              <p className="text-base text-gray-600">
+                Need to adjust anything? Just reply to the email or give us a call and we'll make sure your coverage fits your needs.
+              </p>
+            </div>
             <Button asChild className="px-8 py-6 text-lg">
               <a href="/">Return to Home</a>
             </Button>
