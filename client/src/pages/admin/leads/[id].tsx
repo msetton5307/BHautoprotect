@@ -1317,6 +1317,7 @@ export default function AdminLeadDetail() {
     delete result.createdAt;
     delete result.updatedAt;
     delete result.rawPayload;
+    delete result.subId;
     return result;
   };
 
@@ -1469,6 +1470,10 @@ export default function AdminLeadDetail() {
                         <Label>ID</Label>
                         <Input value={leadForm.id || ''} readOnly />
                         <input type="hidden" value={leadForm.id} />
+                      </div>
+                      <div>
+                        <Label>Sub ID</Label>
+                        <Input value={leadForm.subId || ''} readOnly />
                       </div>
                       <div>
                         <Label>Status</Label>
