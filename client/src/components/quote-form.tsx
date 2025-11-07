@@ -69,10 +69,13 @@ declare global {
           callback: (token: string) => void;
           "expired-callback"?: () => void;
           "error-callback"?: () => void;
+          size?: "invisible" | "compact" | "normal";
+          badge?: "bottomright" | "bottomleft" | "inline";
         },
       ) => number;
       ready: (callback: () => void) => void;
       reset: (widgetId?: number) => void;
+      execute: (widgetId: number) => void;
     };
   }
 }
@@ -370,6 +373,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
     const [recaptchaReady, setRecaptchaReady] = useState(false);
     const [recaptchaError, setRecaptchaError] = useState(false);
+    const pendingSubmissionRef = useRef(false);
     const recaptchaSiteKey =
       import.meta.env.VITE_RECAPTCHA_SITE_KEY ??
       "6LdzavUrAAAAAG40FqY9lEYBl451R5eDUHTAeSZg";
@@ -398,16 +402,20 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             recaptchaContainerRef.current,
             {
               sitekey: recaptchaSiteKey,
+              size: "invisible",
+              badge: "inline",
               callback: (token: string) => {
                 setRecaptchaToken(token);
                 setRecaptchaError(false);
               },
               "expired-callback": () => {
                 setRecaptchaToken(null);
+                pendingSubmissionRef.current = false;
               },
               "error-callback": () => {
                 setRecaptchaToken(null);
                 setRecaptchaError(true);
+                pendingSubmissionRef.current = false;
               },
             },
           );
@@ -486,6 +494,21 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       },
     });
 
+    const mutateQuote = submitQuoteMutation.mutate;
+
+    useEffect(() => {
+      if (!pendingSubmissionRef.current) {
+        return;
+      }
+
+      if (!recaptchaToken) {
+        return;
+      }
+
+      pendingSubmissionRef.current = false;
+      mutateQuote(quoteData);
+    }, [mutateQuote, quoteData, recaptchaToken]);
+
     const resetForm = () => {
       setQuoteData({
         vehicle: {
@@ -510,6 +533,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       setManualModel(false);
       setRecaptchaToken(null);
       setRecaptchaError(false);
+      pendingSubmissionRef.current = false;
       if (
         typeof window !== "undefined" &&
         window.grecaptcha &&
@@ -546,6 +570,10 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     };
 
     const submitQuote = () => {
+      if (submitQuoteMutation.isPending) {
+        return;
+      }
+
       if (!quoteData.consent.agreement) {
         toast({
           title: "Consent Required",
@@ -555,17 +583,44 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         return;
       }
 
-      if (!recaptchaToken) {
-        setRecaptchaError(true);
+      if (!recaptchaReady) {
         toast({
-          title: "Verification Required",
-          description: "Please confirm you are not a robot before continuing.",
+          title: "Verification Initializing",
+          description: "Please wait a moment and try again.",
           variant: "destructive",
         });
         return;
       }
 
-      submitQuoteMutation.mutate(quoteData);
+      if (
+        typeof window === "undefined" ||
+        !window.grecaptcha ||
+        recaptchaWidgetIdRef.current === null
+      ) {
+        setRecaptchaError(true);
+        toast({
+          title: "Verification Error",
+          description: "We couldn't verify your submission. Please refresh and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      pendingSubmissionRef.current = true;
+      setRecaptchaError(false);
+      setRecaptchaToken(null);
+
+      try {
+        window.grecaptcha.execute(recaptchaWidgetIdRef.current);
+      } catch (error) {
+        pendingSubmissionRef.current = false;
+        setRecaptchaError(true);
+        toast({
+          title: "Verification Error",
+          description: "We couldn't verify your submission. Please refresh and try again.",
+          variant: "destructive",
+        });
+      }
     };
 
     const handleVehicleChange = (field: keyof QuoteData["vehicle"], value: string) => {
@@ -905,15 +960,35 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         </div>
 
         <div className="space-y-2">
-          <Label className="text-sm font-medium text-gray-900">Verification</Label>
           <div
             ref={recaptchaContainerRef}
-            className="mt-1"
+            className="hidden"
             data-sitekey={recaptchaSiteKey}
           />
-          {!recaptchaReady && <p className="text-xs text-gray-500">Loading verification...</p>}
+          <p className="text-xs text-gray-500">
+            This site is protected by reCAPTCHA and the Google
+            {" "}
+            <a
+              href="https://policies.google.com/privacy"
+              className="text-primary hover:underline"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Privacy Policy
+            </a>
+            {" "}and{" "}
+            <a
+              href="https://policies.google.com/terms"
+              className="text-primary hover:underline"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Terms of Service
+            </a>
+            {" "}apply.
+          </p>
           {recaptchaError && (
-            <p className="text-xs font-semibold text-destructive">Please verify that you are not a robot.</p>
+            <p className="text-xs font-semibold text-destructive">Verification failed. Please try again.</p>
           )}
         </div>
 
