@@ -44,9 +44,7 @@ interface QuoteData {
     year: string;
     make: string;
     model: string;
-    trim: string;
     odometer: string;
-    vin: string;
     usage: string;
   };
   owner: {
@@ -54,12 +52,10 @@ interface QuoteData {
     lastName: string;
     email: string;
     phone: string;
-    zip: string;
     state: string;
   };
   consent: {
-    tcpa: boolean;
-    terms: boolean;
+    agreement: boolean;
   };
 }
 
@@ -98,9 +94,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         year: "",
         make: "",
         model: "",
-        trim: "",
         odometer: "",
-        vin: "",
         usage: "personal",
       },
       owner: {
@@ -108,12 +102,10 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         lastName: "",
         email: "",
         phone: "",
-        zip: "",
         state: "",
       },
       consent: {
-        tcpa: false,
-        terms: false,
+        agreement: false,
       },
     });
     const [manualMake, setManualMake] = useState(false);
@@ -456,17 +448,14 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             lastName: data.owner.lastName,
             email: data.owner.email,
             phone: data.owner.phone,
-            zip: data.owner.zip,
             state: data.owner.state,
-            consentTCPA: data.consent.tcpa,
+            consentTCPA: data.consent.agreement,
             source: leadSource,
           },
           vehicle: {
             year: parseInt(data.vehicle.year),
             make: data.vehicle.make,
             model: data.vehicle.model,
-            trim: data.vehicle.trim || null,
-            vin: data.vehicle.vin || null,
             odometer: parseInt(data.vehicle.odometer),
             usage: data.vehicle.usage,
           },
@@ -503,9 +492,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           year: "",
           make: "",
           model: "",
-          trim: "",
           odometer: "",
-          vin: "",
           usage: "personal",
         },
         owner: {
@@ -513,12 +500,10 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           lastName: "",
           email: "",
           phone: "",
-          zip: "",
           state: "",
         },
         consent: {
-          tcpa: false,
-          terms: false,
+          agreement: false,
         },
       });
       setManualMake(false);
@@ -561,10 +546,10 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     };
 
     const submitQuote = () => {
-      if (!quoteData.consent.tcpa || !quoteData.consent.terms) {
+      if (!quoteData.consent.agreement) {
         toast({
           title: "Consent Required",
-          description: "Please accept all required consents to continue.",
+          description: "Please accept the consent terms to continue.",
           variant: "destructive",
         });
         return;
@@ -609,16 +594,16 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       }));
     };
 
-    const handleConsentChange = (field: string, value: boolean) => {
+    const handleConsentChange = (value: boolean) => {
       setQuoteData((prev) => ({
         ...prev,
-        consent: { ...prev.consent, [field]: value },
+        consent: { agreement: value },
       }));
     };
 
     const validateRequiredFields = () => {
       const { year, make, model, odometer } = quoteData.vehicle;
-      const { firstName, lastName, email, phone, zip, state } = quoteData.owner;
+      const { firstName, lastName, email, phone, state } = quoteData.owner;
 
       if (!year || !make || !model || !odometer) {
         toast({
@@ -629,7 +614,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         return false;
       }
 
-      if (!firstName || !lastName || !email || !phone || !zip || !state) {
+      if (!firstName || !lastName || !email || !phone || !state) {
         toast({
           title: "Missing Contact Information",
           description: "Please complete all required contact fields.",
@@ -651,20 +636,25 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     };
 
     return (
-      <form ref={ref} onSubmit={handleSubmit} className={cn("space-y-8", className)}>
-        <div className="space-y-3">
-          <h2 className="text-3xl font-bold text-gray-900">{title}</h2>
-          <p className="text-gray-500">{description}</p>
+      <form
+        ref={ref}
+        onSubmit={handleSubmit}
+        className={cn(
+          "space-y-6 rounded-2xl border border-gray-100 bg-white/95 p-6 text-slate-900 shadow-lg backdrop-blur",
+          className,
+        )}
+      >
+        <div className="space-y-2">
+          <h2 className="text-2xl font-semibold text-gray-900">{title}</h2>
+          <p className="text-sm text-gray-600">{description}</p>
         </div>
 
-        <section className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-slate-900">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">Vehicle information</h3>
-              <p className="text-sm text-gray-500">Tell us about the car or truck you'd like to protect.</p>
-            </div>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-gray-900">Vehicle information</h3>
+            <p className="text-sm text-gray-500">Tell us about the car or truck you'd like to protect.</p>
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="year">Year</Label>
               <Input
@@ -801,15 +791,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                 </div>
               )}
             </div>
-            <div>
-              <Label htmlFor="trim">Trim (Optional)</Label>
-              <Input
-                id="trim"
-                placeholder="Trim level (if known)"
-                value={quoteData.vehicle.trim}
-                onChange={(e) => handleVehicleChange("trim", e.target.value)}
-              />
-            </div>
             <div className="md:col-span-2">
               <Label htmlFor="odometer">Odometer reading</Label>
               <Input
@@ -821,28 +802,15 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                 required
               />
             </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="vin">VIN (optional)</Label>
-              <Input
-                id="vin"
-                type="text"
-                placeholder="17-character VIN"
-                value={quoteData.vehicle.vin}
-                onChange={(e) => handleVehicleChange("vin", e.target.value)}
-              />
-              <p className="text-sm text-gray-500 mt-1">Providing your VIN helps us give you a more accurate quote.</p>
-            </div>
           </div>
-        </section>
+        </div>
 
-        <section className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-slate-900">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h3 className="text-xl font-semibold text-gray-900">Contact details</h3>
-              <p className="text-sm text-gray-500">We'll deliver your quote and follow up with any questions.</p>
-            </div>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-gray-900">Contact information</h3>
+            <p className="text-sm text-gray-500">We'll deliver your quote and follow up with any questions.</p>
           </div>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label htmlFor="firstName">First name</Label>
               <Input
@@ -882,15 +850,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
               />
             </div>
             <div>
-              <Label htmlFor="zip">ZIP code</Label>
-              <Input
-                id="zip"
-                value={quoteData.owner.zip}
-                onChange={(e) => handleOwnerChange("zip", e.target.value)}
-                required
-              />
-            </div>
-            <div>
               <Label htmlFor="state">State</Label>
               <Select value={quoteData.owner.state} onValueChange={(value) => handleOwnerChange("state", value)} required>
                 <SelectTrigger id="state">
@@ -906,79 +865,58 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
               </Select>
             </div>
           </div>
-        </section>
-
-        <section className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-slate-900 space-y-4">
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900">Consent &amp; terms</h3>
-            <p className="text-sm text-gray-500">
-              We respect your privacy and will only use your information to share quote details and coverage options.
-            </p>
-          </div>
-          <div className="space-y-3">
-            <div className="flex items-start">
-              <Checkbox
-                id="tcpa"
-                checked={quoteData.consent.tcpa}
-                onCheckedChange={(checked) => handleConsentChange("tcpa", !!checked)}
-                className="mt-1"
-              />
-              <Label htmlFor="tcpa" className="ml-3 text-sm space-y-2">
-                <span>
-                  By submitting this form I consent to BH Auto Protect contacting me about vehicle protection services using
-                  automated calls, prerecorded voice messages, SMS/text messages, or email at the information provided above.
-                  Message and data rates may apply. Messaging frequency may vary.
-                </span>
-                <span>
-                  Reply STOP to unsubscribe. Consent is not required to receive services and I may call BH Auto Protect
-                  directly at <a href="tel:+18339400234" className="text-primary font-semibold">(833) 940-0234</a>. I
-                  consent to BH Auto Protect's <a href="/legal/terms" className="text-primary hover:underline">mobile terms
-                  and conditions</a> and <a href="/legal/privacy" className="text-primary hover:underline">privacy
-                  statement</a>.
-                </span>
-              </Label>
-            </div>
-            <div className="flex items-start">
-              <Checkbox
-                id="terms"
-                checked={quoteData.consent.terms}
-                onCheckedChange={(checked) => handleConsentChange("terms", !!checked)}
-                className="mt-1"
-              />
-              <Label htmlFor="terms" className="ml-3 text-sm">
-                I agree to the <a href="/legal/privacy" className="text-primary hover:underline">Privacy Policy</a> and
-                <a href="/legal/terms" className="text-primary hover:underline">Terms of Service</a>.
-              </Label>
-            </div>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-gray-100 bg-gray-50 p-6 text-slate-900 space-y-3">
-          <div>
-            <h3 className="text-xl font-semibold text-gray-900">Verification</h3>
-            <p className="text-sm text-gray-500">
-              Complete the reCAPTCHA challenge so we can process your quote request.
-            </p>
-          </div>
-          <div>
-            <div
-              ref={recaptchaContainerRef}
-              className="mt-2"
-              data-sitekey={recaptchaSiteKey}
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-xl bg-slate-100/70 p-4">
+            <Checkbox
+              id="consent"
+              checked={quoteData.consent.agreement}
+              onCheckedChange={(checked) => handleConsentChange(!!checked)}
+              className="mt-1"
             />
-            {!recaptchaReady && (
-              <p className="text-sm text-gray-500 mt-2">Loading verification...</p>
-            )}
-            {recaptchaError && (
-              <p className="text-sm font-medium text-destructive mt-2">
-                Please verify that you are not a robot.
-              </p>
-            )}
+            <Label htmlFor="consent" className="text-xs font-medium leading-relaxed text-gray-600">
+              By submitting this form I consent to BH Auto Protect contacting me about vehicle protection services using
+              automated calls, prerecorded voice messages, SMS/text messages, or email at the information provided above.
+              Message and data rates may apply and messaging frequency may vary. Reply STOP to unsubscribe. Consent is not
+              required to receive services and I may call BH Auto Protect directly at{" "}
+              <a href="tel:+18339400234" className="text-primary font-semibold">
+                (833) 940-0234
+              </a>
+              . I consent to BH Auto Protect's{" "}
+              <a href="/legal/terms" className="text-primary hover:underline">
+                mobile terms and conditions
+              </a>{" "}
+              and{" "}
+              <a href="/legal/privacy" className="text-primary hover:underline">
+                privacy statement
+              </a>
+              , and I agree to the{" "}
+              <a href="/legal/privacy" className="text-primary hover:underline">
+                Privacy Policy
+              </a>{" "}
+              and{" "}
+              <a href="/legal/terms" className="text-primary hover:underline">
+                Terms of Service
+              </a>
+              .
+            </Label>
           </div>
-        </section>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-gray-900">Verification</Label>
+          <div
+            ref={recaptchaContainerRef}
+            className="mt-1"
+            data-sitekey={recaptchaSiteKey}
+          />
+          {!recaptchaReady && <p className="text-xs text-gray-500">Loading verification...</p>}
+          {recaptchaError && (
+            <p className="text-xs font-semibold text-destructive">Please verify that you are not a robot.</p>
+          )}
+        </div>
 
         <div className="flex justify-end pt-2">
-          <Button type="submit" disabled={submitQuoteMutation.isPending} className="bg-accent hover:bg-green-600 px-8">
+          <Button type="submit" disabled={submitQuoteMutation.isPending} className="bg-accent px-8 hover:bg-green-600">
             {submitQuoteMutation.isPending ? "Submitting..." : submitLabel}
           </Button>
         </div>
