@@ -25,12 +25,6 @@ const perks = [
   },
 ];
 
-const inclusions = [
-  "Roadside assistance, towing, and rental car coverage",
-  "Fast claims with 24/7 support from live specialists",
-  "Flexible deductibles that match how you drive",
-];
-
 const milestones = [
   { label: "15,000+ vehicles protected", sublabel: "Families, commuters, and car lovers nationwide" },
   { label: "4.8/5 satisfaction", sublabel: "Drivers love our fast, no-hassle claims" },
@@ -52,7 +46,7 @@ export default function PromoPage() {
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-secondary to-primary p-10 text-white shadow-2xl sm:p-16">
           <div className="absolute -left-32 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-white/10 blur-3xl" aria-hidden />
           <div className="absolute -right-20 top-10 h-56 w-56 rounded-full bg-white/10 blur-3xl" aria-hidden />
-          <div className="relative grid gap-12 lg:grid-cols-[1.2fr,1fr] lg:items-center">
+          <div className="relative grid gap-12 lg:grid-cols-[1.15fr,1fr] lg:items-start">
             <div className="space-y-8">
               <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.28em] text-white/90">
                 <Sparkles className="h-4 w-4" /> VIP Promo Event
@@ -88,29 +82,13 @@ export default function PromoPage() {
                 ))}
               </div>
             </div>
-            <div className="relative">
-              <div className="rounded-3xl bg-white/10 p-6 backdrop-blur">
-                <div className="rounded-2xl bg-white p-6 text-slate-900 shadow-lg sm:p-8">
-                  <div className="space-y-3 text-center">
-                    <p className="inline-flex items-center justify-center gap-2 rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.28em] text-emerald-700">
-                      <Gift className="h-4 w-4" /> Bonus Included
-                    </p>
-                    <h2 className="text-2xl font-bold">We pay the first $700</h2>
-                    <p className="text-sm text-slate-600">
-                      Submit your information today and our team will call with a quote that already includes the discount. No hidden hoops—just premium coverage for less.
-                    </p>
-                  </div>
-                  <ul className="mt-6 space-y-3 text-sm text-slate-600">
-                    {inclusions.map((item) => (
-                      <li key={item} className="flex items-start gap-3">
-                        <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-500" />
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
+            <QuoteForm
+              ref={formRef}
+              title="Lock in your $700 discount"
+              description="Complete the form below and we’ll prepare a custom quote with the promo automatically applied."
+              submitLabel="Send me my discounted quote"
+              leadSource="promo-700-off"
+            />
           </div>
         </section>
 
@@ -129,7 +107,7 @@ export default function PromoPage() {
           ))}
         </section>
 
-        <section className="grid gap-12 lg:grid-cols-[1.1fr,1fr] lg:items-center">
+        <section className="grid gap-12 lg:grid-cols-[1.1fr,1fr] lg:items-start">
           <div className="space-y-6">
             <h2 className="text-3xl font-bold text-white sm:text-4xl">Secure your discounted quote in two minutes</h2>
             <p className="text-base text-blue-100">
@@ -153,16 +131,24 @@ export default function PromoPage() {
               </ol>
             </div>
           </div>
-
-          <div className="rounded-3xl border border-white/10 bg-slate-900/60 p-6 shadow-2xl sm:p-8">
-            <QuoteForm
-              ref={formRef}
-              className="bg-transparent"
-              title="Lock in your $700 discount"
-              description="Complete the form below and we’ll prepare a custom quote with the promo automatically applied."
-              submitLabel="Send me my discounted quote"
-              leadSource="promo-700-off"
-            />
+          <div className="rounded-3xl border border-white/10 bg-white/10 p-6 text-blue-50 shadow-2xl backdrop-blur sm:p-8">
+            <div className="space-y-4">
+              <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/80">Every plan includes</p>
+              <ul className="space-y-4 text-sm text-blue-100">
+                <li className="flex items-start gap-3">
+                  <Check className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-300" />
+                  <span>Roadside assistance, towing, and rental car coverage</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-300" />
+                  <span>Fast claims with 24/7 support from live specialists</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-300" />
+                  <span>Flexible deductibles that match how you drive</span>
+                </li>
+              </ul>
+            </div>
           </div>
         </section>
       </main>
