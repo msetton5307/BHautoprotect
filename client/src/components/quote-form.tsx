@@ -119,6 +119,76 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     const [manualMake, setManualMake] = useState(false);
     const [manualModel, setManualModel] = useState(false);
 
+    useEffect(() => {
+      if (typeof window === "undefined") {
+        return;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      if (Array.from(params.keys()).length === 0) {
+        return;
+      }
+
+      setQuoteData((prev) => {
+        const next: QuoteData = {
+          vehicle: { ...prev.vehicle },
+          owner: { ...prev.owner },
+          consent: { ...prev.consent },
+        };
+        let updated = false;
+
+        const assignVehicleField = (
+          field: keyof QuoteData["vehicle"],
+          value: string | null,
+        ) => {
+          const trimmed = value?.trim();
+          if (!trimmed) {
+            return;
+          }
+          next.vehicle[field] = trimmed;
+          updated = true;
+        };
+
+        const assignOwnerField = (
+          field: keyof QuoteData["owner"],
+          value: string | null,
+        ) => {
+          const trimmed = value?.trim();
+          if (!trimmed) {
+            return;
+          }
+          next.owner[field] = trimmed;
+          updated = true;
+        };
+
+        assignVehicleField("year", params.get("year"));
+        assignVehicleField("make", params.get("make"));
+        assignVehicleField("model", params.get("model"));
+        assignVehicleField("odometer", params.get("mileage"));
+
+        assignOwnerField("firstName", params.get("first_name"));
+        assignOwnerField("lastName", params.get("last_name"));
+        assignOwnerField("email", params.get("email"));
+        assignOwnerField("phone", params.get("phone"));
+
+        const stateParam = params.get("state");
+        if (stateParam?.trim()) {
+          const normalizedState = stateParam.trim().toLowerCase();
+          const matchedState = US_STATES.find(
+            (state) =>
+              state.value.toLowerCase() === normalizedState ||
+              state.label.toLowerCase() === normalizedState,
+          );
+          if (matchedState) {
+            next.owner.state = matchedState.value;
+            updated = true;
+          }
+        }
+
+        return updated ? next : prev;
+      });
+    }, []);
+
     const {
       data: fetchedVehicleMakes,
       isLoading: vehicleMakesLoading,
@@ -232,6 +302,56 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       isFourDigitYear,
       manualMake,
       selectedMake,
+      vehicleModels,
+      vehicleModelsError,
+      vehicleModelsLoading,
+    ]);
+
+    useEffect(() => {
+      if (vehicleMakesLoading) {
+        return;
+      }
+
+      const makeValue = quoteData.vehicle.make.trim();
+      if (!makeValue) {
+        return;
+      }
+
+      const makeExists = vehicleMakes.some(
+        (make) => make.name.toLowerCase() === makeValue.toLowerCase(),
+      );
+
+      if (!makeExists && !manualMake) {
+        setManualMake(true);
+      }
+    }, [
+      manualMake,
+      quoteData.vehicle.make,
+      vehicleMakes,
+      vehicleMakesLoading,
+    ]);
+
+    useEffect(() => {
+      if (manualMake || vehicleModelsLoading || vehicleModelsError) {
+        return;
+      }
+
+      const modelValue = quoteData.vehicle.model.trim();
+      if (!modelValue) {
+        return;
+      }
+
+      const modelExists = vehicleModels.some(
+        (model) => model.toLowerCase() === modelValue.toLowerCase(),
+      );
+
+      if (!modelExists && !manualModel) {
+        setManualModel(true);
+      }
+    }, [
+      manualMake,
+      manualModel,
+      quoteData.vehicle.model,
       vehicleModels,
       vehicleModelsError,
       vehicleModelsLoading,
