@@ -865,6 +865,8 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
               </Select>
             </div>
           </div>
+        </div>
+
         <div className="space-y-4">
           <div className="flex items-start gap-3 rounded-xl bg-slate-100/70 p-4">
             <Checkbox
