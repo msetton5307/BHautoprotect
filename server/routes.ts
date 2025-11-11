@@ -3474,6 +3474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     const policyId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    const logContext: { policyId: string; email?: string; customerName?: string } = { policyId };
     if (!policyId) {
       res.status(400).json({ message: 'Policy ID is required' });
       return;
@@ -3502,6 +3503,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const lastName = pickString(lead?.lastName);
       const leadName = [firstName, lastName].filter(Boolean).join(' ').trim();
       const resolvedName = pickString(leadName, primaryCustomer?.displayName, primaryCustomer?.email) ?? email;
+      logContext.email = email;
+      logContext.customerName = resolvedName;
 
       const addressLine = pickString(lead?.shippingAddress, lead?.billingAddress);
       const city = pickString(lead?.shippingCity, lead?.billingCity);
@@ -3555,9 +3558,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         list: { Country: 'USA' },
       };
 
+      const fieldSummary = {
+        fullName: Object.keys(fields.fullName ?? {}),
+        email: Object.keys(fields.email ?? {}),
+        text: Object.keys(fields.text ?? {}),
+        numerical: Object.keys(fields.numerical ?? {}),
+        list: Object.keys(fields.list ?? {}),
+      };
+
+      console.info('Sending DocuSign contract envelope', { ...logContext, fieldSummary });
+
       const envelope = await sendContractEnvelope({
         customer: { name: resolvedName, email },
         fields,
+      });
+
+      console.info('DocuSign contract envelope sent', {
+        ...logContext,
+        envelopeId: envelope.envelopeId,
+        status: envelope.status,
       });
 
       res.json({
@@ -3565,7 +3584,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Contract sent successfully',
       });
     } catch (error) {
-      console.error('Error sending DocuSign contract:', error);
+      console.error('Error sending DocuSign contract', { ...logContext, error });
       const message = error instanceof Error ? error.message : 'Failed to send contract';
       res.status(500).json({ message });
     }

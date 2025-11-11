@@ -1,6 +1,7 @@
 import net from "node:net";
 import tls from "node:tls";
 import os from "node:os";
+import { randomUUID } from "node:crypto";
 
 const parseBoolean = (value: string | undefined, fallback = false): boolean => {
   if (value === undefined || value === null) return fallback;
@@ -230,6 +231,8 @@ const buildDataBlock = (options: MailRequestResolved): string => {
   }
   headers.push(`Subject: ${options.subject}`);
   headers.push("MIME-Version: 1.0");
+  headers.push(`Date: ${options.sentAt.toUTCString()}`);
+  headers.push(`Message-ID: ${options.messageId}`);
 
   const attachments = (options.attachments ?? []).filter((attachment) => {
     return Boolean(attachment && attachment.contentType && attachment.content !== undefined);
@@ -352,6 +355,12 @@ export type MailAttachment = {
   contentId?: string;
 };
 
+const createMessageId = (from: string): string => {
+  const [, domainCandidate] = from.split("@");
+  const domain = domainCandidate?.trim() || smtpHost || "localhost";
+  return `<${randomUUID()}@${domain}>`;
+};
+
 type MailRequestResolved = {
   from: string;
   to: string[];
@@ -360,6 +369,8 @@ type MailRequestResolved = {
   html?: string;
   replyTo?: string;
   attachments?: MailAttachment[];
+  messageId: string;
+  sentAt: Date;
 };
 
 export type MailRequest = {
@@ -370,6 +381,7 @@ export type MailRequest = {
   html?: string;
   replyTo?: string;
   attachments?: MailAttachment[];
+  messageId?: string;
 };
 
 export async function sendMail(request: MailRequest): Promise<void> {
@@ -399,9 +411,20 @@ export async function sendMail(request: MailRequest): Promise<void> {
       request.attachments && request.attachments.length > 0
         ? [...request.attachments]
         : undefined,
+    messageId: request.messageId?.trim() || createMessageId(request.from || smtpFrom!),
+    sentAt: new Date(),
   };
 
   let socket: SmtpSocket | undefined;
+  const logContext = {
+    to: resolved.to,
+    subject: resolved.subject,
+    messageId: resolved.messageId,
+    attachmentCount: resolved.attachments?.length ?? 0,
+  };
+
+  console.info("[mail] Sending email", logContext);
+
   try {
     socket = await establishConnection();
     const ehloResponse = await sendCommand(socket, `EHLO ${smtpClientName}`, 250);
@@ -435,6 +458,10 @@ export async function sendMail(request: MailRequest): Promise<void> {
     }
 
     await sendCommand(socket, "QUIT", 221);
+    console.info("[mail] Email sent", { ...logContext, responseCode: dataResponse.code });
+  } catch (error) {
+    console.error("[mail] Failed to send email", { ...logContext, error });
+    throw error;
   } finally {
     if (socket) {
       socket.end();
