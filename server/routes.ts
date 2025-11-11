@@ -68,7 +68,7 @@ const CONVERTED_LEADS_FILE_PATH = path.join(
   "converted.txt",
 );
 const CONVERTED_STATUS_VALUES: LeadStatus[] = ['converted', 'sold'];
-const QUOTED_STATUS_VALUES: LeadStatus[] = ['quoted'];
+const QUOTED_STATUS_VALUES: LeadStatus[] = ['quoted', 'callback'];
 
 const normalizeSubId = (value: unknown): string | null => {
   if (typeof value !== 'string') {
@@ -99,7 +99,16 @@ const writeSubIdsToFile = async (
 
 const rebuildLeadStatusFiles = async (): Promise<void> => {
   try {
-    const leads = await storage.getLeads({});
+    const [leads, policies] = await Promise.all([
+      storage.getLeads({}),
+      storage.getPolicies(),
+    ]);
+    const leadsWithPolicies = new Set<string>();
+    for (const policy of policies) {
+      if (policy.leadId) {
+        leadsWithPolicies.add(policy.leadId);
+      }
+    }
     const quoted: string[] = [];
     const converted: string[] = [];
     const quotedSet = new Set<string>();
@@ -112,13 +121,14 @@ const rebuildLeadStatusFiles = async (): Promise<void> => {
       }
 
       const status = lead.status as LeadStatus | undefined;
+      const hasPolicy = leadsWithPolicies.has(lead.id);
 
-      if (shouldTrackAsQuotedStatus(status) && !quotedSet.has(subId)) {
+      if (shouldTrackLeadForQualifiedFile(status, hasPolicy) && !quotedSet.has(subId)) {
         quotedSet.add(subId);
         quoted.push(subId);
       }
 
-      if (isConvertedStatus(status) && !convertedSet.has(subId)) {
+      if (shouldTrackLeadForConvertedFile(status, hasPolicy) && !convertedSet.has(subId)) {
         convertedSet.add(subId);
         converted.push(subId);
       }
@@ -154,14 +164,28 @@ const isConvertedStatus = (status: LeadStatus | undefined): boolean => {
   return status !== undefined && CONVERTED_STATUS_VALUES.includes(status);
 };
 
-const shouldTrackAsQuotedStatus = (
+function shouldTrackAsQuotedStatus(
   status: LeadStatus | undefined,
-): boolean => {
+): boolean {
   if (!status) {
     return false;
   }
   return QUOTED_STATUS_VALUES.includes(status) || isConvertedStatus(status);
-};
+}
+
+function shouldTrackLeadForQualifiedFile(
+  status: LeadStatus | undefined,
+  hasPolicy: boolean,
+): boolean {
+  return shouldTrackAsQuotedStatus(status) || hasPolicy;
+}
+
+function shouldTrackLeadForConvertedFile(
+  status: LeadStatus | undefined,
+  hasPolicy: boolean,
+): boolean {
+  return isConvertedStatus(status) || hasPolicy;
+}
 
 const appendSubIdToFile = async (
   filePath: string,
@@ -205,12 +229,13 @@ const handleLeadStatusSideEffects = async (
 ): Promise<void> => {
   const subId = normalizeSubId(updatedLead.subId);
   const previousSubId = normalizeSubId(previousLead?.subId);
-  const previousStatus = previousLead?.status;
-  const currentStatus = updatedLead.status;
-  const previousQuoted = shouldTrackAsQuotedStatus(previousStatus as LeadStatus | undefined);
-  const currentQuoted = shouldTrackAsQuotedStatus(currentStatus as LeadStatus | undefined);
-  const previousConverted = isConvertedStatus(previousStatus as LeadStatus | undefined);
-  const currentConverted = isConvertedStatus(currentStatus as LeadStatus | undefined);
+  const previousStatus = previousLead?.status as LeadStatus | undefined;
+  const currentStatus = updatedLead.status as LeadStatus | undefined;
+  const hasPolicy = Boolean(await storage.getPolicyByLeadId(updatedLead.id));
+  const previousQuoted = shouldTrackLeadForQualifiedFile(previousStatus, hasPolicy);
+  const currentQuoted = shouldTrackLeadForQualifiedFile(currentStatus, hasPolicy);
+  const previousConverted = shouldTrackLeadForConvertedFile(previousStatus, hasPolicy);
+  const currentConverted = shouldTrackLeadForConvertedFile(currentStatus, hasPolicy);
   const subIdChanged = subId !== previousSubId;
 
   if (!subId) {
