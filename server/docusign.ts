@@ -1,5 +1,9 @@
 import { createSign, randomUUID } from "crypto";
 
+type TabClass<T> = {
+  constructFromObject(data: Record<string, unknown>): T;
+};
+
 type DocuSignConfig = {
   integrationKey: string;
   userId: string;
@@ -102,10 +106,11 @@ const getConfig = (): DocuSignConfig => {
 
 const createJwtAssertion = (config: DocuSignConfig): string => {
   const now = Math.floor(Date.now() / 1000);
+  const audience = new URL(config.authBaseUrl).host;
   const payload = {
     iss: config.integrationKey,
     sub: config.userId,
-    aud: config.authBaseUrl,
+    aud: audience,
     scope: "signature impersonation",
     iat: now,
     exp: now + 5 * 60,
@@ -142,7 +147,9 @@ const requestAccessToken = async (config: DocuSignConfig): Promise<string> => {
   return data.access_token;
 };
 
-const mapFieldEntries = (fields: DocuSignFieldMap | undefined): Array<{ tabLabel: string; value: string }> => {
+const mapFieldEntries = (
+  fields: DocuSignFieldMap | undefined,
+): Array<{ tabLabel: string; value: string }> => {
   if (!fields) {
     return [];
   }
@@ -186,7 +193,7 @@ const buildTabs = (fields: DocuSignContractFields):
       fullNameTabs?: Array<{ tabLabel: string; value: string }>;
       emailTabs?: Array<{ tabLabel: string; value: string }>;
       textTabs?: Array<{ tabLabel: string; value: string }>;
-      numberTabs?: Array<{ tabLabel: string; value: string }>;
+      numericalTabs?: Array<{ tabLabel: string; value: string }>;
       listTabs?: Array<{ tabLabel: string; value: string }>;
     }
   | undefined => {
@@ -200,7 +207,7 @@ const buildTabs = (fields: DocuSignContractFields):
     fullNameTabs?: Array<{ tabLabel: string; value: string }>;
     emailTabs?: Array<{ tabLabel: string; value: string }>;
     textTabs?: Array<{ tabLabel: string; value: string }>;
-    numberTabs?: Array<{ tabLabel: string; value: string }>;
+    numericalTabs?: Array<{ tabLabel: string; value: string }>;
     listTabs?: Array<{ tabLabel: string; value: string }>;
   } = {};
 
@@ -214,7 +221,7 @@ const buildTabs = (fields: DocuSignContractFields):
     tabs.textTabs = textTabs;
   }
   if (numberTabs.length > 0) {
-    tabs.numberTabs = numberTabs;
+    tabs.numericalTabs = numberTabs;
   }
   if (listTabs.length > 0) {
     tabs.listTabs = listTabs;
@@ -223,12 +230,133 @@ const buildTabs = (fields: DocuSignContractFields):
   return Object.keys(tabs).length > 0 ? tabs : undefined;
 };
 
+const mapEntriesToTabs = <T>(
+  entries: Array<{ tabLabel: string; value: string }>,
+  TabCtor: TabClass<T>,
+): T[] => {
+  return entries.map(({ tabLabel, value }) => {
+    try {
+      return TabCtor.constructFromObject({ tabLabel, value });
+    } catch {
+      return { tabLabel, value } as unknown as T;
+    }
+  });
+};
+
+type DocuSignTabFactory = {
+  Tabs: TabClass<Record<string, unknown>>;
+  PrefillTabs: TabClass<Record<string, unknown>>;
+  FullName: TabClass<unknown>;
+  Email: TabClass<unknown>;
+  Text: TabClass<unknown>;
+  Numerical: TabClass<unknown>;
+  List: TabClass<unknown>;
+};
+
+let docuSignFactoriesPromise: Promise<DocuSignTabFactory | null> | null = null;
+
+const resolveDocuSignFactories = async (): Promise<DocuSignTabFactory | null> => {
+  if (!docuSignFactoriesPromise) {
+    docuSignFactoriesPromise = (async () => {
+      try {
+        const mod = await import("docusign-esign");
+        const client = mod.default ?? mod;
+        const factories: Partial<DocuSignTabFactory> = {
+          Tabs: client.Tabs,
+          PrefillTabs: client.PrefillTabs,
+          FullName: client.FullName,
+          Email: client.Email,
+          Text: client.Text,
+          Numerical: client.Numerical ?? client.Number,
+          List: client.List,
+        };
+
+        const hasAllFactories = Object.values(factories).every(Boolean);
+        return hasAllFactories ? (factories as DocuSignTabFactory) : null;
+      } catch (error) {
+        console.warn("DocuSign SDK is not available, falling back to raw payload tabs", error);
+        return null;
+      }
+    })();
+  }
+
+  return docuSignFactoriesPromise;
+};
+
+const buildRecipientAndPrefillTabs = async (
+  fields: DocuSignContractFields,
+): Promise<{
+  recipientTabs?: Record<string, unknown>;
+  prefillTabs?: Record<string, unknown>;
+}> => {
+  const tabs = buildTabs(fields);
+  if (!tabs) {
+    return {};
+  }
+
+  const factories = await resolveDocuSignFactories();
+  if (!factories) {
+    return {
+      recipientTabs: tabs,
+      prefillTabs: tabs,
+    };
+  }
+
+  const recipientTabs: Record<string, unknown> = {};
+  const prefillTabs: Record<string, unknown> = {};
+
+  if (tabs.fullNameTabs) {
+    const value = mapEntriesToTabs(tabs.fullNameTabs, factories.FullName);
+    recipientTabs.fullNameTabs = value;
+    prefillTabs.fullNameTabs = value;
+  }
+  if (tabs.emailTabs) {
+    const value = mapEntriesToTabs(tabs.emailTabs, factories.Email);
+    recipientTabs.emailTabs = value;
+    prefillTabs.emailTabs = value;
+  }
+  if (tabs.textTabs) {
+    const value = mapEntriesToTabs(tabs.textTabs, factories.Text);
+    recipientTabs.textTabs = value;
+    prefillTabs.textTabs = value;
+  }
+  if (tabs.numericalTabs) {
+    const value = mapEntriesToTabs(tabs.numericalTabs, factories.Numerical);
+    recipientTabs.numericalTabs = value;
+    prefillTabs.numericalTabs = value;
+  }
+  if (tabs.listTabs) {
+    const value = mapEntriesToTabs(tabs.listTabs, factories.List);
+    recipientTabs.listTabs = value;
+    prefillTabs.listTabs = value;
+  }
+
+  const buildWithFactory = (factory: TabClass<Record<string, unknown>>, value: Record<string, unknown>) => {
+    try {
+      return factory.constructFromObject(value);
+    } catch {
+      return value;
+    }
+  };
+
+  return {
+    recipientTabs:
+      Object.keys(recipientTabs).length > 0
+        ? buildWithFactory(factories.Tabs, recipientTabs)
+        : undefined,
+    prefillTabs:
+      Object.keys(prefillTabs).length > 0
+        ? buildWithFactory(factories.PrefillTabs, prefillTabs)
+        : undefined,
+  };
+};
+
 export const sendContractEnvelope = async (
   options: SendContractOptions,
 ): Promise<DocuSignEnvelopeResponse> => {
   const config = getConfig();
   const accessToken = await requestAccessToken(config);
-  const tabs = buildTabs(options.fields);
+  const { recipientTabs, prefillTabs } = await buildRecipientAndPrefillTabs(options.fields);
 
   const templateRole: Record<string, unknown> = {
     roleName: "Customer",
@@ -236,8 +364,8 @@ export const sendContractEnvelope = async (
     email: options.customer.email,
   };
 
-  if (tabs) {
-    templateRole.tabs = tabs;
+  if (recipientTabs) {
+    templateRole.tabs = recipientTabs;
   }
 
   const response = await fetch(`${config.basePath}/v2.1/accounts/${config.accountId}/envelopes`, {
@@ -245,12 +373,14 @@ export const sendContractEnvelope = async (
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
-      "X-DocuSign-Idempotency-Key": randomUUID(),
+      "X-DocuSign-Idempotency-Key": `${Date.now()}-${options.customer.email}`,
     },
     body: JSON.stringify({
       templateId: config.templateId,
       status: "sent",
+      emailSubject: "Please sign your agreement",
       templateRoles: [templateRole],
+      prefillTabs,
     }),
   });
 
