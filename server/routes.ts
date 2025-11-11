@@ -5,6 +5,7 @@ import session from "express-session";
 import createMemoryStore from "memorystore";
 import { storage } from "./storage";
 import { sendMail, type MailRequest } from "./mail";
+import { sendContractEnvelope, type DocuSignContractFields } from "./docusign";
 import { z } from "zod";
 import {
   insertLeadSchema,
@@ -3398,6 +3399,180 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return user;
   };
 
+  const pickString = (...values: Array<string | null | undefined>): string | null => {
+    for (const value of values) {
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed.length > 0) {
+          return trimmed;
+        }
+      }
+    }
+    return null;
+  };
+
+  const digitsOnly = (value: string | null | undefined): string | null => {
+    if (!value) {
+      return null;
+    }
+    const digits = value.replace(/\D+/g, '');
+    return digits.length > 0 ? digits : null;
+  };
+
+  const toDateOnly = (value: Date | string | null | undefined): string | null => {
+    if (!value) {
+      return null;
+    }
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.valueOf())) {
+      return null;
+    }
+    return date.toISOString().slice(0, 10);
+  };
+
+  const toCurrencyString = (value: number | string | null | undefined): string | null => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    return (numeric / 100).toFixed(2);
+  };
+
+  const toIntegerString = (value: number | string | null | undefined): string | null => {
+    if (value === null || value === undefined) {
+      return null;
+    }
+    const numeric = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(numeric)) {
+      return null;
+    }
+    return Math.round(numeric).toString();
+  };
+
+  const formatPolicyPackageName = (value: string | null | undefined): string | null => {
+    if (!value) {
+      return null;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    return trimmed
+      .replace(/[_-]+/g, ' ')
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  };
+
+  const sendPolicyContractHandler: RequestHandler = async (req, res) => {
+    if (!ensureAdminOrStaffUser(res)) {
+      return;
+    }
+
+    const policyId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    if (!policyId) {
+      res.status(400).json({ message: 'Policy ID is required' });
+      return;
+    }
+
+    try {
+      const policy = await storage.getPolicy(policyId);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const lead = policy.lead ?? null;
+      const vehicle = policy.vehicle ?? null;
+      const primaryCustomer = policy.customers?.[0] ?? null;
+
+      const email = pickString(lead?.email, primaryCustomer?.email);
+      if (!email) {
+        res
+          .status(400)
+          .json({ message: 'Policy must have an email address before sending a contract' });
+        return;
+      }
+
+      const firstName = pickString(lead?.firstName);
+      const lastName = pickString(lead?.lastName);
+      const leadName = [firstName, lastName].filter(Boolean).join(' ').trim();
+      const resolvedName = pickString(leadName, primaryCustomer?.displayName, primaryCustomer?.email) ?? email;
+
+      const addressLine = pickString(lead?.shippingAddress, lead?.billingAddress);
+      const city = pickString(lead?.shippingCity, lead?.billingCity);
+      const state = pickString(lead?.shippingState, lead?.billingState, lead?.state);
+      const postalCode = pickString(lead?.shippingZip, lead?.billingZip, lead?.zip);
+
+      const planName = formatPolicyPackageName(policy.package) ?? pickString(policy.package ?? undefined);
+      const startDate = toDateOnly(policy.policyStartDate);
+      const endDate = toDateOnly(policy.expirationDate);
+      const premium = toCurrencyString(policy.totalPremium);
+      const downPayment = toCurrencyString(policy.downPayment);
+      const monthlyPayment = toCurrencyString(policy.monthlyPayment);
+      const numberOfPayments = toIntegerString(policy.totalPayments);
+      const deductible = toIntegerString(policy.deductible);
+      const mileage = toIntegerString(vehicle?.odometer ?? null);
+      const startMileage = mileage;
+      const endMileage = toIntegerString(policy.expirationMiles);
+      const year = toIntegerString(vehicle?.year ?? null);
+      const phoneDigits = digitsOnly(lead?.phone ?? null);
+      const make = pickString(vehicle?.make);
+      const model = pickString(vehicle?.model);
+      const vin = pickString(vehicle?.vin);
+
+      const fields: DocuSignContractFields = {
+        fullName: { FullName: resolvedName },
+        email: { Email: email },
+        text: {
+          Make: make ?? undefined,
+          Model: model ?? undefined,
+          VIN: vin ?? undefined,
+          Plan: planName ?? undefined,
+          StartDate: startDate ?? undefined,
+          EndDate: endDate ?? undefined,
+          Address: addressLine ?? undefined,
+          City: city ?? undefined,
+          State: state ?? undefined,
+          Zip: postalCode ?? undefined,
+        },
+        numerical: {
+          Phone: phoneDigits ?? undefined,
+          Year: year ?? undefined,
+          Mileage: mileage ?? undefined,
+          Premium: premium ?? undefined,
+          DownPayment: downPayment ?? undefined,
+          MonthlyPayment: monthlyPayment ?? undefined,
+          NumberOfPayments: numberOfPayments ?? undefined,
+          Deductible: deductible ?? undefined,
+          StartMileage: startMileage ?? undefined,
+          EndMileage: endMileage ?? undefined,
+        },
+        list: { Country: 'USA' },
+      };
+
+      const envelope = await sendContractEnvelope({
+        customer: { name: resolvedName, email },
+        fields,
+      });
+
+      res.json({
+        data: { envelopeId: envelope.envelopeId, status: envelope.status },
+        message: 'Contract sent successfully',
+      });
+    } catch (error) {
+      console.error('Error sending DocuSign contract:', error);
+      const message = error instanceof Error ? error.message : 'Failed to send contract';
+      res.status(500).json({ message });
+    }
+  };
+
+  app.post('/api/policies/:id/send-contract', adminAuth, sendPolicyContractHandler);
+
   const sanitizeUser = ({ passwordHash: _passwordHash, ...user }: User) => user;
   const sanitizeCustomerAccount = ({ passwordHash: _passwordHash, ...account }: CustomerAccount) => account;
 
@@ -4595,6 +4770,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.use('/api/admin', adminAuth);
+
+  app.post('/api/admin/policies/:id/send-contract', sendPolicyContractHandler);
 
   app.get('/api/admin/branding', async (_req, res) => {
     if (!ensureAdminUser(res)) {

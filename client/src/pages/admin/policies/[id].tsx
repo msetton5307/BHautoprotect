@@ -36,7 +36,17 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useBranding } from "@/hooks/use-branding";
 import PolicyDocumentRequests from "@/components/admin-policy-document-requests";
-import { ArrowLeft, ChevronDown, Eye, Mail, Paperclip, PencilLine, Sparkles, ExternalLink } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  Eye,
+  FileSignature,
+  Mail,
+  Paperclip,
+  PencilLine,
+  Sparkles,
+  ExternalLink,
+} from "lucide-react";
 
 const CUSTOM_TEMPLATE_ID = "custom";
 
@@ -1015,6 +1025,7 @@ export default function AdminPolicyDetail() {
   const [isUpdatingPolicy, setIsUpdatingPolicy] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingPolicy, setIsDeletingPolicy] = useState(false);
+  const [isSendingContract, setIsSendingContract] = useState(false);
   const [policyForm, setPolicyForm] = useState(() => createPolicyFormState(policy));
 
   const resetChargeForm = () => {
@@ -1498,6 +1509,47 @@ export default function AdminPolicyDetail() {
     }
   };
 
+  const handleSendContract = async () => {
+    if (!policy) {
+      toast({
+        title: "Policy unavailable",
+        description: "Load the policy before sending a contract.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSendingContract(true);
+    try {
+      const response = await fetchWithAuth(`/api/policies/${policy.id}/send-contract`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      });
+      ensureAuthorized(response);
+      const payload = await response.json().catch(() => null);
+      if (!response.ok) {
+        const message = payload?.message ?? "Failed to send contract";
+        throw new Error(message);
+      }
+
+      const envelopeId = payload?.data?.envelopeId ?? payload?.envelopeId ?? null;
+      const status = payload?.data?.status ?? payload?.status ?? null;
+      const description = envelopeId
+        ? `Envelope ${envelopeId}${status ? ` (${status})` : ""} was sent successfully.`
+        : "The contract has been sent successfully.";
+
+      toast({ title: "Contract sent", description });
+    } catch (error) {
+      toast({
+        title: "Could not send contract",
+        description: error instanceof Error ? error.message : "Failed to send contract",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSendingContract(false);
+    }
+  };
+
   const handleSaveTemplate = async () => {
     const trimmedName = newTemplateName.trim();
     const trimmedSubject = emailSubject.trim();
@@ -1738,6 +1790,16 @@ export default function AdminPolicyDetail() {
                       onClick={() => setIsEditPolicyOpen(true)}
                     >
                       Edit policy
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
+                      onClick={handleSendContract}
+                      disabled={isSendingContract}
+                    >
+                      <FileSignature className="mr-2 h-4 w-4" />
+                      {isSendingContract ? "Sending…" : "Send contract"}
                     </Button>
                     <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
                       <AlertDialogTrigger asChild>
