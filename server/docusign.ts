@@ -395,8 +395,10 @@ export const sendContractEnvelope = async (
     payload: serializeForLog(payload),
   });
 
-  let response: Response;
+  let response: Response | null = null;
+  let responseText: string | null = null;
   try {
+    console.log("[DEBUG] DocuSign payload:", JSON.stringify(payload, null, 2));
     response = await fetch(url, {
       method: "POST",
       headers: {
@@ -406,6 +408,8 @@ export const sendContractEnvelope = async (
       },
       body: JSON.stringify(payload),
     });
+    responseText = await response.text();
+    console.log("[DEBUG] DocuSign response:", response.status, responseText);
   } catch (error) {
     console.error("DocuSign API network error", {
       url,
@@ -416,9 +420,26 @@ export const sendContractEnvelope = async (
     throw error;
   }
 
-  const data = (await response.json().catch(() => null)) as
-    | { envelopeId?: string; status?: string; message?: string; errorCode?: string }
-    | null;
+  if (!response) {
+    throw new Error("DocuSign API response is missing");
+  }
+
+  const data = (() => {
+    if (!responseText) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(responseText) as {
+        envelopeId?: string;
+        status?: string;
+        message?: string;
+        errorCode?: string;
+      };
+    } catch {
+      return null;
+    }
+  })();
 
   const traceToken = response.headers.get("x-docusign-trace-token");
 
@@ -427,7 +448,7 @@ export const sendContractEnvelope = async (
     status: response.status,
     ok: response.ok,
     traceToken: traceToken ?? undefined,
-    body: serializeForLog(data),
+    body: serializeForLog(data ?? responseText),
   };
 
   if (!response.ok) {
