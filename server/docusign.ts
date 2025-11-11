@@ -1,4 +1,8 @@
 import { createSign, randomUUID } from "crypto";
+import dotenv from "dotenv";
+
+// ✅ Ensure .env is loaded when backend runs
+dotenv.config({ path: "/var/www/app/.env" });
 
 type TabClass<T> = {
   constructFromObject(data: Record<string, unknown>): T;
@@ -79,6 +83,9 @@ const decodePrivateKey = (base64Value: string): string => {
 };
 
 const getConfig = (): DocuSignConfig => {
+  // ✅ Debug log for environment variable presence
+  console.log("🔍 DS_INTEGRATION_KEY:", process.env.DS_INTEGRATION_KEY);
+
   if (cachedConfig) {
     return cachedConfig;
   }
@@ -157,13 +164,9 @@ const mapFieldEntries = (
 
   const entries: Array<{ tabLabel: string; value: string }> = [];
   for (const [tabLabel, rawValue] of Object.entries(fields)) {
-    if (rawValue === null || rawValue === undefined) {
-      continue;
-    }
+    if (rawValue === null || rawValue === undefined) continue;
     const value = String(rawValue).trim();
-    if (!value) {
-      continue;
-    }
+    if (!value) continue;
     entries.push({ tabLabel, value });
   }
   return entries;
@@ -177,13 +180,9 @@ const mapNumericEntries = (
   }
   const entries: Array<{ tabLabel: string; value: string }> = [];
   for (const [tabLabel, rawValue] of Object.entries(fields)) {
-    if (rawValue === null || rawValue === undefined) {
-      continue;
-    }
+    if (rawValue === null || rawValue === undefined) continue;
     const value = String(rawValue).trim();
-    if (!value) {
-      continue;
-    }
+    if (!value) continue;
     entries.push({ tabLabel, value });
   }
   return entries;
@@ -204,31 +203,14 @@ const buildTabs = (fields: DocuSignContractFields):
   const numberTabs = mapNumericEntries(fields.numerical);
   const listTabs = mapFieldEntries(fields.list);
 
-  const tabs: {
-    fullNameTabs?: Array<{ tabLabel: string; value: string }>;
-    emailTabs?: Array<{ tabLabel: string; value: string }>;
-    textTabs?: Array<{ tabLabel: string; value: string }>;
-    numericalTabs?: Array<{ tabLabel: string; value: string }>;
-    listTabs?: Array<{ tabLabel: string; value: string }>;
-  } = {};
+  const tabs: Record<string, unknown> = {};
+  if (fullNameTabs.length > 0) tabs.fullNameTabs = fullNameTabs;
+  if (emailTabs.length > 0) tabs.emailTabs = emailTabs;
+  if (textTabs.length > 0) tabs.textTabs = textTabs;
+  if (numberTabs.length > 0) tabs.numericalTabs = numberTabs;
+  if (listTabs.length > 0) tabs.listTabs = listTabs;
 
-  if (fullNameTabs.length > 0) {
-    tabs.fullNameTabs = fullNameTabs;
-  }
-  if (emailTabs.length > 0) {
-    tabs.emailTabs = emailTabs;
-  }
-  if (textTabs.length > 0) {
-    tabs.textTabs = textTabs;
-  }
-  if (numberTabs.length > 0) {
-    tabs.numericalTabs = numberTabs;
-  }
-  if (listTabs.length > 0) {
-    tabs.listTabs = listTabs;
-  }
-
-  return Object.keys(tabs).length > 0 ? tabs : undefined;
+  return Object.keys(tabs).length > 0 ? (tabs as any) : undefined;
 };
 
 const mapEntriesToTabs = <T>(
@@ -291,64 +273,53 @@ const buildRecipientAndPrefillTabs = async (
   prefillTabs?: Record<string, unknown>;
 }> => {
   const tabs = buildTabs(fields);
-  if (!tabs) {
-    return {};
-  }
+  if (!tabs) return {};
 
   const factories = await resolveDocuSignFactories();
   if (!factories) {
-    return {
-      recipientTabs: tabs,
-      prefillTabs: tabs,
-    };
+    return { recipientTabs: tabs, prefillTabs: tabs };
   }
 
   const recipientTabs: Record<string, unknown> = {};
   const prefillTabs: Record<string, unknown> = {};
 
   if (tabs.fullNameTabs) {
-    const value = mapEntriesToTabs(tabs.fullNameTabs, factories.FullName);
-    recipientTabs.fullNameTabs = value;
-    prefillTabs.fullNameTabs = value;
+    const v = mapEntriesToTabs(tabs.fullNameTabs, factories.FullName);
+    recipientTabs.fullNameTabs = v;
+    prefillTabs.fullNameTabs = v;
   }
   if (tabs.emailTabs) {
-    const value = mapEntriesToTabs(tabs.emailTabs, factories.Email);
-    recipientTabs.emailTabs = value;
-    prefillTabs.emailTabs = value;
+    const v = mapEntriesToTabs(tabs.emailTabs, factories.Email);
+    recipientTabs.emailTabs = v;
+    prefillTabs.emailTabs = v;
   }
   if (tabs.textTabs) {
-    const value = mapEntriesToTabs(tabs.textTabs, factories.Text);
-    recipientTabs.textTabs = value;
-    prefillTabs.textTabs = value;
+    const v = mapEntriesToTabs(tabs.textTabs, factories.Text);
+    recipientTabs.textTabs = v;
+    prefillTabs.textTabs = v;
   }
   if (tabs.numericalTabs) {
-    const value = mapEntriesToTabs(tabs.numericalTabs, factories.Numerical);
-    recipientTabs.numericalTabs = value;
-    prefillTabs.numericalTabs = value;
+    const v = mapEntriesToTabs(tabs.numericalTabs, factories.Numerical);
+    recipientTabs.numericalTabs = v;
+    prefillTabs.numericalTabs = v;
   }
   if (tabs.listTabs) {
-    const value = mapEntriesToTabs(tabs.listTabs, factories.List);
-    recipientTabs.listTabs = value;
-    prefillTabs.listTabs = value;
+    const v = mapEntriesToTabs(tabs.listTabs, factories.List);
+    recipientTabs.listTabs = v;
+    prefillTabs.listTabs = v;
   }
 
-  const buildWithFactory = (factory: TabClass<Record<string, unknown>>, value: Record<string, unknown>) => {
+  const buildWithFactory = (factory: TabClass<Record<string, unknown>>, val: Record<string, unknown>) => {
     try {
-      return factory.constructFromObject(value);
+      return factory.constructFromObject(val);
     } catch {
-      return value;
+      return val;
     }
   };
 
   return {
-    recipientTabs:
-      Object.keys(recipientTabs).length > 0
-        ? buildWithFactory(factories.Tabs, recipientTabs)
-        : undefined,
-    prefillTabs:
-      Object.keys(prefillTabs).length > 0
-        ? buildWithFactory(factories.PrefillTabs, prefillTabs)
-        : undefined,
+    recipientTabs: Object.keys(recipientTabs).length ? buildWithFactory(factories.Tabs, recipientTabs) : undefined,
+    prefillTabs: Object.keys(prefillTabs).length ? buildWithFactory(factories.PrefillTabs, prefillTabs) : undefined,
   };
 };
 
@@ -378,9 +349,9 @@ export const sendContractEnvelope = async (
     prefillTabs,
   };
 
-  const serializeForLog = (value: unknown): unknown => {
+  const serializeForLog = (v: unknown): unknown => {
     try {
-      return JSON.parse(JSON.stringify(value));
+      return JSON.parse(JSON.stringify(v));
     } catch {
       return { error: "Failed to serialize" };
     }
@@ -411,24 +382,14 @@ export const sendContractEnvelope = async (
     responseText = await response.text();
     console.log("[DEBUG] DocuSign response:", response.status, responseText);
   } catch (error) {
-    console.error("DocuSign API network error", {
-      url,
-      templateId: config.templateId,
-      customer: options.customer,
-      error,
-    });
+    console.error("DocuSign API network error", { url, templateId: config.templateId, customer: options.customer, error });
     throw error;
   }
 
-  if (!response) {
-    throw new Error("DocuSign API response is missing");
-  }
+  if (!response) throw new Error("DocuSign API response is missing");
 
   const data = (() => {
-    if (!responseText) {
-      return null;
-    }
-
+    if (!responseText) return null;
     try {
       return JSON.parse(responseText) as {
         envelopeId?: string;
@@ -453,10 +414,7 @@ export const sendContractEnvelope = async (
 
   if (!response.ok) {
     console.error("DocuSign API response error", responseLog);
-    const message =
-      data?.message ??
-      data?.errorCode ??
-      `Failed to send DocuSign envelope (status ${response.status})`;
+    const message = data?.message ?? data?.errorCode ?? `Failed to send DocuSign envelope (status ${response.status})`;
     throw new Error(message);
   }
 
