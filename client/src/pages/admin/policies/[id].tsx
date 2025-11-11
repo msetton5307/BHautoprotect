@@ -1534,9 +1534,16 @@ export default function AdminPolicyDetail() {
 
       const envelopeId = payload?.data?.envelopeId ?? payload?.envelopeId ?? null;
       const status = payload?.data?.status ?? payload?.status ?? null;
-      const description = envelopeId
-        ? `Envelope ${envelopeId}${status ? ` (${status})` : ""} was sent successfully.`
-        : "The contract has been sent successfully.";
+      const traceToken = payload?.data?.traceToken ?? payload?.traceToken ?? null;
+      const envelopeSummary = envelopeId
+        ? `Envelope ${envelopeId}${status ? ` (${status})` : ""}`
+        : null;
+      const traceSummary = traceToken ? `DocuSign trace ${traceToken}` : null;
+      const descriptionParts = [
+        envelopeSummary ? `${envelopeSummary} was sent successfully.` : "The contract has been sent successfully.",
+        traceSummary ? `${traceSummary}.` : null,
+      ].filter(Boolean);
+      const description = descriptionParts.join(" ");
 
       toast({ title: "Contract sent", description });
     } catch (error) {

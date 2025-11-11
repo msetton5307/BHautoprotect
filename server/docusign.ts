@@ -35,6 +35,7 @@ type SendContractOptions = {
 type DocuSignEnvelopeResponse = {
   envelopeId: string;
   status: string;
+  traceToken?: string | null;
 };
 
 let cachedConfig: DocuSignConfig | null = null;
@@ -368,34 +369,82 @@ export const sendContractEnvelope = async (
     templateRole.tabs = recipientTabs;
   }
 
-  const response = await fetch(`${config.basePath}/v2.1/accounts/${config.accountId}/envelopes`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-      "X-DocuSign-Idempotency-Key": `${Date.now()}-${options.customer.email}`,
-    },
-    body: JSON.stringify({
-      templateId: config.templateId,
-      status: "sent",
-      emailSubject: "Please sign your agreement",
-      templateRoles: [templateRole],
-      prefillTabs,
-    }),
+  const url = `${config.basePath}/v2.1/accounts/${config.accountId}/envelopes`;
+  const payload = {
+    templateId: config.templateId,
+    status: "sent",
+    emailSubject: "Please sign your agreement",
+    templateRoles: [templateRole],
+    prefillTabs,
+  };
+
+  const serializeForLog = (value: unknown): unknown => {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return { error: "Failed to serialize" };
+    }
+  };
+
+  console.info("DocuSign API request", {
+    url,
+    templateId: config.templateId,
+    customer: options.customer,
+    hasRecipientTabs: Boolean(recipientTabs),
+    hasPrefillTabs: Boolean(prefillTabs),
+    payload: serializeForLog(payload),
   });
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "X-DocuSign-Idempotency-Key": `${Date.now()}-${options.customer.email}`,
+      },
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    console.error("DocuSign API network error", {
+      url,
+      templateId: config.templateId,
+      customer: options.customer,
+      error,
+    });
+    throw error;
+  }
 
   const data = (await response.json().catch(() => null)) as
     | { envelopeId?: string; status?: string; message?: string; errorCode?: string }
     | null;
 
+  const traceToken = response.headers.get("x-docusign-trace-token");
+
+  const responseLog = {
+    url,
+    status: response.status,
+    ok: response.ok,
+    traceToken: traceToken ?? undefined,
+    body: serializeForLog(data),
+  };
+
   if (!response.ok) {
-    const message = data?.message ?? data?.errorCode ?? "Failed to send DocuSign envelope";
+    console.error("DocuSign API response error", responseLog);
+    const message =
+      data?.message ??
+      data?.errorCode ??
+      `Failed to send DocuSign envelope (status ${response.status})`;
     throw new Error(message);
   }
+
+  console.info("DocuSign API response", responseLog);
 
   return {
     envelopeId: typeof data?.envelopeId === "string" ? data.envelopeId : "",
     status: typeof data?.status === "string" ? data.status : "",
+    traceToken,
   };
 };
 

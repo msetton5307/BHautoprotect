@@ -3468,13 +3468,107 @@ export async function registerRoutes(app: Express): Promise<Server> {
       .join(' ');
   };
 
+  const normalizeEmail = (value: string | null | undefined): string | null => {
+    if (!value) {
+      return null;
+    }
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed.toLowerCase() : null;
+  };
+
+  const findPrimaryCustomer = (
+    customers: CustomerAccount[] | undefined,
+    lead: Lead | null,
+  ): CustomerAccount | null => {
+    if (!customers || customers.length === 0) {
+      return null;
+    }
+
+    const leadEmail = normalizeEmail(lead?.email ?? null);
+    if (leadEmail) {
+      const matching = customers.find((customer) => normalizeEmail(customer.email) === leadEmail);
+      if (matching) {
+        return matching;
+      }
+    }
+
+    return customers[0] ?? null;
+  };
+
+  const splitNameParts = (
+    value: string | null | undefined,
+  ): { firstName: string | null; lastName: string | null } => {
+    if (!value) {
+      return { firstName: null, lastName: null };
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return { firstName: null, lastName: null };
+    }
+    const parts = trimmed.split(/\s+/);
+    if (parts.length === 1) {
+      return { firstName: parts[0], lastName: null };
+    }
+    return {
+      firstName: parts[0],
+      lastName: parts.slice(1).join(' '),
+    };
+  };
+
+  const buildFieldMap = (
+    entries: Array<[string, string | null | undefined]>,
+  ): DocuSignFieldMap | undefined => {
+    const map: Record<string, string> = {};
+    for (const [key, rawValue] of entries) {
+      if (rawValue === null || rawValue === undefined) {
+        continue;
+      }
+      const value = String(rawValue).trim();
+      if (!value) {
+        continue;
+      }
+      map[key] = value;
+    }
+    return Object.keys(map).length > 0 ? map : undefined;
+  };
+
+  const buildNumericFieldMap = (
+    entries: Array<[string, string | number | null | undefined]>,
+  ): Record<string, string> | undefined => {
+    const map: Record<string, string> = {};
+    for (const [key, rawValue] of entries) {
+      if (rawValue === null || rawValue === undefined) {
+        continue;
+      }
+      const value = typeof rawValue === 'number' ? rawValue.toString() : String(rawValue).trim();
+      if (!value) {
+        continue;
+      }
+      map[key] = value;
+    }
+    return Object.keys(map).length > 0 ? map : undefined;
+  };
+
+  const serializeForLog = (value: unknown): unknown => {
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch {
+      return { error: 'Failed to serialize' };
+    }
+  };
+
   const sendPolicyContractHandler: RequestHandler = async (req, res) => {
     if (!ensureAdminOrStaffUser(res)) {
       return;
     }
 
     const policyId = typeof req.params.id === 'string' ? req.params.id.trim() : '';
-    const logContext: { policyId: string; email?: string; customerName?: string } = { policyId };
+    const logContext: {
+      policyId: string;
+      email?: string;
+      customerName?: string;
+      customerId?: string;
+    } = { policyId };
     if (!policyId) {
       res.status(400).json({ message: 'Policy ID is required' });
       return;
@@ -3489,9 +3583,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const lead = policy.lead ?? null;
       const vehicle = policy.vehicle ?? null;
-      const primaryCustomer = policy.customers?.[0] ?? null;
+      const primaryCustomer = findPrimaryCustomer(policy.customers, lead);
+      if (primaryCustomer) {
+        logContext.customerId = primaryCustomer.id;
+      }
 
-      const email = pickString(lead?.email, primaryCustomer?.email);
+      const email = pickString(primaryCustomer?.email, lead?.email);
       if (!email) {
         res
           .status(400)
@@ -3499,10 +3596,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const firstName = pickString(lead?.firstName);
-      const lastName = pickString(lead?.lastName);
-      const leadName = [firstName, lastName].filter(Boolean).join(' ').trim();
-      const resolvedName = pickString(leadName, primaryCustomer?.displayName, primaryCustomer?.email) ?? email;
+      const leadFirstName = pickString(lead?.firstName);
+      const leadLastName = pickString(lead?.lastName);
+      const customerNameParts = splitNameParts(primaryCustomer?.displayName ?? null);
+      const firstName = pickString(customerNameParts.firstName, leadFirstName);
+      const lastName = pickString(customerNameParts.lastName, leadLastName);
+      const leadName = [leadFirstName, leadLastName].filter(Boolean).join(' ').trim();
+      const resolvedName =
+        pickString(
+          [firstName, lastName].filter(Boolean).join(' ').trim(),
+          primaryCustomer?.displayName,
+          leadName,
+          primaryCustomer?.email,
+          email,
+        ) ?? email;
       logContext.email = email;
       logContext.customerName = resolvedName;
 
@@ -3523,50 +3630,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const startMileage = mileage;
       const endMileage = toIntegerString(policy.expirationMiles);
       const year = toIntegerString(vehicle?.year ?? null);
-      const phoneDigits = digitsOnly(lead?.phone ?? null);
+      const phoneNumber = pickString(lead?.phone);
+      const phoneDigits = digitsOnly(phoneNumber);
       const make = pickString(vehicle?.make);
       const model = pickString(vehicle?.model);
       const vin = pickString(vehicle?.vin);
 
-      const fields: DocuSignContractFields = {
-        fullName: { FullName: resolvedName },
-        email: { Email: email },
-        text: {
-          Make: make ?? undefined,
-          Model: model ?? undefined,
-          VIN: vin ?? undefined,
-          Plan: planName ?? undefined,
-          StartDate: startDate ?? undefined,
-          EndDate: endDate ?? undefined,
-          Address: addressLine ?? undefined,
-          City: city ?? undefined,
-          State: state ?? undefined,
-          Zip: postalCode ?? undefined,
-        },
-        numerical: {
-          Phone: phoneDigits ?? undefined,
-          Year: year ?? undefined,
-          Mileage: mileage ?? undefined,
-          Premium: premium ?? undefined,
-          DownPayment: downPayment ?? undefined,
-          MonthlyPayment: monthlyPayment ?? undefined,
-          NumberOfPayments: numberOfPayments ?? undefined,
-          Deductible: deductible ?? undefined,
-          StartMileage: startMileage ?? undefined,
-          EndMileage: endMileage ?? undefined,
-        },
-        list: { Country: 'USA' },
-      };
+      const policyNumber = pickString(policy.id);
 
-      const fieldSummary = {
-        fullName: Object.keys(fields.fullName ?? {}),
-        email: Object.keys(fields.email ?? {}),
-        text: Object.keys(fields.text ?? {}),
-        numerical: Object.keys(fields.numerical ?? {}),
-        list: Object.keys(fields.list ?? {}),
-      };
+      const fullNameFields = buildFieldMap([['FullName', resolvedName]]);
+      const emailFields = buildFieldMap([['Email', email]]);
+      const textFields = buildFieldMap([
+        ['FirstName', firstName],
+        ['LastName', lastName],
+        ['FullName', resolvedName],
+        ['CustomerName', resolvedName],
+        ['Email', email],
+        ['Phone', phoneNumber ?? phoneDigits],
+        ['PolicyNumber', policyNumber],
+        ['Plan', planName],
+        ['StartDate', startDate],
+        ['EndDate', endDate],
+        ['Address', addressLine],
+        ['City', city],
+        ['State', state],
+        ['Zip', postalCode],
+        ['VIN', vin],
+        ['Make', make],
+        ['Model', model],
+        ['Year', year],
+        ['Mileage', mileage],
+        ['Premium', premium],
+        ['DownPayment', downPayment],
+        ['MonthlyPayment', monthlyPayment],
+        ['NumberOfPayments', numberOfPayments],
+        ['Deductible', deductible],
+        ['StartMileage', startMileage],
+        ['EndMileage', endMileage],
+      ]);
+      const numericFields = buildNumericFieldMap([
+        ['Phone', phoneDigits],
+        ['Year', year],
+        ['Mileage', mileage],
+        ['Premium', premium],
+        ['DownPayment', downPayment],
+        ['MonthlyPayment', monthlyPayment],
+        ['NumberOfPayments', numberOfPayments],
+        ['Deductible', deductible],
+        ['StartMileage', startMileage],
+        ['EndMileage', endMileage],
+      ]);
+      const listFields = buildFieldMap([['Country', 'USA']]);
 
-      console.info('Sending DocuSign contract envelope', { ...logContext, fieldSummary });
+      const fields: DocuSignContractFields = {};
+      if (fullNameFields) {
+        fields.fullName = fullNameFields;
+      }
+      if (emailFields) {
+        fields.email = emailFields;
+      }
+      if (textFields) {
+        fields.text = textFields;
+      }
+      if (numericFields) {
+        fields.numerical = numericFields;
+      }
+      if (listFields) {
+        fields.list = listFields;
+      }
+
+      const contactLog = serializeForLog({
+        customerId: primaryCustomer?.id ?? undefined,
+        email,
+        name: resolvedName,
+        firstName: firstName ?? undefined,
+        lastName: lastName ?? undefined,
+        phone: phoneNumber ?? phoneDigits ?? undefined,
+      });
+
+      console.info('Sending DocuSign contract envelope', {
+        ...logContext,
+        contact: contactLog,
+        fields: serializeForLog(fields),
+      });
 
       const envelope = await sendContractEnvelope({
         customer: { name: resolvedName, email },
@@ -3577,10 +3723,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...logContext,
         envelopeId: envelope.envelopeId,
         status: envelope.status,
+        traceToken: envelope.traceToken ?? undefined,
       });
 
       res.json({
-        data: { envelopeId: envelope.envelopeId, status: envelope.status },
+        data: {
+          envelopeId: envelope.envelopeId,
+          status: envelope.status,
+          traceToken: envelope.traceToken ?? undefined,
+        },
         message: 'Contract sent successfully',
       });
     } catch (error) {
