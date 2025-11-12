@@ -3873,6 +3873,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     autopayEnabled: z.boolean().optional(),
     notes: z.string().trim().max(2000).optional(),
   });
+  const adminPaymentProfileSchema = customerPaymentProfileSchema.extend({
+    customerId: z.string().trim().min(1, 'Customer account is required'),
+  });
   const customerPolicyRequestSchema = z.object({
     message: z.string().trim().min(1, 'Please include a short note so our team knows how to help').max(2000),
     phone: z.string().trim().min(7).max(40).optional(),
@@ -6703,6 +6706,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching payment profiles for policy:', error);
       res.status(500).json({ message: 'Failed to load payment profiles' });
+    }
+  });
+
+  app.post('/api/admin/policies/:id/payment-profiles', async (req, res) => {
+    if (!ensureAdminOrStaffUser(res)) {
+      return;
+    }
+
+    try {
+      const payload = adminPaymentProfileSchema.parse(req.body ?? {});
+      const policyId = req.params.id;
+
+      const policy = await storage.getPolicy(policyId);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const account = await storage.getCustomerAccount(payload.customerId);
+      if (!account) {
+        res.status(404).json({ message: 'Customer account not found' });
+        return;
+      }
+
+      await storage.linkCustomerToPolicy(payload.customerId, policyId);
+
+      const profile = await storage.upsertCustomerPaymentProfile({
+        customerId: payload.customerId,
+        policyId,
+        paymentMethod: payload.paymentMethod?.trim() || undefined,
+        accountName: payload.accountName?.trim() || undefined,
+        accountIdentifier: payload.accountIdentifier?.trim() || undefined,
+        cardBrand: payload.cardBrand?.trim() || undefined,
+        cardLastFour: payload.cardLastFour?.trim() || undefined,
+        cardExpiryMonth: payload.cardExpiryMonth ?? undefined,
+        cardExpiryYear: payload.cardExpiryYear ?? undefined,
+        billingZip: payload.billingZip?.trim() || undefined,
+        autopayEnabled: payload.autopayEnabled ?? false,
+        notes: payload.notes?.trim() || undefined,
+      });
+
+      res.json({ data: profile, message: 'Payment method saved successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid payment method payload';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error saving admin payment profile:', error);
+      res.status(500).json({ message: 'Failed to save payment method' });
     }
   });
 
