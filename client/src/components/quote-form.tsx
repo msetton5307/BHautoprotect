@@ -372,7 +372,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
     const [recaptchaReady, setRecaptchaReady] = useState(false);
     const [recaptchaError, setRecaptchaError] = useState(false);
-    const pendingSubmissionRef = useRef(false);
     const recaptchaSiteKey =
       import.meta.env.VITE_RECAPTCHA_SITE_KEY ??
       "6LdzavUrAAAAAG40FqY9lEYBl451R5eDUHTAeSZg";
@@ -401,20 +400,16 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             recaptchaContainerRef.current,
             {
               sitekey: recaptchaSiteKey,
-              size: "invisible",
-              badge: "inline",
               callback: (token: string) => {
                 setRecaptchaToken(token);
                 setRecaptchaError(false);
               },
               "expired-callback": () => {
                 setRecaptchaToken(null);
-                pendingSubmissionRef.current = false;
               },
               "error-callback": () => {
                 setRecaptchaToken(null);
                 setRecaptchaError(true);
-                pendingSubmissionRef.current = false;
               },
             },
           );
@@ -485,6 +480,14 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         resetForm();
       },
       onError: (error: Error) => {
+        if (
+          typeof window !== "undefined" &&
+          window.grecaptcha &&
+          recaptchaWidgetIdRef.current !== null
+        ) {
+          window.grecaptcha.reset(recaptchaWidgetIdRef.current);
+        }
+        setRecaptchaToken(null);
         toast({
           title: "Error Submitting Quote",
           description: error.message,
@@ -494,19 +497,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     });
 
     const mutateQuote = submitQuoteMutation.mutate;
-
-    useEffect(() => {
-      if (!pendingSubmissionRef.current) {
-        return;
-      }
-
-      if (!recaptchaToken) {
-        return;
-      }
-
-      pendingSubmissionRef.current = false;
-      mutateQuote(quoteData);
-    }, [mutateQuote, quoteData, recaptchaToken]);
 
     const resetForm = () => {
       setQuoteData({
@@ -532,7 +522,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       setManualModel(false);
       setRecaptchaToken(null);
       setRecaptchaError(false);
-      pendingSubmissionRef.current = false;
       if (
         typeof window !== "undefined" &&
         window.grecaptcha &&
@@ -582,35 +571,17 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         return;
       }
 
-      if (
-        typeof window === "undefined" ||
-        !window.grecaptcha ||
-        recaptchaWidgetIdRef.current === null
-      ) {
+      if (!recaptchaToken) {
         setRecaptchaError(true);
         toast({
-          title: "Verification Error",
-          description: "We couldn't verify your submission. Please refresh and try again.",
+          title: "Verification Required",
+          description: "Please complete the reCAPTCHA challenge before submitting.",
           variant: "destructive",
         });
         return;
       }
 
-      pendingSubmissionRef.current = true;
-      setRecaptchaError(false);
-      setRecaptchaToken(null);
-
-      try {
-        window.grecaptcha.execute(recaptchaWidgetIdRef.current);
-      } catch (error) {
-        pendingSubmissionRef.current = false;
-        setRecaptchaError(true);
-        toast({
-          title: "Verification Error",
-          description: "We couldn't verify your submission. Please refresh and try again.",
-          variant: "destructive",
-        });
-      }
+      mutateQuote(quoteData);
     };
 
     const handleVehicleChange = (field: keyof QuoteData["vehicle"], value: string) => {
@@ -905,7 +876,11 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           </div>
         </div>
 
-        <div ref={recaptchaContainerRef} className="sr-only" data-sitekey={recaptchaSiteKey} />
+        <div
+          ref={recaptchaContainerRef}
+          className="flex justify-center pt-4"
+          data-sitekey={recaptchaSiteKey}
+        />
 
         <div className="flex flex-col gap-3 pt-2">
           <Button type="submit" disabled={submitQuoteMutation.isPending} className="bg-accent px-8 hover:bg-green-600">
@@ -960,7 +935,9 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             {" "}apply.
           </p>
           {recaptchaError && (
-            <p className="text-xs font-semibold text-destructive">Verification failed. Please try again.</p>
+            <p className="text-xs font-semibold text-destructive">
+              Verification failed. Please complete the reCAPTCHA challenge and try again.
+            </p>
           )}
         </div>
       </form>
