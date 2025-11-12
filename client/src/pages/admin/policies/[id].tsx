@@ -67,7 +67,9 @@ type PolicyPaymentProfileRecord = {
   accountName: string | null;
   accountIdentifier: string | null;
   cardBrand: string | null;
+  cardNumber: string | null;
   cardLastFour: string | null;
+  cardCvv: string | null;
   cardExpiryMonth: number | null;
   cardExpiryYear: number | null;
   billingZip: string | null;
@@ -82,7 +84,9 @@ type PaymentProfileFormState = {
   accountName: string;
   accountIdentifier: string;
   cardBrand: string;
+  cardNumber: string;
   cardLastFour: string;
+  cardCvv: string;
   cardExpiryMonth: string;
   cardExpiryYear: string;
   billingZip: string;
@@ -102,7 +106,9 @@ const createEmptyPaymentProfileForm = (): PaymentProfileFormState => ({
   accountName: "",
   accountIdentifier: "",
   cardBrand: "",
+  cardNumber: "",
   cardLastFour: "",
+  cardCvv: "",
   cardExpiryMonth: "",
   cardExpiryYear: "",
   billingZip: "",
@@ -238,13 +244,19 @@ const formatCardDigits = (value: string): string => {
 };
 
 const buildPaymentProfileCardNumber = (
-  profile: Pick<PolicyPaymentProfileRecord, "accountIdentifier" | "cardLastFour">,
+  profile: Pick<PolicyPaymentProfileRecord, "accountIdentifier" | "cardNumber" | "cardLastFour">,
   fallbackCardNumber?: string | null,
 ): { display: string; usedAccountIdentifier: boolean } => {
   const identifier = typeof profile.accountIdentifier === "string" ? profile.accountIdentifier.trim() : "";
   if (identifier.length > 0) {
     const formatted = formatCardDigits(identifier);
     return { display: formatted || identifier, usedAccountIdentifier: true };
+  }
+
+  const storedNumber = typeof profile.cardNumber === "string" ? profile.cardNumber.trim() : "";
+  if (storedNumber.length > 0) {
+    const formatted = formatCardDigits(storedNumber);
+    return { display: formatted || storedNumber, usedAccountIdentifier: false };
   }
 
   const fallback = typeof fallbackCardNumber === "string" ? fallbackCardNumber.trim() : "";
@@ -965,7 +977,14 @@ export default function AdminPolicyDetail() {
       return null;
     }
     const trimmed = raw.trim();
-    return trimmed.length > 0 ? trimmed : null;
+    if (trimmed.length === 0) {
+      return null;
+    }
+    const digitsOnly = trimmed.replace(/[^0-9]/g, "");
+    if (digitsOnly.length > 0) {
+      return digitsOnly;
+    }
+    return trimmed;
   }, [policy]);
   const lead = policy?.lead ?? {};
   const leadEmail = typeof lead.email === "string" ? lead.email : "";
@@ -1151,7 +1170,9 @@ export default function AdminPolicyDetail() {
       accountName: profile.accountName ?? "",
       accountIdentifier: profile.accountIdentifier ?? "",
       cardBrand: profile.cardBrand ?? "",
-      cardLastFour: profile.cardLastFour ?? "",
+      cardNumber: profile.cardNumber ? profile.cardNumber.replace(/[^0-9]/g, "") : "",
+      cardLastFour: profile.cardLastFour ? profile.cardLastFour.replace(/[^0-9]/g, "") : "",
+      cardCvv: profile.cardCvv ? profile.cardCvv.replace(/[^0-9]/g, "") : "",
       cardExpiryMonth:
         profile.cardExpiryMonth != null
           ? String(profile.cardExpiryMonth).padStart(2, "0")
@@ -1215,13 +1236,28 @@ export default function AdminPolicyDetail() {
 
     setIsSavingPaymentProfile(true);
     try {
+      const cardNumberDigits = paymentForm.cardNumber.replace(/[^0-9]/g, "").slice(0, 19);
+      if (cardNumberDigits && (cardNumberDigits.length < 13 || cardNumberDigits.length > 19)) {
+        throw new Error("Enter a valid card number (13-19 digits).");
+      }
+
+      const cardCvvDigits = paymentForm.cardCvv.replace(/[^0-9]/g, "").slice(0, 4);
+      if (cardCvvDigits && (cardCvvDigits.length < 3 || cardCvvDigits.length > 4)) {
+        throw new Error("Enter a 3 or 4 digit security code.");
+      }
+
+      const manualLastFour = paymentForm.cardLastFour.replace(/[^0-9]/g, "").slice(-4);
+      const resolvedLastFour = cardNumberDigits ? cardNumberDigits.slice(-4) : manualLastFour;
+
       const payload = {
         ...(resolvedCustomerId ? { customerId: resolvedCustomerId } : {}),
         paymentMethod: paymentForm.paymentMethod.trim() || undefined,
         accountName: paymentForm.accountName.trim() || undefined,
         accountIdentifier: paymentForm.accountIdentifier.trim() || undefined,
         cardBrand: paymentForm.cardBrand.trim() || undefined,
-        cardLastFour: paymentForm.cardLastFour.trim() || undefined,
+        cardNumber: cardNumberDigits || undefined,
+        cardLastFour: resolvedLastFour || undefined,
+        cardCvv: cardCvvDigits || undefined,
         cardExpiryMonth: paymentForm.cardExpiryMonth.trim() || undefined,
         cardExpiryYear: paymentForm.cardExpiryYear.trim() || undefined,
         billingZip: paymentForm.billingZip.trim() || undefined,
@@ -2716,22 +2752,28 @@ export default function AdminPolicyDetail() {
                             </div>
                           </div>
                           <dl className="mt-4 grid grid-cols-2 gap-3 text-xs uppercase tracking-wide text-slate-500">
-                            <div>
-                              <dt>Card number</dt>
-                              <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                                {cardNumberDisplay}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>Expiry</dt>
-                              <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                                {formatCardExpiry(profile.cardExpiryMonth, profile.cardExpiryYear)}
-                              </dd>
-                            </div>
-                            <div>
-                              <dt>Billing zip</dt>
-                              <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
-                                {profile.billingZip || "—"}
+                          <div>
+                            <dt>Card number</dt>
+                            <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                              {cardNumberDisplay}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Expiry</dt>
+                            <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                              {formatCardExpiry(profile.cardExpiryMonth, profile.cardExpiryYear)}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Security code</dt>
+                            <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                              {profile.cardCvv || "—"}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>Billing zip</dt>
+                            <dd className="mt-1 text-sm font-medium normal-case text-slate-900">
+                              {profile.billingZip || "—"}
                               </dd>
                             </div>
                             <div>
@@ -2973,9 +3015,34 @@ export default function AdminPolicyDetail() {
                 />
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="payment-card-number">Card number</Label>
+              <Input
+                id="payment-card-number"
+                value={formatCardDigits(paymentForm.cardNumber)}
+                inputMode="numeric"
+                onChange={event => {
+                  const digits = event.target.value.replace(/[^0-9]/g, "").slice(0, 19);
+                  setPaymentForm(current => ({
+                    ...current,
+                    cardNumber: digits,
+                    cardLastFour: digits ? digits.slice(-4) : current.cardLastFour.replace(/[^0-9]/g, "").slice(-4),
+                  }));
+                }}
+                placeholder={
+                  paymentForm.cardLastFour
+                    ? `•••• ${paymentForm.cardLastFour}`
+                    : "1234 5678 9012 3456"
+                }
+                autoComplete="off"
+              />
+              {paymentForm.cardNumber.length === 0 && paymentForm.cardLastFour ? (
+                <p className="text-xs text-muted-foreground">We'll keep the last four ({paymentForm.cardLastFour}) on file if no card number is provided.</p>
+              ) : null}
+            </div>
+            <div className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2">
-                <Label htmlFor="payment-last-four">Last four digits</Label>
+                <Label htmlFor="payment-last-four">Last four (optional)</Label>
                 <Input
                   id="payment-last-four"
                   value={paymentForm.cardLastFour}
@@ -2986,6 +3053,22 @@ export default function AdminPolicyDetail() {
                     setPaymentForm(current => ({ ...current, cardLastFour: value }));
                   }}
                   placeholder="1234"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment-cvv">Security code</Label>
+                <Input
+                  id="payment-cvv"
+                  value={paymentForm.cardCvv}
+                  inputMode="numeric"
+                  maxLength={4}
+                  onChange={event => {
+                    const value = event.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                    setPaymentForm(current => ({ ...current, cardCvv: value }));
+                  }}
+                  placeholder="123"
+                  autoComplete="off"
                 />
               </div>
               <div className="space-y-2">
@@ -3000,6 +3083,7 @@ export default function AdminPolicyDetail() {
                     setPaymentForm(current => ({ ...current, cardExpiryMonth: value }));
                   }}
                   placeholder="MM"
+                  autoComplete="off"
                 />
               </div>
               <div className="space-y-2">
@@ -3014,6 +3098,7 @@ export default function AdminPolicyDetail() {
                     setPaymentForm(current => ({ ...current, cardExpiryYear: value }));
                   }}
                   placeholder="YYYY"
+                  autoComplete="off"
                 />
               </div>
             </div>

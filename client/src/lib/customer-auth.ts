@@ -99,7 +99,9 @@ export type CustomerPaymentProfile = {
   accountName: string | null;
   accountIdentifier: string | null;
   cardBrand: string | null;
+  cardNumber: string | null;
   cardLastFour: string | null;
+  cardCvv: string | null;
   cardExpiryMonth: number | null;
   cardExpiryYear: number | null;
   billingZip: string | null;
