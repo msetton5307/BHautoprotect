@@ -2943,7 +2943,7 @@ export default function AdminPolicyDetail() {
         </div>
       </div>
       <Dialog open={isPaymentDialogOpen} onOpenChange={handlePaymentDialogOpenChange}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[min(90vh,48rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPaymentProfile ? "Edit payment method" : "Add payment method"}</DialogTitle>
             <DialogDescription>

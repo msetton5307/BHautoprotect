@@ -107,8 +107,8 @@ const SHIPPING_TO_BILLING_FIELD: Record<ShippingFieldKey, BillingFieldKey> = {
 const DEFAULT_QUOTE_FORM: QuoteFormState = {
   plan: "gold",
   deductible: 500,
-  coverageTermYears: 3,
-  priceTotal: 299900,
+  coverageTermYears: 5,
+  priceTotal: 499900,
   priceMonthly: 8331,
   expirationMiles: null,
   paymentOption: "one-time",
@@ -1070,6 +1070,18 @@ export default function AdminLeadDetail() {
         next.downPayment = downPaymentFromPolicy;
       }
 
+      const totalPaymentsFromPolicy = (() => {
+        const value = policyForm.totalPayments.trim();
+        if (value.length === 0) {
+          return null;
+        }
+        const parsed = Number.parseInt(value, 10);
+        if (Number.isNaN(parsed) || parsed <= 0) {
+          return null;
+        }
+        return parsed;
+      })();
+
       if (policyForm.paymentOption === 'monthly') {
         next.paymentOption = 'monthly';
       } else if (policyForm.paymentOption === 'one-time') {
@@ -1078,6 +1090,12 @@ export default function AdminLeadDetail() {
         next.paymentOption = 'monthly';
       } else if (next.priceTotal && next.priceTotal > 0) {
         next.paymentOption = 'one-time';
+      }
+
+      if (next.paymentOption === 'monthly') {
+        next.paymentCount = totalPaymentsFromPolicy ?? next.paymentCount;
+      } else {
+        next.paymentCount = null;
       }
 
       return next;

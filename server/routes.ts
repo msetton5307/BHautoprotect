@@ -71,6 +71,7 @@ const CONVERTED_LEADS_FILE_PATH = path.join(
 );
 const CONVERTED_STATUS_VALUES: LeadStatus[] = ['converted', 'sold'];
 const QUOTED_STATUS_VALUES: LeadStatus[] = ['quoted', 'callback'];
+const POLICY_ACTIVATION_EMAILS_ENABLED = process.env.SEND_POLICY_ACTIVATION_EMAILS === 'true';
 
 const normalizeSubId = (value: unknown): string | null => {
   if (typeof value !== 'string') {
@@ -4167,7 +4168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     }
 
-    if (!policyPreviouslyExisted && policy) {
+    if (POLICY_ACTIVATION_EMAILS_ENABLED && !policyPreviouslyExisted && policy) {
       await sendPolicyActivationEmail({
         lead,
         policy,
@@ -6308,11 +6309,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const data = schema.parse(req.body);
       const vehicle = await storage.getVehicleByLeadId(leadId);
-      const contracts = await storage.getLeadContracts(leadId);
-      const contractEmails = contracts
-        .filter((contract) => contract.status === 'signed')
-        .map((contract) => contract.signatureEmail)
-        .filter((email): email is string => typeof email === 'string' && email.length > 0);
+      const contracts = POLICY_ACTIVATION_EMAILS_ENABLED
+        ? await storage.getLeadContracts(leadId)
+        : [];
       const policy = await storage.createPolicy({ leadId, ...data });
       await storage.deletePolicyDraft(leadId);
       await updateLeadStatus(leadId, 'sold');
@@ -6403,12 +6402,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } catch (profileError) {
         console.error('Failed to sync payment profile during conversion:', profileError);
       }
-      await sendPolicyActivationEmail({
-        lead,
-        policy,
-        vehicle,
-        recipients: contractEmails,
-      });
+      if (POLICY_ACTIVATION_EMAILS_ENABLED) {
+        const contractEmails = contracts
+          .filter((contract) => contract.status === 'signed')
+          .map((contract) => contract.signatureEmail)
+          .filter((email): email is string => typeof email === 'string' && email.length > 0);
+        await sendPolicyActivationEmail({
+          lead,
+          policy,
+          vehicle,
+          recipients: contractEmails,
+        });
+      }
       res.json({ data: policy, message: 'Policy created successfully' });
     } catch (error) {
       console.error('Error converting lead:', error);
@@ -6557,6 +6562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       await storage.deleteLead(lead.id);
+      await rebuildLeadStatusFiles();
       delete leadMeta[lead.id];
 
       res.json({ data: lead, message: 'Lead deleted successfully' });
@@ -6763,6 +6769,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      await rebuildLeadStatusFiles();
       res.json({ data: deleted, message: 'Policy deleted successfully' });
     } catch (error) {
       console.error('Error deleting policy:', error);
