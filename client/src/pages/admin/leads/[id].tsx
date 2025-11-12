@@ -57,6 +57,19 @@ type PolicyFormState = {
   paymentOption: 'monthly' | 'one-time';
 };
 
+type LeadPolicyDraft = {
+  package?: string | null;
+  expirationMiles?: number | null;
+  expirationDate?: string | null;
+  deductible?: number | null;
+  totalPremium?: number | null;
+  downPayment?: number | null;
+  policyStartDate?: string | null;
+  monthlyPayment?: number | null;
+  totalPayments?: number | null;
+  paymentOption?: 'monthly' | 'one-time' | null;
+};
+
 type QuoteFormState = {
   plan: "basic" | "silver" | "gold";
   deductible: number | null;
@@ -597,6 +610,22 @@ export default function AdminLeadDetail() {
     return payload;
   };
 
+  const buildPolicyDraftPayload = (form: PolicyFormState): Record<string, unknown> | null => {
+    const base = buildPolicyPayloadFromForm(form, { includeNulls: true });
+    const payload: Record<string, unknown> = {
+      ...base,
+      paymentOption: form.paymentOption,
+    };
+
+    const hasMeaningfulValue = Object.values(base).some((value) => value !== null && value !== undefined);
+
+    if (!hasMeaningfulValue && form.paymentOption === 'one-time') {
+      return null;
+    }
+
+    return payload;
+  };
+
   const normalizePolicyDateValue = (value: unknown): string | null => {
     if (!value) {
       return null;
@@ -749,6 +778,7 @@ export default function AdminLeadDetail() {
         quotes: any[];
         notes: any[];
         policy: any;
+        policyDraft?: LeadPolicyDraft | null;
         contracts?: LeadContractSummary[];
       }
     | undefined;
@@ -832,6 +862,48 @@ export default function AdminLeadDetail() {
         monthlyPayment: formatCurrencyInput(p.monthlyPayment),
         totalPayments:
           p.totalPayments !== null && p.totalPayments !== undefined
+            ? String(p.totalPayments)
+            : '',
+        paymentOption,
+      });
+      setExpirationDateManuallyEdited(Boolean(p.expirationDate));
+    } else if (leadPayload.policyDraft) {
+      const p = leadPayload.policyDraft as LeadPolicyDraft;
+      const paymentOption: PolicyFormState['paymentOption'] = (() => {
+        const raw = typeof p.paymentOption === 'string' ? p.paymentOption.toLowerCase() : null;
+        if (raw === 'monthly') {
+          return 'monthly';
+        }
+        if (raw === 'one-time') {
+          return 'one-time';
+        }
+        if (
+          typeof p.monthlyPayment === 'number' &&
+          Number.isFinite(p.monthlyPayment) &&
+          p.monthlyPayment > 0
+        ) {
+          return 'monthly';
+        }
+        return 'one-time';
+      })();
+      const expirationMilesValue =
+        typeof p.expirationMiles === 'number' && Number.isFinite(p.expirationMiles)
+          ? String(p.expirationMiles)
+          : defaultExpirationMiles;
+      const policyStartDateValue = toDateInputValue(p.policyStartDate ?? null) ?? fallbackStartDate;
+      const expirationDateValue = toDateInputValue(p.expirationDate ?? null) ?? '';
+
+      setPolicyForm({
+        package: typeof p.package === 'string' ? p.package : '',
+        expirationMiles: expirationMilesValue,
+        expirationDate: expirationDateValue,
+        deductible: formatDollarInput(p.deductible),
+        totalPremium: formatCurrencyInput(p.totalPremium),
+        downPayment: formatCurrencyInput(p.downPayment),
+        policyStartDate: policyStartDateValue,
+        monthlyPayment: formatCurrencyInput(p.monthlyPayment),
+        totalPayments:
+          typeof p.totalPayments === 'number' && Number.isFinite(p.totalPayments)
             ? String(p.totalPayments)
             : '',
         paymentOption,
@@ -1097,6 +1169,7 @@ export default function AdminLeadDetail() {
   const quotes = leadPayload?.quotes ?? [];
   const notes = leadPayload?.notes ?? [];
   const existingPolicy = leadPayload?.policy;
+  const existingPolicyDraft = leadPayload?.policyDraft;
   const contracts = leadPayload?.contracts ?? [];
 
   const cardholderName = useMemo(() => {
@@ -1347,8 +1420,17 @@ export default function AdminLeadDetail() {
     const sanitizedLeadUpdates = sanitizeLeadUpdates(leadUpdates);
     const payload: any = { ...sanitizedLeadUpdates };
     if (Object.keys(vehiclePayload).length > 0) payload.vehicle = vehiclePayload;
-    const policyPayload = buildPolicyUpdatePayload(policyForm, existingPolicy);
-    if (Object.keys(policyPayload).length > 0) payload.policy = policyPayload;
+    if (existingPolicy) {
+      const policyPayload = buildPolicyUpdatePayload(policyForm, existingPolicy);
+      if (Object.keys(policyPayload).length > 0) payload.policy = policyPayload;
+    } else {
+      const policyDraftPayload = buildPolicyDraftPayload(policyForm);
+      if (policyDraftPayload) {
+        payload.policyDraft = policyDraftPayload;
+      } else if (existingPolicyDraft) {
+        payload.policyDraft = null;
+      }
+    }
     updateLeadMutation.mutate(payload);
   };
 

@@ -173,6 +173,22 @@ export const policies = pgTable("policies", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const leadPolicyDrafts = pgTable("lead_policy_drafts", {
+  leadId: varchar("lead_id", { length: 8 })
+    .references(() => leads.id, { onDelete: 'cascade' })
+    .primaryKey(),
+  package: varchar("package"),
+  expirationMiles: integer("expiration_miles"),
+  expirationDate: timestamp("expiration_date"),
+  deductible: integer("deductible"),
+  totalPremium: integer("total_premium"),
+  downPayment: integer("down_payment"),
+  policyStartDate: timestamp("policy_start_date"),
+  monthlyPayment: integer("monthly_payment"),
+  totalPayments: integer("total_payments"),
+  paymentOption: varchar("payment_option", { length: 16 }),
+});
+
 export const claims = pgTable("claims", {
   id: varchar("id").primaryKey().default(shortId),
   policyId: varchar("policy_id").references(() => policies.id, { onDelete: 'cascade' }),
@@ -441,6 +457,8 @@ export const insertPolicySchema = createInsertSchema(policies).omit({
   createdAt: true,
 });
 
+export const insertLeadPolicyDraftSchema = createInsertSchema(leadPolicyDrafts);
+
 export const insertClaimSchema = createInsertSchema(claims).omit({
   id: true,
   createdAt: true,
@@ -526,6 +544,8 @@ export type Note = typeof notes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
 export type Policy = typeof policies.$inferSelect;
 export type InsertPolicy = z.infer<typeof insertPolicySchema>;
+export type LeadPolicyDraft = typeof leadPolicyDrafts.$inferSelect;
+export type InsertLeadPolicyDraft = z.infer<typeof insertLeadPolicyDraftSchema>;
 export type Claim = typeof claims.$inferSelect;
 export type InsertClaim = z.infer<typeof insertClaimSchema>;
 export type PolicyNote = typeof policyNotes.$inferSelect;

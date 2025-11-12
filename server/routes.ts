@@ -21,6 +21,7 @@ import {
   type LeadStatus,
   type Policy,
   type InsertPolicy,
+  type InsertLeadPolicyDraft,
   type Quote,
   type User,
   type InsertUser,
@@ -6150,6 +6151,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quotes = await storage.getQuotesByLeadId(leadId);
       const notes = await storage.getNotesByLeadId(leadId);
       const policy = await storage.getPolicyByLeadId(leadId);
+      const policyDraft = await storage.getPolicyDraftByLeadId(leadId);
       const contracts = await storage.getLeadContracts(leadId);
       syncLeadMetaWithLead(lead);
       res.json({
@@ -6159,6 +6161,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           quotes,
           notes,
           policy,
+          policyDraft,
           contracts: contracts.map(mapContractForAdmin),
         },
         message: 'Lead retrieved successfully',
@@ -6220,6 +6223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .map((contract) => contract.signatureEmail)
         .filter((email): email is string => typeof email === 'string' && email.length > 0);
       const policy = await storage.createPolicy({ leadId, ...data });
+      await storage.deletePolicyDraft(leadId);
       await updateLeadStatus(leadId, 'sold');
       const normalizedEmail = typeof lead.email === 'string' ? lead.email.trim().toLowerCase() : '';
       if (normalizedEmail) {
@@ -6333,6 +6337,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Admin: update lead data
   app.patch('/api/admin/leads/:id', async (req, res) => {
+    const policyDraftSchema = z
+      .object({
+        package: z.string().optional().nullable(),
+        expirationMiles: z.coerce.number().optional().nullable(),
+        expirationDate: z.coerce.date().optional().nullable(),
+        deductible: z.coerce.number().optional().nullable(),
+        totalPremium: z.coerce.number().optional().nullable(),
+        downPayment: z.coerce.number().optional().nullable(),
+        policyStartDate: z.coerce.date().optional().nullable(),
+        monthlyPayment: z.coerce.number().optional().nullable(),
+        totalPayments: z.coerce.number().optional().nullable(),
+        paymentOption: z.enum(['monthly', 'one-time']).optional().nullable(),
+      })
+      .partial();
+
+    type PolicyDraftInput = z.infer<typeof policyDraftSchema>;
+
+    const buildPolicyDraftRecord = (
+      leadId: string,
+      draft: PolicyDraftInput | null | undefined,
+    ): InsertLeadPolicyDraft | null => {
+      if (!draft) {
+        return null;
+      }
+      const record: Record<string, unknown> = { leadId };
+      let hasField = false;
+      for (const [key, value] of Object.entries(draft)) {
+        if (value === undefined) {
+          continue;
+        }
+        record[key] = value;
+        hasField = true;
+      }
+      return hasField ? (record as InsertLeadPolicyDraft) : null;
+    };
+
     const leadSchema = insertLeadSchema
       .extend({ consentTimestamp: z.coerce.date().optional() })
       .partial()
@@ -6346,10 +6386,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           })
           .partial()
           .optional(),
+        policyDraft: policyDraftSchema.optional().nullable(),
       });
     try {
       const data = leadSchema.parse(req.body);
-      const { status, consentTimestamp, vehicle, policy, ...updates } = data as any;
+      const { status, consentTimestamp, vehicle, policy, policyDraft, ...updates } = data as any;
       const existingLead = await loadLeadFromRequest(req, res);
       if (!existingLead) {
         return;
@@ -6375,8 +6416,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await storage.createVehicle({ ...vehicle, leadId });
         }
       }
-      if (policy) {
-        await storage.updatePolicy(leadId, policy);
+      const existingPolicy = await storage.getPolicyByLeadId(leadId);
+      if (existingPolicy) {
+        if (policy) {
+          await storage.updatePolicy(leadId, policy);
+          await storage.deletePolicyDraft(leadId);
+        }
+        if (policyDraft === null) {
+          await storage.deletePolicyDraft(leadId);
+        }
+      } else {
+        if (policyDraft === null) {
+          await storage.deletePolicyDraft(leadId);
+        } else if (policyDraft !== undefined) {
+          const draftRecord = buildPolicyDraftRecord(leadId, policyDraft as PolicyDraftInput);
+          if (draftRecord) {
+            await storage.upsertPolicyDraft(draftRecord);
+          } else {
+            await storage.deletePolicyDraft(leadId);
+          }
+        } else if (policy) {
+          const draftRecord = buildPolicyDraftRecord(leadId, policy as PolicyDraftInput);
+          if (draftRecord) {
+            await storage.upsertPolicyDraft(draftRecord);
+          }
+        }
       }
       if (status) {
         await updateLeadStatus(leadId, status);
@@ -6387,11 +6451,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const updatedVehicle = await storage.getVehicleByLeadId(leadId);
       const updatedPolicy = await storage.getPolicyByLeadId(leadId);
+      const updatedPolicyDraft = await storage.getPolicyDraftByLeadId(leadId);
       res.json({
         data: {
           lead: updatedLead,
           vehicle: updatedVehicle,
           policy: updatedPolicy,
+          policyDraft: updatedPolicyDraft,
           status: updatedLead?.status ?? getLeadMeta(leadId).status,
         },
         message: 'Lead updated successfully',
