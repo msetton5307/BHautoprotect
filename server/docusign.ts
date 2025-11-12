@@ -1,6 +1,5 @@
 import { createSign } from "crypto";
 import dotenv from "dotenv";
-
 dotenv.config();
 
 type DocuSignConfig = {
@@ -40,7 +39,8 @@ type DocuSignEnvelopeResponse = {
 // --------------------------------------------------------
 
 const base64UrlEncode = (value: Buffer | string): string => {
-  const buffer = typeof value === "string" ? Buffer.from(value, "utf8") : Buffer.from(value);
+  const buffer =
+    typeof value === "string" ? Buffer.from(value, "utf8") : Buffer.from(value);
   return buffer
     .toString("base64")
     .replace(/\+/g, "-")
@@ -63,25 +63,23 @@ const signJwt = (payload: Record<string, unknown>, privateKeyPem: string): strin
 
 const readEnv = (key: string): string => {
   const value = process.env[key];
-  if (!value || value.trim().length === 0) throw new Error(`Missing environment variable ${key}`);
+  if (!value || value.trim().length === 0)
+    throw new Error(`Missing environment variable ${key}`);
   return value.trim();
 };
 
-const decodePrivateKey = (base64Value: string): string => {
-  return Buffer.from(base64Value, "base64").toString("utf8");
-};
+const decodePrivateKey = (base64Value: string): string =>
+  Buffer.from(base64Value, "base64").toString("utf8");
 
-const getConfig = (): DocuSignConfig => {
-  return {
-    integrationKey: readEnv("DS_INTEGRATION_KEY"),
-    userId: readEnv("DS_USER_ID"),
-    accountId: readEnv("DS_ACCOUNT_ID"),
-    authBaseUrl: readEnv("DS_AUTH_BASE_URL"),
-    basePath: readEnv("DS_BASE_PATH"),
-    templateId: readEnv("DS_TEMPLATE_ID"),
-    privateKeyPem: decodePrivateKey(readEnv("DS_PRIVATE_KEY_BASE64")),
-  };
-};
+const getConfig = (): DocuSignConfig => ({
+  integrationKey: readEnv("DS_INTEGRATION_KEY"),
+  userId: readEnv("DS_USER_ID"),
+  accountId: readEnv("DS_ACCOUNT_ID"),
+  authBaseUrl: readEnv("DS_AUTH_BASE_URL"),
+  basePath: readEnv("DS_BASE_PATH"),
+  templateId: readEnv("DS_TEMPLATE_ID"),
+  privateKeyPem: decodePrivateKey(readEnv("DS_PRIVATE_KEY_BASE64")),
+});
 
 // --------------------------------------------------------
 // JWT Token
@@ -113,13 +111,9 @@ const requestAccessToken = async (config: DocuSignConfig): Promise<string> => {
     body,
   });
 
-  const data = (await response.json().catch(() => null)) as
-    | { access_token?: string; error?: string; error_description?: string }
-    | null;
-
-  if (!response.ok || !data?.access_token) {
-    throw new Error(data?.error_description || data?.error || "DocuSign authentication failed");
-  }
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.access_token)
+    throw new Error(data?.error_description || "DocuSign authentication failed");
 
   return data.access_token;
 };
@@ -132,15 +126,24 @@ export const sendContractEnvelope = async (
   options: SendContractOptions
 ): Promise<DocuSignEnvelopeResponse> => {
   const config = getConfig();
-  console.log("🔍 DS_INTEGRATION_KEY:", process.env.DS_INTEGRATION_KEY);
+  console.log("🔍 DS_INTEGRATION_KEY:", config.integrationKey);
 
   const accessToken = await requestAccessToken(config);
 
-  // Helper: convert fields to tab arrays
+  // Helper: convert field object to array
   const mapTabs = (obj?: Record<string, string | number>) =>
     obj ? Object.entries(obj).map(([tabLabel, value]) => ({ tabLabel, value })) : [];
 
-  // Build the payload exactly like your working cURL
+  // Helper: convert numerical fields to proper DocuSign format
+  const mapNumericalTabs = (obj?: Record<string, string | number>) =>
+    obj
+      ? Object.entries(obj).map(([tabLabel, value]) => ({
+          tabLabel,
+          value: String(value),
+          numericalValue: Number(value),
+        }))
+      : [];
+
   const payload = {
     emailSubject: "Please sign your Vehicle Service Program",
     templateId: config.templateId,
@@ -154,7 +157,10 @@ export const sendContractEnvelope = async (
           fullNameTabs: mapTabs(options.fields.fullName),
           emailAddressTabs: mapTabs(options.fields.email),
           textTabs: mapTabs(options.fields.text),
-          numericalTabs: mapTabs(options.fields.numerical),
+          numberTabs: [
+            { tabLabel: "VIN", value: options.fields.text?.["VIN"] || "" },
+          ], // keep VIN numeric
+          numericalTabs: mapNumericalTabs(options.fields.numerical),
           listTabs: mapTabs(options.fields.list),
         },
       },
@@ -178,9 +184,8 @@ export const sendContractEnvelope = async (
   const text = await response.text();
   console.log("📥 DocuSign response:", response.status, text);
 
-  if (!response.ok) {
+  if (!response.ok)
     throw new Error(`DocuSign error: ${response.statusText} - ${text}`);
-  }
 
   const data = JSON.parse(text);
   return {
