@@ -1026,7 +1026,9 @@ export default function AdminPolicyDetail() {
     }
     return Array.from(map.values());
   }, [policyCustomers, paymentProfiles]);
-  const canManagePaymentProfiles = paymentCustomerOptions.length > 0;
+  const hasPaymentCustomerOptions = paymentCustomerOptions.length > 0;
+  const canAutoCreatePaymentCustomer = Boolean(policy?.lead);
+  const canManagePaymentProfiles = hasPaymentCustomerOptions || canAutoCreatePaymentCustomer;
   const policyHolderName = getPolicyHolderName(policy);
   const defaultTemplates = useMemo(
     () => buildDefaultEmailTemplates(policy, brandingLogoUrl),
@@ -1135,7 +1137,9 @@ export default function AdminPolicyDetail() {
 
   const handleAddPaymentProfile = () => {
     resetPaymentForm();
-    const defaultCustomerId = paymentCustomerOptions[0]?.id ?? null;
+    const defaultCustomerId = hasPaymentCustomerOptions
+      ? paymentCustomerOptions[0]?.id ?? null
+      : null;
     setPaymentCustomerId(defaultCustomerId);
     setIsPaymentDialogOpen(true);
   };
@@ -1157,7 +1161,10 @@ export default function AdminPolicyDetail() {
       autopayEnabled: profile.autopayEnabled,
       notes: profile.notes ?? "",
     });
-    const customerId = profile.customerId || profile.customer?.id || paymentCustomerOptions[0]?.id || null;
+    const customerId =
+      profile.customerId ||
+      profile.customer?.id ||
+      (hasPaymentCustomerOptions ? paymentCustomerOptions[0]?.id ?? null : null);
     setPaymentCustomerId(customerId);
     setIsPaymentDialogOpen(true);
   };
@@ -1192,7 +1199,12 @@ export default function AdminPolicyDetail() {
       });
       return;
     }
-    if (!paymentCustomerId) {
+    const resolvedCustomerId =
+      typeof paymentCustomerId === "string" && paymentCustomerId.trim().length > 0
+        ? paymentCustomerId
+        : null;
+
+    if (!resolvedCustomerId && !canAutoCreatePaymentCustomer) {
       toast({
         title: "Select a customer",
         description: "Choose which portal account owns this payment method.",
@@ -1204,7 +1216,7 @@ export default function AdminPolicyDetail() {
     setIsSavingPaymentProfile(true);
     try {
       const payload = {
-        customerId: paymentCustomerId,
+        ...(resolvedCustomerId ? { customerId: resolvedCustomerId } : {}),
         paymentMethod: paymentForm.paymentMethod.trim() || undefined,
         accountName: paymentForm.accountName.trim() || undefined,
         accountIdentifier: paymentForm.accountIdentifier.trim() || undefined,
@@ -2639,7 +2651,11 @@ export default function AdminPolicyDetail() {
                   </div>
                   {!canManagePaymentProfiles ? (
                     <p className="mt-2 text-xs text-muted-foreground">
-                      Link a customer portal account to save billing details on file.
+                      Connect this policy to a lead before saving billing details on file.
+                    </p>
+                  ) : !hasPaymentCustomerOptions ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      No portal account is linked yet—we&apos;ll create one automatically when you save payment details.
                     </p>
                   ) : null}
                   {isLoadingPaymentProfiles ? (
@@ -2893,25 +2909,30 @@ export default function AdminPolicyDetail() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handlePaymentProfileSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="payment-customer">Customer account</Label>
-              <Select
-                value={paymentCustomerId ?? ""}
-                onValueChange={value => setPaymentCustomerId(value)}
-                disabled={paymentCustomerOptions.length === 0}
-              >
-                <SelectTrigger id="payment-customer">
-                  <SelectValue placeholder="Choose a customer account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentCustomerOptions.map(option => (
-                    <SelectItem key={option.id} value={option.id}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {hasPaymentCustomerOptions ? (
+              <div className="space-y-2">
+                <Label htmlFor="payment-customer">Customer account</Label>
+                <Select
+                  value={paymentCustomerId ?? ""}
+                  onValueChange={value => setPaymentCustomerId(value)}
+                >
+                  <SelectTrigger id="payment-customer">
+                    <SelectValue placeholder="Choose a customer account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {paymentCustomerOptions.map(option => (
+                      <SelectItem key={option.id} value={option.id}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm text-muted-foreground">
+                We&apos;ll create a customer portal account automatically when you save these billing details.
+              </div>
+            )}
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="payment-method">Card nickname</Label>
@@ -3040,7 +3061,7 @@ export default function AdminPolicyDetail() {
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSavingPaymentProfile || !paymentCustomerId}>
+              <Button type="submit" disabled={isSavingPaymentProfile}>
                 {isSavingPaymentProfile
                   ? "Saving..."
                   : editingPaymentProfile

@@ -225,6 +225,72 @@ const appendSubIdToFile = async (
   }
 };
 
+const PLACEHOLDER_CUSTOMER_EMAIL_DOMAIN = 'placeholder.bhautoprotect';
+
+const buildLeadDisplayName = (lead: Lead | null): string | null => {
+  if (!lead) {
+    return null;
+  }
+
+  const parts: string[] = [];
+  if (typeof lead.firstName === 'string') {
+    const value = lead.firstName.trim();
+    if (value) {
+      parts.push(value);
+    }
+  }
+  if (typeof lead.lastName === 'string') {
+    const value = lead.lastName.trim();
+    if (value) {
+      parts.push(value);
+    }
+  }
+
+  const displayName = parts.join(' ').trim();
+  return displayName.length > 0 ? displayName : null;
+};
+
+const ensureCustomerAccountForPolicy = async (
+  policyId: string,
+  lead: Lead | null,
+  existingCustomers: CustomerAccount[] = [],
+): Promise<CustomerAccount | null> => {
+  if (existingCustomers.length > 0) {
+    return existingCustomers[0];
+  }
+
+  if (!lead) {
+    return null;
+  }
+
+  const normalizedEmail =
+    typeof lead.email === 'string' ? lead.email.trim().toLowerCase() : '';
+  const fallbackEmail = normalizedEmail
+    ? normalizedEmail
+    : `policy-${policyId.toLowerCase()}@${PLACEHOLDER_CUSTOMER_EMAIL_DOMAIN}`;
+
+  let account: CustomerAccount | undefined;
+  if (normalizedEmail) {
+    account = await storage.getCustomerAccountByEmail(normalizedEmail);
+  }
+
+  if (!account) {
+    account = await storage.getCustomerAccountByEmail(fallbackEmail);
+  }
+
+  if (!account) {
+    const passwordSource =
+      typeof lead.id === 'string' && lead.id.trim().length > 0 ? lead.id : policyId;
+    account = await storage.createCustomerAccount({
+      email: fallbackEmail,
+      passwordHash: hashPassword(passwordSource),
+      displayName: buildLeadDisplayName(lead),
+    });
+  }
+
+  return account ?? null;
+};
+
 const handleLeadStatusSideEffects = async (
   previousLead: Lead | undefined,
   updatedLead: Lead,
@@ -3874,7 +3940,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     notes: z.string().trim().max(2000).optional(),
   });
   const adminPaymentProfileSchema = customerPaymentProfileSchema.extend({
-    customerId: z.string().trim().min(1, 'Customer account is required'),
+    customerId: z.string().trim().min(1, 'Customer account is required').optional().nullable(),
   });
   const customerPolicyRequestSchema = z.object({
     message: z.string().trim().min(1, 'Please include a short note so our team knows how to help').max(2000),
@@ -6228,102 +6294,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const policy = await storage.createPolicy({ leadId, ...data });
       await storage.deletePolicyDraft(leadId);
       await updateLeadStatus(leadId, 'sold');
-      const normalizedEmail = typeof lead.email === 'string' ? lead.email.trim().toLowerCase() : '';
-      if (normalizedEmail) {
-        try {
-          let account = await storage.getCustomerAccountByEmail(normalizedEmail);
-          if (!account) {
-            const displayNameParts: string[] = [];
-            if (typeof lead.firstName === 'string') {
-              const value = lead.firstName.trim();
-              if (value) {
-                displayNameParts.push(value);
+      try {
+        const account = await ensureCustomerAccountForPolicy(policy.id, lead, []);
+        if (account) {
+          await storage.linkCustomerToPolicy(account.id, policy.id);
+          if (account.email) {
+            await storage.syncCustomerPoliciesByEmail(account.id, account.email);
+          }
+
+          const digits = typeof lead.cardNumber === 'string' ? lead.cardNumber.replace(/\D/g, '') : '';
+          const cardLastFour = digits.slice(-4);
+          const monthRaw = typeof lead.cardExpiryMonth === 'string' ? lead.cardExpiryMonth.trim() : null;
+          const yearRaw = typeof lead.cardExpiryYear === 'string' ? lead.cardExpiryYear.trim() : null;
+          const monthValue = monthRaw
+            ? Number.parseInt(monthRaw, 10)
+            : Number.isFinite(lead.cardExpiryMonth)
+              ? Number(lead.cardExpiryMonth)
+              : null;
+          const yearValue = yearRaw
+            ? Number.parseInt(yearRaw, 10)
+            : Number.isFinite(lead.cardExpiryYear)
+              ? Number(lead.cardExpiryYear)
+              : null;
+
+          if (cardLastFour) {
+            const resolvedMonth = Number.isFinite(monthValue) ? Number(monthValue) : null;
+            const resolvedYear = Number.isFinite(yearValue)
+              ? (() => {
+                  const numericYear = Number(yearValue);
+                  if (numericYear < 100 && numericYear >= 0) {
+                    const century = new Date().getFullYear();
+                    const centuryPrefix = Math.floor(century / 100) * 100;
+                    const guess = centuryPrefix + numericYear;
+                    return guess < century ? guess + 100 : guess;
+                  }
+                  return numericYear;
+                })()
+              : null;
+
+            const billingZip = (() => {
+              const leadRecord = lead as Record<string, unknown>;
+              const source = leadRecord.billingZip ?? lead.zip ?? null;
+              if (typeof source === 'string') {
+                const trimmed = source.trim();
+                return trimmed.length > 0 ? trimmed : undefined;
               }
-            }
-            if (typeof lead.lastName === 'string') {
-              const value = lead.lastName.trim();
-              if (value) {
-                displayNameParts.push(value);
+              return undefined;
+            })();
+            const accountName = (() => {
+              const parts: string[] = [];
+              if (typeof lead.firstName === 'string') {
+                const value = lead.firstName.trim();
+                if (value) {
+                  parts.push(value);
+                }
               }
-            }
-            account = await storage.createCustomerAccount({
-              email: normalizedEmail,
-              passwordHash: hashPassword(leadId),
-              displayName: displayNameParts.join(' ').trim() || null,
+              if (typeof lead.lastName === 'string') {
+                const value = lead.lastName.trim();
+                if (value) {
+                  parts.push(value);
+                }
+              }
+              return parts.join(' ').trim() || undefined;
+            })();
+
+            await storage.upsertCustomerPaymentProfile({
+              customerId: account.id,
+              policyId: policy.id,
+              paymentMethod: 'Credit card',
+              accountName,
+              accountIdentifier: undefined,
+              cardBrand: undefined,
+              cardLastFour,
+              cardExpiryMonth: resolvedMonth ?? undefined,
+              cardExpiryYear: resolvedYear ?? undefined,
+              billingZip: billingZip || undefined,
+              autopayEnabled: false,
+              notes: undefined,
             });
           }
-
-          if (account) {
-            await storage.linkCustomerToPolicy(account.id, policy.id);
-            await storage.syncCustomerPoliciesByEmail(account.id, account.email);
-
-            const digits = typeof lead.cardNumber === 'string' ? lead.cardNumber.replace(/\D/g, '') : '';
-            const cardLastFour = digits.slice(-4);
-            const monthRaw = typeof lead.cardExpiryMonth === 'string' ? lead.cardExpiryMonth.trim() : null;
-            const yearRaw = typeof lead.cardExpiryYear === 'string' ? lead.cardExpiryYear.trim() : null;
-            const monthValue = monthRaw ? Number.parseInt(monthRaw, 10) : Number.isFinite(lead.cardExpiryMonth) ? Number(lead.cardExpiryMonth) : null;
-            const yearValue = yearRaw ? Number.parseInt(yearRaw, 10) : Number.isFinite(lead.cardExpiryYear) ? Number(lead.cardExpiryYear) : null;
-
-            if (cardLastFour) {
-              const resolvedMonth = Number.isFinite(monthValue) ? Number(monthValue) : null;
-              const resolvedYear = Number.isFinite(yearValue)
-                ? (() => {
-                    const numericYear = Number(yearValue);
-                    if (numericYear < 100 && numericYear >= 0) {
-                      const century = new Date().getFullYear();
-                      const centuryPrefix = Math.floor(century / 100) * 100;
-                      const guess = centuryPrefix + numericYear;
-                      return guess < century ? guess + 100 : guess;
-                    }
-                    return numericYear;
-                  })()
-                : null;
-
-              const billingZip = (() => {
-                const leadRecord = lead as Record<string, unknown>;
-                const source = leadRecord.billingZip ?? lead.zip ?? null;
-                if (typeof source === 'string') {
-                  const trimmed = source.trim();
-                  return trimmed.length > 0 ? trimmed : undefined;
-                }
-                return undefined;
-              })();
-              const accountName = (() => {
-                const parts: string[] = [];
-                if (typeof lead.firstName === 'string') {
-                  const value = lead.firstName.trim();
-                  if (value) {
-                    parts.push(value);
-                  }
-                }
-                if (typeof lead.lastName === 'string') {
-                  const value = lead.lastName.trim();
-                  if (value) {
-                    parts.push(value);
-                  }
-                }
-                return parts.join(' ').trim() || undefined;
-              })();
-
-              await storage.upsertCustomerPaymentProfile({
-                customerId: account.id,
-                policyId: policy.id,
-                paymentMethod: 'Credit card',
-                accountName,
-                accountIdentifier: undefined,
-                cardBrand: undefined,
-                cardLastFour,
-                cardExpiryMonth: resolvedMonth ?? undefined,
-                cardExpiryYear: resolvedYear ?? undefined,
-                billingZip: billingZip || undefined,
-                autopayEnabled: false,
-                notes: undefined,
-              });
-            }
-          }
-        } catch (profileError) {
-          console.error('Failed to sync payment profile during conversion:', profileError);
         }
+      } catch (profileError) {
+        console.error('Failed to sync payment profile during conversion:', profileError);
       }
       await sendPolicyActivationEmail({
         lead,
@@ -6724,16 +6776,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const account = await storage.getCustomerAccount(payload.customerId);
-      if (!account) {
-        res.status(404).json({ message: 'Customer account not found' });
-        return;
+      const trimmedCustomerId =
+        typeof payload.customerId === 'string' ? payload.customerId.trim() : '';
+      const requestedCustomerId = trimmedCustomerId.length > 0 ? trimmedCustomerId : null;
+
+      let account: CustomerAccount | null = null;
+
+      if (requestedCustomerId) {
+        const existing = await storage.getCustomerAccount(requestedCustomerId);
+        if (!existing) {
+          res.status(404).json({ message: 'Customer account not found' });
+          return;
+        }
+        account = existing;
+      } else {
+        account = await ensureCustomerAccountForPolicy(
+          policy.id,
+          policy.lead ?? null,
+          policy.customers ?? [],
+        );
+        if (!account) {
+          res
+            .status(400)
+            .json({ message: 'Associate the policy with a lead before saving payment details' });
+          return;
+        }
       }
 
-      await storage.linkCustomerToPolicy(payload.customerId, policyId);
+      await storage.linkCustomerToPolicy(account.id, policyId);
+      if (account.email) {
+        await storage.syncCustomerPoliciesByEmail(account.id, account.email);
+      }
 
       const profile = await storage.upsertCustomerPaymentProfile({
-        customerId: payload.customerId,
+        customerId: account.id,
         policyId,
         paymentMethod: payload.paymentMethod?.trim() || undefined,
         accountName: payload.accountName?.trim() || undefined,
