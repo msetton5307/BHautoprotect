@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import Navigation from "@/components/navigation";
 import { QuoteForm } from "@/components/quote-form";
-import { Button } from "@/components/ui/button";
 import { Check, Clock, Gift, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 
 const perks = [
@@ -60,18 +59,9 @@ export default function PromoPage() {
                   personalized quote with $700 already taken off your plan price.
                 </p>
               </div>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-                <Button
-                  size="lg"
-                  className="h-14 rounded-full bg-white text-slate-900 shadow-xl shadow-primary/30 transition hover:bg-blue-50"
-                  onClick={handleQuoteClick}
-                >
-                  Claim My $700 Savings
-                </Button>
-                <div className="flex items-center gap-3 text-sm text-blue-100">
-                  <Clock className="h-5 w-5" />
-                  Offer locks in for 72 hours after you submit.
-                </div>
+              <div className="flex items-center gap-3 text-sm text-blue-100">
+                <Clock className="h-5 w-5" />
+                Offer locks in for 72 hours after you submit.
               </div>
               <div className="grid gap-6 rounded-2xl border border-white/20 bg-white/10 p-6 text-sm leading-relaxed text-blue-50 sm:grid-cols-3">
                 {milestones.map((item) => (
@@ -86,7 +76,7 @@ export default function PromoPage() {
               ref={formRef}
               title="Lock in your $700 discount"
               description="Complete the form below and we’ll prepare a custom quote with the promo automatically applied."
-              submitLabel="Send me my discounted quote"
+              submitLabel="Claim My $700 Savings"
               leadSource="promo-700-off"
             />
           </div>

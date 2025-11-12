@@ -10,7 +10,6 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -108,7 +107,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         state: "",
       },
       consent: {
-        agreement: false,
+        agreement: true,
       },
     });
     const [manualMake, setManualMake] = useState(false);
@@ -526,7 +525,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           state: "",
         },
         consent: {
-          agreement: false,
+          agreement: true,
         },
       });
       setManualMake(false);
@@ -571,15 +570,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
     const submitQuote = () => {
       if (submitQuoteMutation.isPending) {
-        return;
-      }
-
-      if (!quoteData.consent.agreement) {
-        toast({
-          title: "Consent Required",
-          description: "Please accept the consent terms to continue.",
-          variant: "destructive",
-        });
         return;
       }
 
@@ -646,13 +636,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       setQuoteData((prev) => ({
         ...prev,
         owner: { ...prev.owner, [field]: value },
-      }));
-    };
-
-    const handleConsentChange = (value: boolean) => {
-      setQuoteData((prev) => ({
-        ...prev,
-        consent: { agreement: value },
       }));
     };
 
@@ -922,49 +905,38 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-start gap-3 rounded-xl bg-slate-100/70 p-4">
-            <Checkbox
-              id="consent"
-              checked={quoteData.consent.agreement}
-              onCheckedChange={(checked) => handleConsentChange(!!checked)}
-              className="mt-1"
-            />
-            <Label htmlFor="consent" className="text-xs font-medium leading-relaxed text-gray-600">
-              By submitting this form I consent to BH Auto Protect contacting me about vehicle protection services using
-              automated calls, prerecorded voice messages, SMS/text messages, or email at the information provided above.
-              Message and data rates may apply and messaging frequency may vary. Reply STOP to unsubscribe. Consent is not
-              required to receive services and I may call BH Auto Protect directly at{" "}
-              <a href="tel:+18339400234" className="text-primary font-semibold">
-                (833) 940-0234
-              </a>
-              . I consent to BH Auto Protect's{" "}
-              <a href="/legal/terms" className="text-primary hover:underline">
-                mobile terms and conditions
-              </a>{" "}
-              and{" "}
-              <a href="/legal/privacy" className="text-primary hover:underline">
-                privacy statement
-              </a>
-              , and I agree to the{" "}
-              <a href="/legal/privacy" className="text-primary hover:underline">
-                Privacy Policy
-              </a>{" "}
-              and{" "}
-              <a href="/legal/terms" className="text-primary hover:underline">
-                Terms of Service
-              </a>
-              .
-            </Label>
-          </div>
-        </div>
+        <div ref={recaptchaContainerRef} className="sr-only" data-sitekey={recaptchaSiteKey} />
 
-        <div className="space-y-2">
-          <div
-            ref={recaptchaContainerRef}
-            className="hidden"
-            data-sitekey={recaptchaSiteKey}
-          />
+        <div className="flex flex-col gap-3 pt-2">
+          <Button type="submit" disabled={submitQuoteMutation.isPending} className="bg-accent px-8 hover:bg-green-600">
+            {submitQuoteMutation.isPending ? "Submitting..." : submitLabel}
+          </Button>
+          <p className="text-xs font-medium leading-relaxed text-gray-600">
+            By submitting this form I consent to BH Auto Protect contacting me about vehicle protection services using
+            automated calls, prerecorded voice messages, SMS/text messages, or email at the information provided above.
+            Message and data rates may apply and messaging frequency may vary. Reply STOP to unsubscribe. Consent is not
+            required to receive services and I may call BH Auto Protect directly at{" "}
+            <a href="tel:+18339400234" className="text-primary font-semibold">
+              (833) 940-0234
+            </a>
+            . I consent to BH Auto Protect's{" "}
+            <a href="/legal/terms" className="text-primary hover:underline">
+              mobile terms and conditions
+            </a>{" "}
+            and{" "}
+            <a href="/legal/privacy" className="text-primary hover:underline">
+              privacy statement
+            </a>
+            , and I agree to the{" "}
+            <a href="/legal/privacy" className="text-primary hover:underline">
+              Privacy Policy
+            </a>{" "}
+            and{" "}
+            <a href="/legal/terms" className="text-primary hover:underline">
+              Terms of Service
+            </a>
+            .
+          </p>
           <p className="text-xs text-gray-500">
             This site is protected by reCAPTCHA and the Google
             {" "}
@@ -990,12 +962,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           {recaptchaError && (
             <p className="text-xs font-semibold text-destructive">Verification failed. Please try again.</p>
           )}
-        </div>
-
-        <div className="flex justify-end pt-2">
-          <Button type="submit" disabled={submitQuoteMutation.isPending} className="bg-accent px-8 hover:bg-green-600">
-            {submitQuoteMutation.isPending ? "Submitting..." : submitLabel}
-          </Button>
         </div>
       </form>
     );
