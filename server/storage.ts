@@ -4,6 +4,7 @@ import {
   quotes,
   notes,
   policies,
+  leadPolicyDrafts,
   claims,
   policyNotes,
   policyFiles,
@@ -27,6 +28,8 @@ import {
   type InsertNote,
   type Policy,
   type InsertPolicy,
+  type LeadPolicyDraft,
+  type InsertLeadPolicyDraft,
   type Claim,
   type InsertClaim,
   type PolicyNote,
@@ -236,6 +239,9 @@ export interface IStorage {
   getPolicyByLeadId(leadId: string): Promise<Policy | undefined>;
   updatePolicy(leadId: string, updates: Partial<InsertPolicy>): Promise<Policy>;
   deletePolicy(id: string): Promise<Policy | undefined>;
+  getPolicyDraftByLeadId(leadId: string): Promise<LeadPolicyDraft | undefined>;
+  upsertPolicyDraft(draft: InsertLeadPolicyDraft): Promise<LeadPolicyDraft>;
+  deletePolicyDraft(leadId: string): Promise<LeadPolicyDraft | undefined>;
 
   // Policy note operations
   getPolicyNotes(policyId: string): Promise<PolicyNote[]>;
@@ -567,6 +573,32 @@ export class DatabaseStorage implements IStorage {
   async deletePolicy(id: string): Promise<Policy | undefined> {
     const [policy] = await db.delete(policies).where(eq(policies.id, id)).returning();
     return policy;
+  }
+
+  async getPolicyDraftByLeadId(leadId: string): Promise<LeadPolicyDraft | undefined> {
+    const [draft] = await db.select().from(leadPolicyDrafts).where(eq(leadPolicyDrafts.leadId, leadId));
+    return draft;
+  }
+
+  async upsertPolicyDraft(draft: InsertLeadPolicyDraft): Promise<LeadPolicyDraft> {
+    const sanitized = Object.fromEntries(
+      Object.entries(draft).filter(([, value]) => value !== undefined),
+    ) as InsertLeadPolicyDraft;
+
+    const [row] = await db
+      .insert(leadPolicyDrafts)
+      .values(sanitized)
+      .onConflictDoUpdate({
+        target: leadPolicyDrafts.leadId,
+        set: sanitized,
+      })
+      .returning();
+    return row;
+  }
+
+  async deletePolicyDraft(leadId: string): Promise<LeadPolicyDraft | undefined> {
+    const [draft] = await db.delete(leadPolicyDrafts).where(eq(leadPolicyDrafts.leadId, leadId)).returning();
+    return draft;
   }
 
   // Policy note operations
