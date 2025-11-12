@@ -26,6 +26,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -61,6 +62,7 @@ type TemplateOption = EmailTemplateRecord & { source: "default" | "saved" };
 
 type PolicyPaymentProfileRecord = {
   id: string;
+  customerId: string;
   paymentMethod: string | null;
   accountName: string | null;
   accountIdentifier: string | null;
@@ -74,6 +76,46 @@ type PolicyPaymentProfileRecord = {
   updatedAt?: string | null;
   customer?: { id: string; email: string; displayName?: string | null } | null;
 };
+
+type PaymentProfileFormState = {
+  paymentMethod: string;
+  accountName: string;
+  accountIdentifier: string;
+  cardBrand: string;
+  cardLastFour: string;
+  cardExpiryMonth: string;
+  cardExpiryYear: string;
+  billingZip: string;
+  autopayEnabled: boolean;
+  notes: string;
+};
+
+type BillingFormState = {
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+};
+
+const createEmptyPaymentProfileForm = (): PaymentProfileFormState => ({
+  paymentMethod: "",
+  accountName: "",
+  accountIdentifier: "",
+  cardBrand: "",
+  cardLastFour: "",
+  cardExpiryMonth: "",
+  cardExpiryYear: "",
+  billingZip: "",
+  autopayEnabled: false,
+  notes: "",
+});
+
+const createEmptyBillingForm = (): BillingFormState => ({
+  address: "",
+  city: "",
+  state: "",
+  zip: "",
+});
 
 type PolicyChargeRecord = {
   id: string;
@@ -936,6 +978,7 @@ export default function AdminPolicyDetail() {
     (lead as { billingState?: string | null }).billingState ?? null,
     (lead as { billingZip?: string | null }).billingZip ?? null,
   );
+  const hasBillingAddress = Boolean(billingAddressDisplay);
   const shippingAddressDisplay = formatAddressForDisplay(
     (lead as { shippingAddress?: string | null }).shippingAddress ?? null,
     (lead as { shippingCity?: string | null }).shippingCity ?? null,
@@ -956,6 +999,34 @@ export default function AdminPolicyDetail() {
     return [...records].sort((a, b) => new Date(b.chargedAt).valueOf() - new Date(a.chargedAt).valueOf());
   }, [chargesResponse]);
 
+  const policyCustomers = policy?.customers ?? [];
+  const paymentCustomerOptions = useMemo(() => {
+    const map = new Map<string, { id: string; label: string }>();
+    for (const customer of policyCustomers) {
+      if (!customer?.id) continue;
+      const displayName =
+        typeof customer.displayName === "string" && customer.displayName.trim().length > 0
+          ? customer.displayName.trim()
+          : undefined;
+      const email = typeof customer.email === "string" ? customer.email : undefined;
+      const label = displayName ?? email ?? customer.id;
+      map.set(customer.id, { id: customer.id, label });
+    }
+    for (const profile of paymentProfiles) {
+      if (!profile.customerId) continue;
+      if (map.has(profile.customerId)) continue;
+      const customer = profile.customer;
+      const displayName =
+        customer?.displayName && customer.displayName.trim().length > 0
+          ? customer.displayName.trim()
+          : undefined;
+      const email = customer?.email;
+      const label = displayName ?? email ?? profile.customerId;
+      map.set(profile.customerId, { id: profile.customerId, label });
+    }
+    return Array.from(map.values());
+  }, [policyCustomers, paymentProfiles]);
+  const canManagePaymentProfiles = paymentCustomerOptions.length > 0;
   const policyHolderName = getPolicyHolderName(policy);
   const defaultTemplates = useMemo(
     () => buildDefaultEmailTemplates(policy, brandingLogoUrl),
@@ -1027,6 +1098,224 @@ export default function AdminPolicyDetail() {
   const [isDeletingPolicy, setIsDeletingPolicy] = useState(false);
   const [isSendingContract, setIsSendingContract] = useState(false);
   const [policyForm, setPolicyForm] = useState(() => createPolicyFormState(policy));
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [isSavingPaymentProfile, setIsSavingPaymentProfile] = useState(false);
+  const [editingPaymentProfile, setEditingPaymentProfile] = useState<PolicyPaymentProfileRecord | null>(null);
+  const [paymentForm, setPaymentForm] = useState<PaymentProfileFormState>(() => createEmptyPaymentProfileForm());
+  const [paymentCustomerId, setPaymentCustomerId] = useState<string | null>(null);
+  const [isBillingDialogOpen, setIsBillingDialogOpen] = useState(false);
+  const [isSavingBillingAddress, setIsSavingBillingAddress] = useState(false);
+  const [billingForm, setBillingForm] = useState<BillingFormState>(() => createEmptyBillingForm());
+
+  const resetPaymentForm = () => {
+    setPaymentForm(createEmptyPaymentProfileForm());
+    setEditingPaymentProfile(null);
+    setPaymentCustomerId(null);
+  };
+
+  const resetBillingForm = () => {
+    setBillingForm(createEmptyBillingForm());
+  };
+
+  const handlePaymentDialogOpenChange = (open: boolean) => {
+    setIsPaymentDialogOpen(open);
+    if (!open) {
+      setIsSavingPaymentProfile(false);
+      resetPaymentForm();
+    }
+  };
+
+  const handleBillingDialogOpenChange = (open: boolean) => {
+    setIsBillingDialogOpen(open);
+    if (!open) {
+      setIsSavingBillingAddress(false);
+      resetBillingForm();
+    }
+  };
+
+  const handleAddPaymentProfile = () => {
+    resetPaymentForm();
+    const defaultCustomerId = paymentCustomerOptions[0]?.id ?? null;
+    setPaymentCustomerId(defaultCustomerId);
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handleEditPaymentProfile = (profile: PolicyPaymentProfileRecord) => {
+    setEditingPaymentProfile(profile);
+    setPaymentForm({
+      paymentMethod: profile.paymentMethod ?? "",
+      accountName: profile.accountName ?? "",
+      accountIdentifier: profile.accountIdentifier ?? "",
+      cardBrand: profile.cardBrand ?? "",
+      cardLastFour: profile.cardLastFour ?? "",
+      cardExpiryMonth:
+        profile.cardExpiryMonth != null
+          ? String(profile.cardExpiryMonth).padStart(2, "0")
+          : "",
+      cardExpiryYear: profile.cardExpiryYear != null ? String(profile.cardExpiryYear) : "",
+      billingZip: profile.billingZip ?? "",
+      autopayEnabled: profile.autopayEnabled,
+      notes: profile.notes ?? "",
+    });
+    const customerId = profile.customerId || profile.customer?.id || paymentCustomerOptions[0]?.id || null;
+    setPaymentCustomerId(customerId);
+    setIsPaymentDialogOpen(true);
+  };
+
+  const handleOpenBillingDialog = () => {
+    if (policy?.lead) {
+      const leadRecord = policy.lead as {
+        billingAddress?: string | null;
+        billingCity?: string | null;
+        billingState?: string | null;
+        billingZip?: string | null;
+      };
+      setBillingForm({
+        address: leadRecord.billingAddress ?? "",
+        city: leadRecord.billingCity ?? "",
+        state: leadRecord.billingState ?? "",
+        zip: leadRecord.billingZip ?? "",
+      });
+    } else {
+      resetBillingForm();
+    }
+    setIsBillingDialogOpen(true);
+  };
+
+  const handlePaymentProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!id) {
+      toast({
+        title: "Missing policy number",
+        description: "Reload the page and try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!paymentCustomerId) {
+      toast({
+        title: "Select a customer",
+        description: "Choose which portal account owns this payment method.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingPaymentProfile(true);
+    try {
+      const payload = {
+        customerId: paymentCustomerId,
+        paymentMethod: paymentForm.paymentMethod.trim() || undefined,
+        accountName: paymentForm.accountName.trim() || undefined,
+        accountIdentifier: paymentForm.accountIdentifier.trim() || undefined,
+        cardBrand: paymentForm.cardBrand.trim() || undefined,
+        cardLastFour: paymentForm.cardLastFour.trim() || undefined,
+        cardExpiryMonth: paymentForm.cardExpiryMonth.trim() || undefined,
+        cardExpiryYear: paymentForm.cardExpiryYear.trim() || undefined,
+        billingZip: paymentForm.billingZip.trim() || undefined,
+        autopayEnabled: paymentForm.autopayEnabled,
+        notes: paymentForm.notes.trim() || undefined,
+      };
+
+      const res = await fetchWithAuth(`/api/admin/policies/${id}/payment-profiles`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      ensureAuthorized(res);
+      const responseBody = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          typeof responseBody?.message === "string"
+            ? responseBody.message
+            : "Failed to save payment method";
+        throw new Error(message);
+      }
+
+      toast({
+        title: editingPaymentProfile ? "Payment method updated" : "Payment method saved",
+        description: "We'll reference this card when billing the policy.",
+      });
+      handlePaymentDialogOpenChange(false);
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id, "payment-profiles"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save payment method";
+      toast({
+        title: "Unable to save payment method",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingPaymentProfile(false);
+    }
+  };
+
+  const handleBillingSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const leadId = policy?.lead?.id;
+    if (!policy || !leadId) {
+      toast({
+        title: "Policy unavailable",
+        description: "Load the policy details before editing the billing address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const address = billingForm.address.trim();
+    const city = billingForm.city.trim();
+    const state = billingForm.state.trim();
+    const zip = billingForm.zip.trim();
+
+    if (!address || !city || !state || !zip) {
+      toast({
+        title: "Complete the address",
+        description: "Address, city, state, and ZIP are all required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingBillingAddress(true);
+    try {
+      const res = await fetchWithAuth(`/api/admin/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          billingAddress: address,
+          billingCity: city,
+          billingState: state,
+          billingZip: zip,
+        }),
+      });
+      ensureAuthorized(res);
+      const responseBody = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message =
+          typeof responseBody?.message === "string"
+            ? responseBody.message
+            : "Failed to update billing address";
+        throw new Error(message);
+      }
+
+      toast({
+        title: "Billing address updated",
+        description: "The policy record now reflects the latest billing details.",
+      });
+      handleBillingDialogOpenChange(false);
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id] });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to update billing address";
+      toast({
+        title: "Unable to save billing address",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingBillingAddress(false);
+    }
+  };
 
   const resetChargeForm = () => {
     setChargeForm(createChargeFormState());
@@ -2294,10 +2583,24 @@ export default function AdminPolicyDetail() {
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
-                    <p className="text-xs uppercase tracking-wide text-slate-500">Billing address</p>
-                    <p className="mt-2 text-sm font-medium text-slate-900 whitespace-pre-line">
-                      {billingAddressDisplay ?? "N/A"}
-                    </p>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs uppercase tracking-wide text-slate-500">Billing address</p>
+                        <p className="mt-2 text-sm font-medium text-slate-900 whitespace-pre-line">
+                          {billingAddressDisplay ?? "N/A"}
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-1 shrink-0"
+                        onClick={handleOpenBillingDialog}
+                        disabled={!policy?.lead}
+                      >
+                        {hasBillingAddress ? "Edit" : "Add"}
+                      </Button>
+                    </div>
                   </div>
                   <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <p className="text-xs uppercase tracking-wide text-slate-500">Shipping address</p>
@@ -2322,7 +2625,23 @@ export default function AdminPolicyDetail() {
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">Saved payment methods</h3>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="text-sm font-semibold text-slate-900">Saved payment methods</h3>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAddPaymentProfile}
+                      disabled={!canManagePaymentProfiles}
+                    >
+                      Add payment method
+                    </Button>
+                  </div>
+                  {!canManagePaymentProfiles ? (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Link a customer portal account to save billing details on file.
+                    </p>
+                  ) : null}
                   {isLoadingPaymentProfiles ? (
                     <p className="mt-2 text-xs text-muted-foreground">Loading payment methods…</p>
                   ) : paymentProfiles.length === 0 ? (
@@ -2342,7 +2661,7 @@ export default function AdminPolicyDetail() {
 
                         return (
                           <div key={profile.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                          <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
                             <div>
                               <p className="text-sm font-semibold text-slate-900">
                                 {profile.cardBrand || profile.paymentMethod || "Payment method"}
@@ -2359,16 +2678,26 @@ export default function AdminPolicyDetail() {
                                 </p>
                               ) : null}
                             </div>
-                            <Badge
-                              variant="outline"
-                              className={
-                                profile.autopayEnabled
-                                  ? "rounded-full border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
-                                  : "rounded-full border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
-                              }
-                            >
-                              {profile.autopayEnabled ? "Autopay on" : "Autopay off"}
-                            </Badge>
+                            <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  profile.autopayEnabled
+                                    ? "rounded-full border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700"
+                                    : "rounded-full border-slate-200 bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                                }
+                              >
+                                {profile.autopayEnabled ? "Autopay on" : "Autopay off"}
+                              </Badge>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditPaymentProfile(profile)}
+                              >
+                                Edit
+                              </Button>
+                            </div>
                           </div>
                           <dl className="mt-4 grid grid-cols-2 gap-3 text-xs uppercase tracking-wide text-slate-500">
                             <div>
@@ -2555,6 +2884,237 @@ export default function AdminPolicyDetail() {
           </div>
         </div>
       </div>
+      <Dialog open={isPaymentDialogOpen} onOpenChange={handlePaymentDialogOpenChange}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingPaymentProfile ? "Edit payment method" : "Add payment method"}</DialogTitle>
+            <DialogDescription>
+              Store the customer’s preferred card or payment reference so billing can stay aligned.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePaymentProfileSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="payment-customer">Customer account</Label>
+              <Select
+                value={paymentCustomerId ?? ""}
+                onValueChange={value => setPaymentCustomerId(value)}
+                disabled={paymentCustomerOptions.length === 0}
+              >
+                <SelectTrigger id="payment-customer">
+                  <SelectValue placeholder="Choose a customer account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {paymentCustomerOptions.map(option => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="payment-method">Card nickname</Label>
+                <Input
+                  id="payment-method"
+                  value={paymentForm.paymentMethod}
+                  onChange={event => setPaymentForm(current => ({ ...current, paymentMethod: event.target.value }))}
+                  placeholder="Primary business card"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment-brand">Card brand</Label>
+                <Input
+                  id="payment-brand"
+                  value={paymentForm.cardBrand}
+                  onChange={event => setPaymentForm(current => ({ ...current, cardBrand: event.target.value }))}
+                  placeholder="Visa, Mastercard, AmEx"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="payment-name">Name on card</Label>
+                <Input
+                  id="payment-name"
+                  value={paymentForm.accountName}
+                  onChange={event => setPaymentForm(current => ({ ...current, accountName: event.target.value }))}
+                  placeholder="Authorized payer"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment-reference">Internal reference</Label>
+                <Input
+                  id="payment-reference"
+                  value={paymentForm.accountIdentifier}
+                  onChange={event => setPaymentForm(current => ({ ...current, accountIdentifier: event.target.value }))}
+                  placeholder="Invoice or account #"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="payment-last-four">Last four digits</Label>
+                <Input
+                  id="payment-last-four"
+                  value={paymentForm.cardLastFour}
+                  inputMode="numeric"
+                  maxLength={4}
+                  onChange={event => {
+                    const value = event.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                    setPaymentForm(current => ({ ...current, cardLastFour: value }));
+                  }}
+                  placeholder="1234"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment-exp-month">Exp. month</Label>
+                <Input
+                  id="payment-exp-month"
+                  value={paymentForm.cardExpiryMonth}
+                  inputMode="numeric"
+                  maxLength={2}
+                  onChange={event => {
+                    const value = event.target.value.replace(/[^0-9]/g, "").slice(0, 2);
+                    setPaymentForm(current => ({ ...current, cardExpiryMonth: value }));
+                  }}
+                  placeholder="MM"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment-exp-year">Exp. year</Label>
+                <Input
+                  id="payment-exp-year"
+                  value={paymentForm.cardExpiryYear}
+                  inputMode="numeric"
+                  maxLength={4}
+                  onChange={event => {
+                    const value = event.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                    setPaymentForm(current => ({ ...current, cardExpiryYear: value }));
+                  }}
+                  placeholder="YYYY"
+                />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="payment-zip">Billing ZIP</Label>
+                <Input
+                  id="payment-zip"
+                  value={paymentForm.billingZip}
+                  onChange={event => setPaymentForm(current => ({ ...current, billingZip: event.target.value }))}
+                  placeholder="12345"
+                  inputMode="numeric"
+                  maxLength={10}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment-notes">Notes for billing team</Label>
+                <Textarea
+                  id="payment-notes"
+                  value={paymentForm.notes}
+                  onChange={event => setPaymentForm(current => ({ ...current, notes: event.target.value }))}
+                  placeholder="Payment timing, shared cards, or special handling"
+                  rows={4}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3">
+              <div>
+                <p className="text-sm font-medium text-slate-800">Autopay</p>
+                <p className="text-xs text-muted-foreground">
+                  Enable when the customer has approved automatic drafts for their installments.
+                </p>
+              </div>
+              <Switch
+                checked={paymentForm.autopayEnabled}
+                onCheckedChange={checked => setPaymentForm(current => ({ ...current, autopayEnabled: checked }))}
+              />
+            </div>
+            <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handlePaymentDialogOpenChange(false)}
+                disabled={isSavingPaymentProfile}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSavingPaymentProfile || !paymentCustomerId}>
+                {isSavingPaymentProfile
+                  ? "Saving..."
+                  : editingPaymentProfile
+                    ? "Save changes"
+                    : "Save payment method"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isBillingDialogOpen} onOpenChange={handleBillingDialogOpenChange}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{hasBillingAddress ? "Update billing address" : "Add billing address"}</DialogTitle>
+            <DialogDescription>
+              Keep the billing address current so invoices and confirmations reflect the customer’s records.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleBillingSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="billing-address-line1">Street address</Label>
+              <Textarea
+                id="billing-address-line1"
+                value={billingForm.address}
+                onChange={event => setBillingForm(current => ({ ...current, address: event.target.value }))}
+                rows={3}
+                placeholder="123 Main St, Suite 400"
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="billing-city">City</Label>
+                <Input
+                  id="billing-city"
+                  value={billingForm.city}
+                  onChange={event => setBillingForm(current => ({ ...current, city: event.target.value }))}
+                  placeholder="Charlotte"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="billing-state">State</Label>
+                <Input
+                  id="billing-state"
+                  value={billingForm.state}
+                  onChange={event => setBillingForm(current => ({ ...current, state: event.target.value }))}
+                  placeholder="NC"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="billing-zip">Postal code</Label>
+              <Input
+                id="billing-zip"
+                value={billingForm.zip}
+                onChange={event => setBillingForm(current => ({ ...current, zip: event.target.value }))}
+                placeholder="28202"
+              />
+            </div>
+            <DialogFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleBillingDialogOpenChange(false)}
+                disabled={isSavingBillingAddress}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isSavingBillingAddress}>
+                {isSavingBillingAddress ? "Saving..." : hasBillingAddress ? "Save changes" : "Save address"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={isChargeDialogOpen}
         onOpenChange={(open) => {
