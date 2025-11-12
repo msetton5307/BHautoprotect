@@ -144,6 +144,23 @@ export const sendContractEnvelope = async (
         }))
       : [];
 
+  // Split numeric vs text-only numeric-looking fields
+  const numericMoneyFields = {
+    Premium: options.fields.numerical?.Premium,
+    DownPayment: options.fields.numerical?.DownPayment,
+    MonthlyPayment: options.fields.numerical?.MonthlyPayment,
+    NumberOfPayments: options.fields.numerical?.NumberOfPayments,
+    Deductible: options.fields.numerical?.Deductible,
+  };
+
+  const numericTextFields = {
+    Phone: options.fields.numerical?.Phone,
+    Year: options.fields.numerical?.Year,
+    Mileage: options.fields.numerical?.Mileage,
+    StartMileage: options.fields.numerical?.StartMileage,
+    EndMileage: options.fields.numerical?.EndMileage,
+  };
+
   const payload = {
     emailSubject: "Please sign your Vehicle Service Program",
     templateId: config.templateId,
@@ -156,11 +173,14 @@ export const sendContractEnvelope = async (
         tabs: {
           fullNameTabs: mapTabs(options.fields.fullName),
           emailAddressTabs: mapTabs(options.fields.email),
-          textTabs: mapTabs(options.fields.text),
+          textTabs: [
+            ...(mapTabs(options.fields.text) || []),
+            ...(mapTabs(numericTextFields) || []),
+          ],
           numberTabs: [
             { tabLabel: "VIN", value: options.fields.text?.["VIN"] || "" },
-          ], // keep VIN numeric
-          numericalTabs: mapNumericalTabs(options.fields.numerical),
+          ],
+          numericalTabs: mapNumericalTabs(numericMoneyFields),
           listTabs: mapTabs(options.fields.list),
         },
       },
