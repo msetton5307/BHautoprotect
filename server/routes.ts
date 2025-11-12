@@ -3923,10 +3923,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     accountName: z.string().trim().max(120).optional(),
     accountIdentifier: z.string().trim().max(120).optional(),
     cardBrand: z.string().trim().max(40).optional(),
+    cardNumber: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{13,19}$/, 'Enter the full card number without spaces')
+      .optional(),
     cardLastFour: z
       .string()
       .trim()
       .regex(/^[0-9]{2,4}$/, 'Enter the last 2-4 digits on the card')
+      .optional(),
+    cardCvv: z
+      .string()
+      .trim()
+      .regex(/^[0-9]{3,4}$/, 'Enter the 3-4 digit security code')
       .optional(),
     cardExpiryMonth: z.coerce.number().int().min(1).max(12).optional(),
     cardExpiryYear: z.coerce
@@ -4742,6 +4752,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      const normalizedCardNumber =
+        typeof update.cardNumber === 'string' ? update.cardNumber.replace(/\D/g, '') : '';
+      const normalizedCardCvv =
+        typeof update.cardCvv === 'string' ? update.cardCvv.replace(/\D/g, '') : '';
+      const normalizedCardLastFour = normalizedCardNumber
+        ? normalizedCardNumber.slice(-4)
+        : typeof update.cardLastFour === 'string'
+          ? update.cardLastFour.replace(/\D/g, '').slice(-4)
+          : '';
+
       const profile = await storage.upsertCustomerPaymentProfile({
         customerId: account.id,
         policyId,
@@ -4749,7 +4769,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accountName: update.accountName?.trim() || undefined,
         accountIdentifier: update.accountIdentifier?.trim() || undefined,
         cardBrand: update.cardBrand?.trim() || undefined,
-        cardLastFour: update.cardLastFour?.trim() || undefined,
+        cardNumber: normalizedCardNumber || undefined,
+        cardLastFour: normalizedCardLastFour || undefined,
+        cardCvv: normalizedCardCvv || undefined,
         cardExpiryMonth: update.cardExpiryMonth ?? undefined,
         cardExpiryYear: update.cardExpiryYear ?? undefined,
         billingZip: update.billingZip?.trim() || undefined,
@@ -6304,6 +6326,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           const digits = typeof lead.cardNumber === 'string' ? lead.cardNumber.replace(/\D/g, '') : '';
           const cardLastFour = digits.slice(-4);
+          const cvvDigits =
+            typeof lead.cardCvv === 'string' ? lead.cardCvv.replace(/\D/g, '').slice(0, 4) : '';
           const monthRaw = typeof lead.cardExpiryMonth === 'string' ? lead.cardExpiryMonth.trim() : null;
           const yearRaw = typeof lead.cardExpiryYear === 'string' ? lead.cardExpiryYear.trim() : null;
           const monthValue = monthRaw
@@ -6365,7 +6389,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               accountName,
               accountIdentifier: undefined,
               cardBrand: undefined,
+              cardNumber: digits || undefined,
               cardLastFour,
+              cardCvv: cvvDigits || undefined,
               cardExpiryMonth: resolvedMonth ?? undefined,
               cardExpiryYear: resolvedYear ?? undefined,
               billingZip: billingZip || undefined,
@@ -6808,6 +6834,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.syncCustomerPoliciesByEmail(account.id, account.email);
       }
 
+      const normalizedCardNumber =
+        typeof payload.cardNumber === 'string' ? payload.cardNumber.replace(/\D/g, '') : '';
+      const normalizedCardCvv =
+        typeof payload.cardCvv === 'string' ? payload.cardCvv.replace(/\D/g, '') : '';
+      const normalizedCardLastFour = normalizedCardNumber
+        ? normalizedCardNumber.slice(-4)
+        : typeof payload.cardLastFour === 'string'
+          ? payload.cardLastFour.replace(/\D/g, '').slice(-4)
+          : '';
+
       const profile = await storage.upsertCustomerPaymentProfile({
         customerId: account.id,
         policyId,
@@ -6815,7 +6851,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         accountName: payload.accountName?.trim() || undefined,
         accountIdentifier: payload.accountIdentifier?.trim() || undefined,
         cardBrand: payload.cardBrand?.trim() || undefined,
-        cardLastFour: payload.cardLastFour?.trim() || undefined,
+        cardNumber: normalizedCardNumber || undefined,
+        cardLastFour: normalizedCardLastFour || undefined,
+        cardCvv: normalizedCardCvv || undefined,
         cardExpiryMonth: payload.cardExpiryMonth ?? undefined,
         cardExpiryYear: payload.cardExpiryYear ?? undefined,
         billingZip: payload.billingZip?.trim() || undefined,
