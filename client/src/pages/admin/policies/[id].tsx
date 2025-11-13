@@ -129,7 +129,7 @@ type PolicyChargeRecord = {
   description: string;
   amountCents: number;
   status: "pending" | "processing" | "paid" | "failed" | "refunded";
-  chargedAt: string;
+  chargedAt: string | null;
   notes: string | null;
   reference: string | null;
   invoiceFileName: string | null;
@@ -146,6 +146,7 @@ type ChargeFormState = {
   reference: string;
   notes: string;
   invoiceFile: File | null;
+  removeStoredInvoice: boolean;
 };
 
 const formatCurrency = (value: number | null | undefined): string => {
@@ -477,6 +478,18 @@ const createChargeFormState = (): ChargeFormState => ({
   reference: "",
   notes: "",
   invoiceFile: null,
+  removeStoredInvoice: false,
+});
+
+const createChargeFormStateFromCharge = (charge: PolicyChargeRecord): ChargeFormState => ({
+  description: charge.description,
+  amount: formatCurrencyInput(charge.amountCents),
+  chargedAt: formatDateInputValue(charge.chargedAt),
+  status: charge.status,
+  reference: charge.reference ?? "",
+  notes: charge.notes ?? "",
+  invoiceFile: null,
+  removeStoredInvoice: false,
 });
 
 const sanitizeHtmlForPreview = (value: string): string =>
@@ -1017,6 +1030,7 @@ export default function AdminPolicyDetail() {
     const records = chargesResponse?.data?.charges ?? [];
     return [...records].sort((a, b) => new Date(b.chargedAt).valueOf() - new Date(a.chargedAt).valueOf());
   }, [chargesResponse]);
+  const isEditingCharge = Boolean(editingCharge);
 
   const policyCustomers = policy?.customers ?? [];
   const paymentCustomerOptions = useMemo(() => {
@@ -1101,6 +1115,7 @@ export default function AdminPolicyDetail() {
   const [isChargeDialogOpen, setIsChargeDialogOpen] = useState(false);
   const [isSavingCharge, setIsSavingCharge] = useState(false);
   const [chargeForm, setChargeForm] = useState<ChargeFormState>(() => createChargeFormState());
+  const [editingCharge, setEditingCharge] = useState<PolicyChargeRecord | null>(null);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState<string>(leadEmail);
   const [emailSubject, setEmailSubject] = useState<string>(initialTemplate.subject);
@@ -1367,15 +1382,33 @@ export default function AdminPolicyDetail() {
 
   const resetChargeForm = () => {
     setChargeForm(createChargeFormState());
+    setEditingCharge(null);
   };
 
   const handleChargeFieldChange = <K extends keyof ChargeFormState>(field: K, value: ChargeFormState[K]) => {
     setChargeForm(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleAddChargeClick = () => {
+    resetChargeForm();
+    setIsSavingCharge(false);
+    setIsChargeDialogOpen(true);
+  };
+
+  const handleEditChargeClick = (charge: PolicyChargeRecord) => {
+    setEditingCharge(charge);
+    setChargeForm(createChargeFormStateFromCharge(charge));
+    setIsSavingCharge(false);
+    setIsChargeDialogOpen(true);
+  };
+
   const handleInvoiceFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
-    setChargeForm(prev => ({ ...prev, invoiceFile: file }));
+    setChargeForm(prev => ({
+      ...prev,
+      invoiceFile: file,
+      removeStoredInvoice: file ? false : prev.removeStoredInvoice,
+    }));
     event.target.value = "";
   };
 
@@ -1398,7 +1431,7 @@ export default function AdminPolicyDetail() {
       return;
     }
 
-    let chargedAtIso: string | undefined;
+    let chargedAtIso: string | null | undefined;
     if (chargeForm.chargedAt) {
       const raw = chargeForm.chargedAt;
       const candidate = raw.includes("T") ? raw : `${raw}T00:00:00`;
@@ -1408,6 +1441,8 @@ export default function AdminPolicyDetail() {
         return;
       }
       chargedAtIso = parsedDate.toISOString();
+    } else if (isEditingCharge) {
+      chargedAtIso = null;
     }
 
     let invoicePayload: { fileName: string; fileType?: string; fileData: string } | undefined;
@@ -1440,33 +1475,50 @@ export default function AdminPolicyDetail() {
 
     setIsSavingCharge(true);
     try {
-      const response = await fetchWithAuth(`/api/admin/policies/${policy.id}/charges`, {
-        method: "POST",
+      const endpoint = isEditingCharge
+        ? `/api/admin/policies/${policy.id}/charges/${editingCharge!.id}`
+        : `/api/admin/policies/${policy.id}/charges`;
+      const requestPayload: Record<string, unknown> = {
+        description,
+        amountCents,
+        status: chargeForm.status,
+        reference: chargeForm.reference.trim() || null,
+        notes: chargeForm.notes.trim() || null,
+      };
+      if (chargedAtIso !== undefined) {
+        requestPayload.chargedAt = chargedAtIso;
+      }
+      if (invoicePayload) {
+        requestPayload.invoice = invoicePayload;
+      }
+      if (isEditingCharge && chargeForm.removeStoredInvoice && !invoicePayload) {
+        requestPayload.removeInvoice = true;
+      }
+
+      const response = await fetchWithAuth(endpoint, {
+        method: isEditingCharge ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({
-          description,
-          amountCents,
-          chargedAt: chargedAtIso,
-          status: chargeForm.status,
-          reference: chargeForm.reference.trim() || undefined,
-          notes: chargeForm.notes.trim() || undefined,
-          invoice: invoicePayload,
-        }),
+        body: JSON.stringify(requestPayload),
       });
       ensureAuthorized(response);
-      const payload = await response.json().catch(() => null);
+      const responsePayload = await response.json().catch(() => null);
       if (!response.ok) {
-        const message = payload?.message ?? "Failed to save charge";
+        const message = responsePayload?.message ?? "Failed to save charge";
         throw new Error(message);
       }
 
-      toast({ title: "Charge saved", description: "The charge was recorded successfully." });
+      toast({
+        title: isEditingCharge ? "Charge updated" : "Charge saved",
+        description: isEditingCharge
+          ? "The charge details were updated successfully."
+          : "The charge was recorded successfully.",
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", id, "charges"] });
       resetChargeForm();
       setIsChargeDialogOpen(false);
     } catch (error) {
       toast({
-        title: "Could not save charge",
+        title: isEditingCharge ? "Could not update charge" : "Could not save charge",
         description: error instanceof Error ? error.message : "Failed to save charge",
         variant: "destructive",
       });
@@ -2801,14 +2853,7 @@ export default function AdminPolicyDetail() {
                 <div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h3 className="text-sm font-semibold text-slate-900">Charge history</h3>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        resetChargeForm();
-                        setIsChargeDialogOpen(true);
-                      }}
-                    >
+                    <Button variant="outline" size="sm" onClick={handleAddChargeClick}>
                       Log charge
                     </Button>
                   </div>
@@ -2817,62 +2862,75 @@ export default function AdminPolicyDetail() {
                   ) : charges.length === 0 ? (
                     <p className="mt-2 text-xs text-muted-foreground">No charges logged yet.</p>
                   ) : (
-                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-white">
                       <div className="hidden md:block">
-                        <table className="min-w-full table-fixed divide-y divide-slate-200 text-sm">
-                          <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
-                            <tr>
-                              <th className="px-4 py-3 text-left">Description</th>
-                              <th className="px-4 py-3 text-left">Date</th>
-                              <th className="px-4 py-3 text-left">Status</th>
-                              <th className="px-4 py-3 text-left">Reference</th>
-                              <th className="px-4 py-3 text-left">Invoice</th>
-                              <th className="px-4 py-3 text-right">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {charges.map(charge => {
-                              const status = chargeStatusStyles[charge.status];
-                              return (
-                                <tr key={charge.id}>
-                                  <td className="px-4 py-3 align-top">
-                                    <div className="min-w-0 break-words font-medium text-slate-900">{charge.description}</div>
-                                    {charge.notes ? <div className="text-xs text-slate-500">{charge.notes}</div> : null}
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-slate-600">
-                                    {formatChargeDate(charge.chargedAt)}
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap">
-                                    <Badge variant="outline" className={status.className}>
-                                      {status.label}
-                                    </Badge>
-                                  </td>
-                                  <td className="px-4 py-3 break-words text-slate-600">
-                                    {charge.reference && charge.reference.trim().length > 0 ? charge.reference : "—"}
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap">
-                                    {charge.invoiceFilePath ? (
-                                      <a
-                                        href={`/${charge.invoiceFilePath}`}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                        <div className="w-full overflow-x-auto">
+                          <table className="min-w-full table-auto divide-y divide-slate-200 text-sm">
+                            <thead className="bg-slate-50 text-xs font-medium uppercase tracking-wide text-slate-500">
+                              <tr>
+                                <th className="px-4 py-3 text-left">Description</th>
+                                <th className="px-4 py-3 text-left">Date</th>
+                                <th className="px-4 py-3 text-left">Status</th>
+                                <th className="px-4 py-3 text-left">Reference</th>
+                                <th className="px-4 py-3 text-left">Invoice</th>
+                                <th className="px-4 py-3 text-right">Amount</th>
+                                <th className="px-4 py-3 text-right">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {charges.map(charge => {
+                                const status = chargeStatusStyles[charge.status];
+                                return (
+                                  <tr key={charge.id}>
+                                    <td className="px-4 py-3 align-top">
+                                      <div className="min-w-0 break-words font-medium text-slate-900">{charge.description}</div>
+                                      {charge.notes ? <div className="text-xs text-slate-500">{charge.notes}</div> : null}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-slate-600">
+                                      {formatChargeDate(charge.chargedAt)}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      <Badge variant="outline" className={status.className}>
+                                        {status.label}
+                                      </Badge>
+                                    </td>
+                                    <td className="px-4 py-3 break-words text-slate-600">
+                                      {charge.reference && charge.reference.trim().length > 0 ? charge.reference : "—"}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap">
+                                      {charge.invoiceFilePath ? (
+                                        <a
+                                          href={`/${charge.invoiceFilePath}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+                                        >
+                                          View invoice
+                                          <ExternalLink className="h-3.5 w-3.5" />
+                                        </a>
+                                      ) : (
+                                        <span className="text-sm text-slate-400">—</span>
+                                      )}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-slate-900">
+                                      {formatChargeAmount(charge.amountCents)}
+                                    </td>
+                                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleEditChargeClick(charge)}
                                       >
-                                        View invoice
-                                        <ExternalLink className="h-3.5 w-3.5" />
-                                      </a>
-                                    ) : (
-                                      <span className="text-sm text-slate-400">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-right font-semibold text-slate-900">
-                                    {formatChargeAmount(charge.amountCents)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                                        Edit
+                                      </Button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                       <div className="grid gap-3 p-4 text-sm text-slate-600 md:hidden">
                         {charges.map(charge => {
@@ -2930,6 +2988,16 @@ export default function AdminPolicyDetail() {
                                   </dd>
                                 </div>
                               </dl>
+                              <div className="mt-3 flex justify-end">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditChargeClick(charge)}
+                                >
+                                  Edit
+                                </Button>
+                              </div>
                             </div>
                           );
                         })}
@@ -3233,9 +3301,11 @@ export default function AdminPolicyDetail() {
       >
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Log policy charge</DialogTitle>
+            <DialogTitle>{isEditingCharge ? "Edit policy charge" : "Log policy charge"}</DialogTitle>
             <DialogDescription>
-              Track manual charges so the team can see the history alongside this policy.
+              {isEditingCharge
+                ? "Update the charge details so the team stays aligned."
+                : "Track manual charges so the team can see the history alongside this policy."}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleChargeSubmit} className="space-y-5">
@@ -3310,9 +3380,48 @@ export default function AdminPolicyDetail() {
                     variant="ghost"
                     size="sm"
                     className="h-auto px-0 text-primary"
-                    onClick={() => handleChargeFieldChange("invoiceFile", null)}
+                    onClick={() =>
+                      setChargeForm(prev => ({
+                        ...prev,
+                        invoiceFile: null,
+                      }))
+                    }
                   >
                     Remove
+                  </Button>
+                </div>
+              ) : editingCharge?.invoiceFilePath && !chargeForm.removeStoredInvoice ? (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <a
+                    href={`/${editingCharge.invoiceFilePath}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 truncate pr-4 text-primary hover:underline"
+                  >
+                    View current invoice
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-0 text-primary"
+                    onClick={() => handleChargeFieldChange("removeStoredInvoice", true)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ) : chargeForm.removeStoredInvoice ? (
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="truncate pr-4">The existing invoice will be removed.</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto px-0 text-primary"
+                    onClick={() => handleChargeFieldChange("removeStoredInvoice", false)}
+                  >
+                    Undo
                   </Button>
                 </div>
               ) : (
@@ -3334,7 +3443,11 @@ export default function AdminPolicyDetail() {
                 Cancel
               </Button>
               <Button type="submit" disabled={isSavingCharge}>
-                {isSavingCharge ? "Saving…" : "Save charge"}
+                {isSavingCharge
+                  ? "Saving…"
+                  : isEditingCharge
+                    ? "Update charge"
+                    : "Save charge"}
               </Button>
             </DialogFooter>
           </form>

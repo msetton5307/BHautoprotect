@@ -117,6 +117,20 @@ const resolveLeadIdCandidates = (value: string | null | undefined): string[] => 
   return Array.from(candidates);
 };
 
+export type UpdatePolicyChargeInput = {
+  description?: string;
+  amountCents?: number;
+  status?: PolicyCharge['status'];
+  chargedAt?: Date | null;
+  reference?: string | null;
+  notes?: string | null;
+  invoiceFileName?: string | null;
+  invoiceFilePath?: string | null;
+  invoiceFileType?: string | null;
+  invoiceFileSize?: number | null;
+  removeInvoice?: boolean;
+};
+
 const DEFAULT_EMAIL_TEMPLATES: { name: string; subject: string; bodyHtml: string }[] = [
   {
     name: 'Gas Voucher Added',
@@ -313,7 +327,13 @@ export interface IStorage {
   upsertCustomerPaymentProfile(
     profile: InsertCustomerPaymentProfile & { customerId: string },
   ): Promise<CustomerPaymentProfile>;
+  getPolicyCharge(id: string): Promise<PolicyCharge | undefined>;
   createPolicyCharge(charge: InsertPolicyCharge): Promise<PolicyCharge>;
+  updatePolicyCharge(
+    policyId: string,
+    chargeId: string,
+    updates: UpdatePolicyChargeInput,
+  ): Promise<PolicyCharge | null>;
   listPolicyCharges(policyId: string): Promise<PolicyCharge[]>;
   listCustomerCharges(customerId: string): Promise<PolicyCharge[]>;
   createCustomerDocumentRequest(
@@ -1093,6 +1113,11 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
+  async getPolicyCharge(id: string): Promise<PolicyCharge | undefined> {
+    const [record] = await db.select().from(policyCharges).where(eq(policyCharges.id, id));
+    return record;
+  }
+
   async createPolicyCharge(charge: InsertPolicyCharge): Promise<PolicyCharge> {
     const timestamp = getEasternDate();
     const chargedAtCandidate = charge.chargedAt ? new Date(charge.chargedAt) : timestamp;
@@ -1117,6 +1142,73 @@ export class DatabaseStorage implements IStorage {
 
     const [record] = await db.insert(policyCharges).values(payload).returning();
     return record;
+  }
+
+  async updatePolicyCharge(
+    policyId: string,
+    chargeId: string,
+    updates: UpdatePolicyChargeInput,
+  ): Promise<PolicyCharge | null> {
+    const timestamp = getEasternDate();
+    const payload: Partial<typeof policyCharges.$inferInsert> = {
+      updatedAt: timestamp,
+    };
+
+    if (updates.description !== undefined) {
+      payload.description = updates.description;
+    }
+    if (updates.amountCents !== undefined) {
+      payload.amountCents = updates.amountCents;
+    }
+    if (updates.status !== undefined) {
+      payload.status = updates.status;
+    }
+    if (updates.chargedAt !== undefined) {
+      payload.chargedAt = updates.chargedAt;
+    }
+    if (updates.reference !== undefined) {
+      payload.reference = updates.reference;
+    }
+    if (updates.notes !== undefined) {
+      payload.notes = updates.notes;
+    }
+
+    if (updates.removeInvoice) {
+      payload.invoiceFileName = null;
+      payload.invoiceFilePath = null;
+      payload.invoiceFileType = null;
+      payload.invoiceFileSize = null;
+    } else {
+      if (updates.invoiceFileName !== undefined) {
+        payload.invoiceFileName = updates.invoiceFileName;
+      }
+      if (updates.invoiceFilePath !== undefined) {
+        payload.invoiceFilePath = updates.invoiceFilePath;
+      }
+      if (updates.invoiceFileType !== undefined) {
+        payload.invoiceFileType = updates.invoiceFileType;
+      }
+      if (updates.invoiceFileSize !== undefined) {
+        payload.invoiceFileSize = updates.invoiceFileSize;
+      }
+    }
+
+    const hasUpdates = Object.keys(payload).some(key => key !== 'updatedAt');
+    if (!hasUpdates) {
+      const existing = await db
+        .select()
+        .from(policyCharges)
+        .where(and(eq(policyCharges.id, chargeId), eq(policyCharges.policyId, policyId)));
+      return existing.at(0) ?? null;
+    }
+
+    const [record] = await db
+      .update(policyCharges)
+      .set(payload)
+      .where(and(eq(policyCharges.id, chargeId), eq(policyCharges.policyId, policyId)))
+      .returning();
+
+    return record ?? null;
   }
 
   async listPolicyCharges(policyId: string): Promise<PolicyCharge[]> {
