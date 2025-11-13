@@ -393,6 +393,69 @@ const DOCUMENT_REQUEST_STATUS_VALUES = documentRequestStatusEnum.enumValues as [
   'cancelled',
 ];
 
+const AUTOMATED_DOCUMENT_REQUEST_TYPES = ['vin_photo', 'odometer_photo'] as const;
+
+type AutomatedDocumentRequestType = (typeof AUTOMATED_DOCUMENT_REQUEST_TYPES)[number];
+
+type CustomerPolicyRecord = Policy & { lead: Lead | null; vehicle: Vehicle | null };
+
+const AUTOMATED_DOCUMENT_REQUEST_DEFAULTS: Record<
+  AutomatedDocumentRequestType,
+  { title: string; instructions: string }
+> = {
+  vin_photo: {
+    title: 'VIN photo for verification',
+    instructions:
+      'Please snap a clear photo of the VIN plate or door jamb sticker so we can confirm the vehicle on file matches your policy.',
+  },
+  odometer_photo: {
+    title: 'Current mileage confirmation',
+    instructions:
+      'Take a quick photo of your dashboard or digital display that clearly shows the current mileage reading for this vehicle.',
+  },
+};
+
+const ensureVehicleDocumentRequestsForPolicies = async (
+  customer: CustomerAccount,
+  policies: CustomerPolicyRecord[],
+): Promise<void> => {
+  if (!customer?.id || policies.length === 0) {
+    return;
+  }
+
+  try {
+    const existing = await storage.getCustomerDocumentRequests(customer.id);
+    const existingKeys = new Set<string>();
+    for (const request of existing) {
+      existingKeys.add(`${request.policyId}:${request.type}`);
+    }
+
+    for (const policy of policies) {
+      for (const type of AUTOMATED_DOCUMENT_REQUEST_TYPES) {
+        const key = `${policy.id}:${type}`;
+        if (existingKeys.has(key)) {
+          continue;
+        }
+
+        try {
+          await storage.createCustomerDocumentRequest({
+            policyId: policy.id,
+            customerId: customer.id,
+            type,
+            title: AUTOMATED_DOCUMENT_REQUEST_DEFAULTS[type].title,
+            instructions: AUTOMATED_DOCUMENT_REQUEST_DEFAULTS[type].instructions,
+          });
+          existingKeys.add(key);
+        } catch (error) {
+          console.error('Failed to create automated document request:', error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to ensure automated vehicle document requests:', error);
+  }
+};
+
 const POLICY_CHARGE_STATUS_VALUES = policyChargeStatusEnum.enumValues as [
   'pending',
   'processing',
@@ -4368,6 +4431,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updatedAccount = await storage.updateCustomerAccount(account.id, accountUpdates);
       const authenticatedCustomer = toAuthenticatedCustomer(updatedAccount);
 
+      await ensureVehicleDocumentRequestsForPolicies(updatedAccount, policies);
+
       await new Promise<void>((resolve, reject) => {
         req.session.regenerate((err) => {
           if (err) {
@@ -4428,6 +4493,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       const contracts = await gatherContractsForLeads(sessionLeads ?? []);
       req.session.customer = toAuthenticatedCustomer(account);
+
+      await ensureVehicleDocumentRequestsForPolicies(account, policies);
 
       res.json({
         data: {
