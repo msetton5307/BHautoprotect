@@ -132,6 +132,15 @@ export default function CustomerPortalOverview({ session }: Props) {
       ),
     [documentRequests],
   );
+  const outstandingByPolicy = useMemo(() => {
+    const map = new Map<string, CustomerDocumentRequestRecord[]>();
+    for (const request of outstandingDocuments) {
+      const list = map.get(request.policyId) ?? [];
+      list.push(request);
+      map.set(request.policyId, list);
+    }
+    return map;
+  }, [outstandingDocuments]);
   const nextDocumentDue = useMemo(() => {
     let earliest: string | null = null;
     for (const request of outstandingDocuments) {
@@ -296,6 +305,40 @@ export default function CustomerPortalOverview({ session }: Props) {
                       <p>{formatFromCents(policy.monthlyPayment)}</p>
                     </div>
                   </div>
+                  {(() => {
+                    const policyRequests = outstandingByPolicy.get(policy.id) ?? [];
+                    if (policyRequests.length === 0) {
+                      return null;
+                    }
+                    return (
+                      <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                          Documents needed
+                        </p>
+                        <ul className="mt-2 space-y-3">
+                          {policyRequests.map((request) => (
+                            <li key={request.id} className="flex gap-3">
+                              <UploadCloud className="mt-1 h-4 w-4 text-primary" />
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium text-slate-900">
+                                  {DOCUMENT_REQUEST_TYPE_COPY[request.type].label}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {DOCUMENT_REQUEST_TYPE_COPY[request.type].hint}
+                                </p>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                        <Link
+                          href="/portal/documents"
+                          className="mt-3 inline-flex text-xs font-semibold text-primary hover:text-primary/80"
+                        >
+                          Upload documents
+                        </Link>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
             ))}
