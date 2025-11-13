@@ -328,19 +328,20 @@ const getPolicyHolderName = (policy: any): string => {
   return `${policy.lead.firstName ?? ""} ${policy.lead.lastName ?? ""}`.trim();
 };
 
-const escapeHtml = (value: string): string =>
-  value
+function escapeHtml(value: string): string {
+  return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
 
 const DEFAULT_EMAIL_BRAND_LOGO =
   "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAzMjAgMTIwIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMTAwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICAgIDxzdG9wIG9mZnNldD0iNjAlIiBzdG9wLWNvbG9yPSIjMWQ0ZWQ4IiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwZjE3MmEiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8ZyBmaWxsPSJub25lIiBzdHJva2U9InVybCgjZykiIHN0cm9rZS13aWR0aD0iOCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj4KICAgIDxwYXRoIGQ9Ik0yMCA3MGMyOC0yOCA4OC00OCAxNDAtNDhzMTEyIDIwIDE0MCA0OCIvPgogICAgPHBhdGggZD0iTTI4IDU4YzE4LTIyIDc4LTQwIDEzMi00MHMxMTQgMTggMTMyIDQwIiBvcGFjaXR5PSIwLjU1Ii8+CiAgPC9nPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDIxMCA0OCkiPgogICAgPHBhdGggZD0iTTM2IDQgMTgtNCAwIDR2MzJjMCAxOCA4IDM0IDE4IDQyIDEwLTggMTgtMjQgMTgtNDJWNFoiIGZpbGw9IiMwZjE3MmEiIG9wYWNpdHk9IjAuMTIiLz4KICAgIDxwYXRoIGQ9Ik0zNiAwIDE4LTggMCAwdjMyYzAgMTggOCAzNCAxOCA0MiAxMC04IDE4LTI0IDE4LTQyVjBaIiBmaWxsPSIjMGIxZjRlIi8+CiAgICA8cGF0aCBkPSJNOSAxOCAxOCAyOGwxNS0xOCIgc3Ryb2tlPSIjZTBmMmZlIiBzdHJva2Utd2lkdGg9IjYiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgogIDwvZz4KPC9zdmc+";
 const CUSTOMER_PORTAL_URL = "https://bhautoprotect.com/portal";
 
-const convertPlainTextToHtml = (value: string): string => {
+function convertPlainTextToHtml(value: string): string {
   const paragraphs = value
     .split(/\n{2,}/)
     .map(paragraph => paragraph.trim())
@@ -360,9 +361,9 @@ const convertPlainTextToHtml = (value: string): string => {
       return `<p style="margin:0 0 18px;font-size:15px;line-height:1.7;color:#334155;">${lines}</p>`;
     })
     .join("\n");
-};
+}
 
-const stripHtmlToPlainText = (value: string): string => {
+function stripHtmlToPlainText(value: string): string {
   if (!value) return "";
   return value
     .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -377,7 +378,7 @@ const stripHtmlToPlainText = (value: string): string => {
     .replace(/\r/g, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-};
+}
 
 const formatDateInputValue = (value: string | Date | null | undefined): string => {
   if (!value) return "";
@@ -501,8 +502,8 @@ const sanitizeHtmlForPreview = (value: string): string =>
 
 type DetailRow = { label: string; value: string };
 
-const renderDetailRows = (rows: DetailRow[]) =>
-  rows
+function renderDetailRows(rows: DetailRow[]): string {
+  return rows
     .map((row, index) => {
       const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
       return `
@@ -517,9 +518,10 @@ const renderDetailRows = (rows: DetailRow[]) =>
       `;
     })
     .join("");
+}
 
-const renderCompactRows = (rows: DetailRow[]) =>
-  rows
+function renderCompactRows(rows: DetailRow[]): string {
+  return rows
     .map((row, index) => {
       const border = index === rows.length - 1 ? "" : "border-bottom:1px solid #e5e7eb;";
       return `
@@ -534,8 +536,9 @@ const renderCompactRows = (rows: DetailRow[]) =>
       `;
     })
     .join("");
+}
 
-const buildEmailLayout = ({
+function buildEmailLayout({
   subject,
   heroTitle,
   heroSubtitle,
@@ -547,7 +550,7 @@ const buildEmailLayout = ({
   heroSubtitle: string;
   bodyContent: string;
   brandingLogoUrl?: string | null;
-}): string => {
+}): string {
   const trimmedLogo = typeof brandingLogoUrl === "string" ? brandingLogoUrl.trim() : "";
   const resolvedLogoUrl = trimmedLogo || DEFAULT_EMAIL_BRAND_LOGO;
   const logoMarkup = resolvedLogoUrl
@@ -602,9 +605,9 @@ const buildEmailLayout = ({
   </table>
 </body>
 </html>`;
-};
+}
 
-const buildBrandedEmailFromPlainText = ({
+function buildBrandedEmailFromPlainText({
   subject,
   message,
   policy,
@@ -614,7 +617,7 @@ const buildBrandedEmailFromPlainText = ({
   message: string;
   policy: any;
   brandingLogoUrl?: string | null;
-}): string => {
+}): string {
   const policyPackage = formatPolicyName(policy?.package) || "Vehicle Protection";
   const heroTitle = `${policyPackage} Update`;
   const heroSubtitle = `Policy ${policy?.id ?? "Details"}`;
@@ -629,9 +632,9 @@ const buildBrandedEmailFromPlainText = ({
     bodyContent: finalBody,
     brandingLogoUrl,
   });
-};
+}
 
-const buildDefaultEmailTemplates = (policy: any, brandingLogoUrl?: string | null): EmailTemplateRecord[] => {
+function buildDefaultEmailTemplates(policy: any, brandingLogoUrl?: string | null): EmailTemplateRecord[] {
   const name = getPolicyHolderName(policy);
   const displayName = name || "there";
   const policyPackage = formatPolicyName(policy?.package) || "Vehicle Protection";
@@ -890,7 +893,7 @@ const buildDefaultEmailTemplates = (policy: any, brandingLogoUrl?: string | null
   });
 
   return templates;
-};
+}
 export default function AdminPolicyDetail() {
   const { id } = useParams();
   const { toast } = useToast();
