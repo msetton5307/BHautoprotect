@@ -7055,6 +7055,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
+      const policy = await storage.getPolicy(req.params.id);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      if (policy.customers.length > 0) {
+        const policyRecord: CustomerPolicyRecord = policy;
+        for (const customer of policy.customers) {
+          await ensureVehicleDocumentRequestsForPolicies(customer, [policyRecord]);
+        }
+      }
+
       const requests = await storage.listDocumentRequestsForPolicy(req.params.id);
       res.json({
         data: { requests: requests.map(mapDocumentRequestForAdmin) },
