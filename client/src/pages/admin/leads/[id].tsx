@@ -485,8 +485,32 @@ export default function AdminLeadDetail() {
         markLoggedOut();
         throw new Error('Unauthorized');
       }
-      if (!res.ok) throw new Error('Failed to create quote');
-      return res.json();
+      const responseText = await res.text();
+      if (!res.ok) {
+        let message = 'Failed to create quote';
+        if (responseText) {
+          try {
+            const errorBody = JSON.parse(responseText) as { message?: string };
+            if (typeof errorBody.message === 'string' && errorBody.message.trim().length > 0) {
+              message = errorBody.message;
+            }
+          } catch (error: unknown) {
+            console.warn('Failed to parse create quote error response', error);
+          }
+        }
+        throw new Error(message);
+      }
+
+      if (!responseText) {
+        return null;
+      }
+
+      try {
+        return JSON.parse(responseText) as unknown;
+      } catch (error: unknown) {
+        console.warn('Failed to parse create quote response', error);
+        return null;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/admin/leads', id] });
