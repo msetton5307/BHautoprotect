@@ -39,7 +39,11 @@ export default function PromoPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
-      <Navigation onGetQuote={handleQuoteClick} />
+      <Navigation
+        onGetQuote={handleQuoteClick}
+        showNavigationLinks={false}
+        showGetQuoteButton={false}
+      />
 
       <main className="mx-auto flex w-full max-w-6xl flex-col gap-20 px-4 pb-24 pt-16">
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-secondary to-primary p-10 text-white shadow-2xl sm:p-16">
