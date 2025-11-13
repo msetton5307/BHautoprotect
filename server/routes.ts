@@ -3,7 +3,7 @@ import express from "express";
 import { createServer, type Server } from "http";
 import session from "express-session";
 import createMemoryStore from "memorystore";
-import { storage } from "./storage";
+import { storage, type UpdatePolicyChargeInput } from "./storage";
 import { sendMail, type MailRequest } from "./mail";
 import { sendContractEnvelope, type DocuSignContractFields } from "./docusign";
 import { z } from "zod";
@@ -494,7 +494,32 @@ const optionalTrimmedString = z.string().trim().min(1).optional().nullable();
 const optionalRequiredString = z.string().trim().min(1).optional();
 const optionalEmailString = z.string().trim().email().optional().nullable();
 
+const fsPromises = fs.promises;
+
 const sanitizeFileName = (value: string): string => value.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+const resolveInvoiceAbsolutePath = (storedPath: string | null | undefined): string | null => {
+  if (!storedPath) {
+    return null;
+  }
+  const normalized = storedPath.replace(/^\/+/, "");
+  return path.isAbsolute(normalized) ? normalized : path.resolve(process.cwd(), normalized);
+};
+
+const removeInvoiceFile = async (storedPath: string | null | undefined) => {
+  const absolutePath = resolveInvoiceAbsolutePath(storedPath);
+  if (!absolutePath) {
+    return;
+  }
+  try {
+    await fsPromises.unlink(absolutePath);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    if (code !== "ENOENT") {
+      console.warn("Failed to remove invoice file:", error);
+    }
+  }
+};
 
 const parseChargeDateInput = (value: string | null | undefined): Date | null => {
   if (typeof value !== 'string') {
@@ -565,6 +590,10 @@ const policyChargeCreateSchema = z.object({
   reference: z.string().trim().max(120).optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   invoice: policyChargeInvoiceSchema.optional(),
+});
+
+const policyChargeUpdateSchema = policyChargeCreateSchema.partial().extend({
+  removeInvoice: z.boolean().optional(),
 });
 
 const portalBaseUrlEnv =
@@ -7032,6 +7061,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error('Error saving policy charge:', error);
       res.status(500).json({ message: 'Failed to save charge' });
+    }
+  });
+
+  app.patch('/api/admin/policies/:policyId/charges/:chargeId', async (req, res) => {
+    if (!ensureAdminOrStaffUser(res)) {
+      return;
+    }
+
+    try {
+      const payload = policyChargeUpdateSchema.parse(req.body ?? {});
+      const { policyId, chargeId } = req.params;
+
+      const existingCharge = await storage.getPolicyCharge(chargeId);
+      if (!existingCharge || existingCharge.policyId !== policyId) {
+        res.status(404).json({ message: 'Charge not found' });
+        return;
+      }
+
+      let chargedAt: Date | null | undefined;
+      if (Object.prototype.hasOwnProperty.call(payload, 'chargedAt')) {
+        const chargedAtValue = payload.chargedAt;
+        if (chargedAtValue == null) {
+          chargedAt = null;
+        } else {
+          try {
+            chargedAt = parseChargeDateInput(chargedAtValue) ?? null;
+          } catch {
+            res.status(400).json({ message: 'Charge date is invalid' });
+            return;
+          }
+        }
+      }
+
+      let invoiceFileName: string | null | undefined;
+      let invoiceFilePath: string | null | undefined;
+      let invoiceFileType: string | null | undefined;
+      let invoiceFileSize: number | null | undefined;
+      let shouldRemoveInvoice = payload.removeInvoice === true && !payload.invoice;
+
+      if (payload.invoice) {
+        const { fileData, fileName, fileType } = payload.invoice;
+        const base64Segment = fileData.includes(',') ? fileData.slice(fileData.indexOf(',') + 1) : fileData;
+        const normalizedData = base64Segment.replace(/\s+/g, '');
+
+        let buffer: Buffer;
+        try {
+          buffer = Buffer.from(normalizedData, 'base64');
+        } catch {
+          res.status(400).json({ message: 'Invoice file data is invalid' });
+          return;
+        }
+
+        if (!buffer || buffer.length === 0) {
+          res.status(400).json({ message: 'Invoice file is empty' });
+          return;
+        }
+
+        if (buffer.length > MAX_INVOICE_FILE_SIZE_BYTES) {
+          res.status(400).json({ message: 'Invoice file is too large (max 10 MB)' });
+          return;
+        }
+
+        const invoicesDir = path.join('uploads', 'invoices');
+        fs.mkdirSync(invoicesDir, { recursive: true });
+        const safeName = sanitizeFileName(fileName);
+        const storedName = `${Date.now()}-${safeName}`;
+        const filePath = path.join(invoicesDir, storedName);
+        fs.writeFileSync(filePath, buffer);
+
+        invoiceFileName = fileName;
+        invoiceFileType = fileType?.trim() || null;
+        invoiceFileSize = buffer.length;
+        invoiceFilePath = filePath.split(path.sep).join('/');
+        shouldRemoveInvoice = false;
+
+        await removeInvoiceFile(existingCharge.invoiceFilePath);
+      } else if (shouldRemoveInvoice) {
+        await removeInvoiceFile(existingCharge.invoiceFilePath);
+      }
+
+      let reference: string | null | undefined;
+      if (Object.prototype.hasOwnProperty.call(payload, 'reference')) {
+        if (payload.reference == null) {
+          reference = null;
+        } else {
+          const trimmed = payload.reference.trim();
+          reference = trimmed.length > 0 ? trimmed : null;
+        }
+      }
+
+      let notes: string | null | undefined;
+      if (Object.prototype.hasOwnProperty.call(payload, 'notes')) {
+        if (payload.notes == null) {
+          notes = null;
+        } else {
+          const trimmed = payload.notes.trim();
+          notes = trimmed.length > 0 ? trimmed : null;
+        }
+      }
+
+      const updates: UpdatePolicyChargeInput = {};
+      if (payload.description !== undefined) {
+        updates.description = payload.description.trim();
+      }
+      if (payload.amountCents !== undefined) {
+        updates.amountCents = payload.amountCents;
+      }
+      if (payload.status !== undefined) {
+        updates.status = payload.status;
+      }
+      if (chargedAt !== undefined) {
+        updates.chargedAt = chargedAt;
+      }
+      if (reference !== undefined) {
+        updates.reference = reference;
+      }
+      if (notes !== undefined) {
+        updates.notes = notes;
+      }
+      if (invoiceFileName !== undefined) {
+        updates.invoiceFileName = invoiceFileName;
+      }
+      if (invoiceFilePath !== undefined) {
+        updates.invoiceFilePath = invoiceFilePath;
+      }
+      if (invoiceFileType !== undefined) {
+        updates.invoiceFileType = invoiceFileType;
+      }
+      if (invoiceFileSize !== undefined) {
+        updates.invoiceFileSize = invoiceFileSize;
+      }
+      if (shouldRemoveInvoice) {
+        updates.removeInvoice = true;
+      }
+
+      const updatedCharge = await storage.updatePolicyCharge(policyId, chargeId, updates);
+      if (!updatedCharge) {
+        res.status(404).json({ message: 'Charge not found' });
+        return;
+      }
+
+      res.json({ data: updatedCharge, message: 'Charge updated successfully' });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid charge payload';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error updating policy charge:', error);
+      res.status(500).json({ message: 'Failed to update charge' });
     }
   });
 
