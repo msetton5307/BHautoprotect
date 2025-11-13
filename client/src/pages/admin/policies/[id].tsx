@@ -1033,7 +1033,6 @@ export default function AdminPolicyDetail() {
     const records = chargesResponse?.data?.charges ?? [];
     return [...records].sort((a, b) => new Date(b.chargedAt).valueOf() - new Date(a.chargedAt).valueOf());
   }, [chargesResponse]);
-  const isEditingCharge = Boolean(editingCharge);
 
   const policyCustomers = policy?.customers ?? [];
   const paymentCustomerOptions = useMemo(() => {
@@ -1119,6 +1118,7 @@ export default function AdminPolicyDetail() {
   const [isSavingCharge, setIsSavingCharge] = useState(false);
   const [chargeForm, setChargeForm] = useState<ChargeFormState>(() => createChargeFormState());
   const [editingCharge, setEditingCharge] = useState<PolicyChargeRecord | null>(null);
+  const isEditingCharge = Boolean(editingCharge);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [emailRecipient, setEmailRecipient] = useState<string>(leadEmail);
   const [emailSubject, setEmailSubject] = useState<string>(initialTemplate.subject);
