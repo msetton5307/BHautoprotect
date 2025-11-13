@@ -517,7 +517,6 @@ export default function AdminLeadDetail() {
       setIsCreatingQuote(false);
       setQuoteForm({ ...DEFAULT_QUOTE_FORM });
       setQuoteFormInitialized(false);
-      setLastEditedPriceField('total');
       toast({
         title: "Success",
         description: "Quote created successfully",
