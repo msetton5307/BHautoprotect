@@ -81,7 +81,7 @@ export default function PromoPage() {
               title="Lock in your $700 discount"
               description="Complete the form below and we’ll prepare a custom quote with the promo automatically applied."
               submitLabel="Claim My $700 Savings"
-              leadSource="promo-700-off"
+              leadSource="BWF-Promo"
             />
           </div>
         </section>
