@@ -1085,6 +1085,16 @@ export default function AdminPolicyDetail() {
   const autopayHeroBadgeClass = autopayEnabled
     ? "border-emerald-200/70 bg-emerald-400/30 text-emerald-50"
     : "border-white/30 bg-white/20 text-white";
+  const policyStatus = (policy?.status as 'active' | 'deactivated' | undefined) ?? 'active';
+  const isPolicyDeactivated = policyStatus === 'deactivated';
+  const policyStatusLabel = isPolicyDeactivated ? 'Policy deactivated' : 'Policy active';
+  const policyStatusHeroBadgeClass = isPolicyDeactivated
+    ? 'border-rose-200/70 bg-rose-500/30 text-rose-50'
+    : 'border-emerald-200/70 bg-emerald-400/30 text-emerald-50';
+  const policyStatusBadgeTone = isPolicyDeactivated
+    ? 'border-rose-200 bg-rose-50 text-rose-700'
+    : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+  const policyStatusShortLabel = isPolicyDeactivated ? 'Deactivated' : 'Active';
   const monthlyPaymentDisplay = formatCurrencyFromCents(policy?.monthlyPayment);
   const totalPremiumDisplay = formatCurrencyFromCents(policy?.totalPremium);
   const downPaymentDisplay = formatCurrencyFromCents(policy?.downPayment);
@@ -1135,6 +1145,8 @@ export default function AdminPolicyDetail() {
   const [isUpdatingPolicy, setIsUpdatingPolicy] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingPolicy, setIsDeletingPolicy] = useState(false);
+  const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
+  const [isDeactivatingPolicy, setIsDeactivatingPolicy] = useState(false);
   const [isSendingContract, setIsSendingContract] = useState(false);
   const [policyForm, setPolicyForm] = useState(() => createPolicyFormState(policy));
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
@@ -1854,6 +1866,58 @@ export default function AdminPolicyDetail() {
     }
   };
 
+  const handleDeactivatePolicy = async () => {
+    if (!policy) {
+      return;
+    }
+
+    if (isPolicyDeactivated) {
+      setIsDeactivateDialogOpen(false);
+      return;
+    }
+
+    setIsDeactivatingPolicy(true);
+    try {
+      const response = await fetchWithAuth(`/api/admin/policies/${policy.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ status: "deactivated" }),
+      });
+
+      ensureAuthorized(response);
+      if (!response.ok) {
+        let message = "Failed to deactivate policy";
+        try {
+          const data = await response.json();
+          if (typeof data?.message === "string") {
+            message = data.message;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+
+      toast({
+        title: "Policy deactivated",
+        description: "This policy has been marked as inactive.",
+      });
+
+      setIsDeactivateDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/policies"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", policy.id] });
+    } catch (error) {
+      const description = error instanceof Error ? error.message : "Failed to deactivate policy";
+      toast({
+        title: "Could not deactivate policy",
+        description,
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeactivatingPolicy(false);
+    }
+  };
+
   const handleDeletePolicy = async () => {
     if (!policy) {
       return;
@@ -2173,71 +2237,116 @@ export default function AdminPolicyDetail() {
                       ) : null}
                     </p>
                   </div>
-                <div className="flex flex-col items-start gap-3 text-xs text-slate-200/80 sm:flex-row sm:items-center sm:gap-4">
-                  <Badge
-                    variant="outline"
-                    className={`rounded-full border bg-transparent px-3 py-1 text-xs font-medium backdrop-blur ${autopayHeroBadgeClass}`}
-                  >
-                    {autopayLabel}
-                  </Badge>
-                  <span>Created {policyCreatedDisplay}</span>
-                  <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
-                      onClick={() => setIsEditPolicyOpen(true)}
-                    >
-                      Edit policy
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
-                      onClick={handleSendContract}
-                      disabled={isSendingContract}
-                    >
-                      <FileSignature className="mr-2 h-4 w-4" />
-                      {isSendingContract ? "Sending…" : "Send contract"}
-                    </Button>
-                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                      <AlertDialogTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white shadow-sm transition"
-                          disabled={isDeletingPolicy}
-                        >
-                          Delete policy
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete this policy?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. Deleting the policy removes its notes, files,
-                            customer links, and billing records.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel disabled={isDeletingPolicy}>Cancel</AlertDialogCancel>
-                          <AlertDialogAction asChild>
+                  <div className="flex flex-col items-start gap-3 text-xs text-slate-200/80 sm:flex-row sm:items-center sm:gap-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge
+                        variant="outline"
+                        className={`rounded-full border bg-transparent px-3 py-1 text-xs font-semibold backdrop-blur ${policyStatusHeroBadgeClass}`}
+                      >
+                        {policyStatusLabel}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={`rounded-full border bg-transparent px-3 py-1 text-xs font-medium backdrop-blur ${autopayHeroBadgeClass}`}
+                      >
+                        {autopayLabel}
+                      </Badge>
+                    </div>
+                    <span>Created {policyCreatedDisplay}</span>
+                    <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
+                        onClick={() => setIsEditPolicyOpen(true)}
+                      >
+                        Edit policy
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
+                        onClick={handleSendContract}
+                        disabled={isSendingContract}
+                      >
+                        <FileSignature className="mr-2 h-4 w-4" />
+                        {isSendingContract ? "Sending…" : "Send contract"}
+                      </Button>
+                      {!isPolicyDeactivated ? (
+                        <AlertDialog open={isDeactivateDialogOpen} onOpenChange={setIsDeactivateDialogOpen}>
+                          <AlertDialogTrigger asChild>
                             <Button
-                              variant="destructive"
-                              onClick={handleDeletePolicy}
-                              disabled={isDeletingPolicy}
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
+                              disabled={isDeactivatingPolicy}
                             >
-                              {isDeletingPolicy ? "Deleting..." : "Delete"}
+                              Deactivate policy
                             </Button>
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Deactivate this policy?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Deactivated policies remain in the system but will be marked as inactive for your team.
+                                You can reactivate it later by updating the status.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel disabled={isDeactivatingPolicy}>Cancel</AlertDialogCancel>
+                              <AlertDialogAction asChild>
+                                <Button
+                                  type="button"
+                                  variant="destructive"
+                                  onClick={handleDeactivatePolicy}
+                                  disabled={isDeactivatingPolicy}
+                                >
+                                  {isDeactivatingPolicy ? "Deactivating…" : "Deactivate"}
+                                </Button>
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      ) : null}
+                      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white shadow-sm transition"
+                            disabled={isDeletingPolicy}
+                          >
+                            Delete policy
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete this policy?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. Deleting the policy removes its notes, files,
+                              customer links, and billing records.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel disabled={isDeletingPolicy}>Cancel</AlertDialogCancel>
+                            <AlertDialogAction asChild>
+                              <Button
+                                variant="destructive"
+                                onClick={handleDeletePolicy}
+                                disabled={isDeletingPolicy}
+                              >
+                                {isDeletingPolicy ? "Deleting..." : "Delete"}
+                              </Button>
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
               <div className="grid gap-4 border-t border-slate-200 bg-white px-6 py-5 text-sm text-slate-600 sm:grid-cols-2 xl:grid-cols-5">
                 <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                   <p className="text-xs uppercase tracking-wide text-slate-500">Coverage window</p>
@@ -2335,6 +2444,16 @@ export default function AdminPolicyDetail() {
               </CardHeader>
               <CardContent>
                 <dl className="grid grid-cols-1 gap-4 text-sm text-slate-600 sm:grid-cols-2">
+                  <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
+                    <dt className="text-xs uppercase tracking-wide text-slate-500">Policy status</dt>
+                    <dd className="mt-2 break-words text-sm font-semibold text-slate-900">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${policyStatusBadgeTone}`}
+                      >
+                        {policyStatusShortLabel}
+                      </span>
+                    </dd>
+                  </div>
                   <div className="min-w-0 rounded-xl border border-slate-200/80 bg-slate-50/60 px-4 py-3 shadow-sm">
                     <dt className="text-xs uppercase tracking-wide text-slate-500">Package</dt>
                     <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{formatPolicyName(policy.package) || "N/A"}</dd>

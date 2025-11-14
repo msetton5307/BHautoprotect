@@ -31,6 +31,7 @@ import {
   documentRequestTypeEnum,
   documentRequestStatusEnum,
   type LeadContract,
+  policyStatusEnum,
 } from "@shared/schema";
 import {
   getCoveragePlanDefinition,
@@ -464,6 +465,8 @@ const POLICY_CHARGE_STATUS_VALUES = policyChargeStatusEnum.enumValues as [
   'refunded',
 ];
 
+const POLICY_STATUS_VALUES = policyStatusEnum.enumValues as ['active', 'deactivated'];
+
 const MAX_INVOICE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 const MAX_POLICY_FILE_BYTES = 10 * 1024 * 1024;
 
@@ -552,6 +555,7 @@ const policyUpdateSchema = z.object({
   downPayment: z.number().int().optional().nullable(),
   monthlyPayment: z.number().int().optional().nullable(),
   totalPayments: z.number().int().optional().nullable(),
+  status: z.enum(POLICY_STATUS_VALUES).optional(),
   lead: z
     .object({
       firstName: optionalTrimmedString,
@@ -6750,6 +6754,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (Object.prototype.hasOwnProperty.call(parsed, 'totalPayments')) {
         updates.totalPayments = parsed.totalPayments ?? null;
+      }
+      if (Object.prototype.hasOwnProperty.call(parsed, 'status')) {
+        if (parsed.status) {
+          updates.status = parsed.status;
+        }
       }
 
       if (Object.keys(updates).length > 0) {

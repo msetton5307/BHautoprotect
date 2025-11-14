@@ -65,6 +65,8 @@ export const policyChargeStatusEnum = pgEnum('policy_charge_status', [
   'refunded',
 ]);
 
+export const policyStatusEnum = pgEnum('policy_status', ['active', 'deactivated']);
+
 export const contractStatusEnum = pgEnum('contract_status', ['draft', 'sent', 'signed', 'void']);
 
 const shortId = sql`substring(replace(gen_random_uuid()::text, '-', ''), 1, 8)`;
@@ -170,6 +172,7 @@ export const policies = pgTable("policies", {
   policyStartDate: timestamp("policy_start_date"),
   monthlyPayment: integer("monthly_payment"),
   totalPayments: integer("total_payments"),
+  status: policyStatusEnum('status').notNull().default('active'),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
