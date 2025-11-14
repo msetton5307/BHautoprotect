@@ -457,8 +457,16 @@ export async function sendMail(request: MailRequest): Promise<void> {
       throw new Error(`Unexpected response after DATA: ${dataResponse.message}`);
     }
 
-    await sendCommand(socket, "QUIT", 221);
     console.info("[mail] Email sent", { ...logContext, responseCode: dataResponse.code });
+
+    try {
+      await sendCommand(socket, "QUIT", 221);
+    } catch (error) {
+      console.warn("[mail] Failed to terminate SMTP session after sending email", {
+        ...logContext,
+        error,
+      });
+    }
   } catch (error) {
     console.error("[mail] Failed to send email", { ...logContext, error });
     throw error;
