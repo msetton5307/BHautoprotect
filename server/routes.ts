@@ -3823,7 +3823,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ['Make', make],
         ['Model', model],
         ['Year', year],
-        ['Mileage', mileage],
         ['Premium', premium],
         ['DownPayment', downPayment],
         ['MonthlyPayment', monthlyPayment],
