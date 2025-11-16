@@ -8,6 +8,7 @@ import {
   claims,
   policyNotes,
   policyFiles,
+  policyDocuSignEnvelopes,
   leadContracts,
   emailTemplates,
   siteSettings,
@@ -36,6 +37,8 @@ import {
   type InsertPolicyNote,
   type PolicyFile,
   type InsertPolicyFile,
+  type PolicyDocuSignEnvelope,
+  type InsertPolicyDocuSignEnvelope,
   type LeadContract,
   type InsertLeadContract,
   type EmailTemplate,
@@ -264,6 +267,20 @@ export interface IStorage {
   // Policy file operations
   getPolicyFiles(policyId: string): Promise<PolicyFile[]>;
   createPolicyFile(file: InsertPolicyFile): Promise<PolicyFile>;
+
+  // DocuSign envelope operations
+  createPolicyDocuSignEnvelope(
+    envelope: InsertPolicyDocuSignEnvelope,
+  ): Promise<PolicyDocuSignEnvelope>;
+  updatePolicyDocuSignEnvelope(
+    envelopeId: string,
+    updates: Partial<
+      Omit<PolicyDocuSignEnvelope, 'id' | 'policyId' | 'leadId' | 'envelopeId' | 'createdAt'>
+    >,
+  ): Promise<PolicyDocuSignEnvelope>;
+  getPolicyDocuSignEnvelopeByEnvelopeId(
+    envelopeId: string,
+  ): Promise<PolicyDocuSignEnvelope | undefined>;
 
   // Contract operations
   getLeadContracts(leadId: string): Promise<LeadContract[]>;
@@ -649,6 +666,45 @@ export class DatabaseStorage implements IStorage {
   async createPolicyFile(fileData: InsertPolicyFile): Promise<PolicyFile> {
     const [file] = await db.insert(policyFiles).values(fileData).returning();
     return file;
+  }
+
+  async createPolicyDocuSignEnvelope(
+    envelopeData: InsertPolicyDocuSignEnvelope,
+  ): Promise<PolicyDocuSignEnvelope> {
+    const [envelope] = await db
+      .insert(policyDocuSignEnvelopes)
+      .values(envelopeData)
+      .returning();
+    return envelope;
+  }
+
+  async updatePolicyDocuSignEnvelope(
+    id: string,
+    updates: Partial<
+      Omit<PolicyDocuSignEnvelope, 'id' | 'policyId' | 'leadId' | 'envelopeId' | 'createdAt'>
+    >,
+  ): Promise<PolicyDocuSignEnvelope> {
+    const sanitized = Object.fromEntries(
+      Object.entries(updates).filter(([, value]) => value !== undefined),
+    ) as Partial<
+      Omit<PolicyDocuSignEnvelope, 'id' | 'policyId' | 'leadId' | 'envelopeId' | 'createdAt'>
+    >;
+    const [envelope] = await db
+      .update(policyDocuSignEnvelopes)
+      .set({ ...sanitized, updatedAt: getEasternDate() })
+      .where(eq(policyDocuSignEnvelopes.id, id))
+      .returning();
+    return envelope;
+  }
+
+  async getPolicyDocuSignEnvelopeByEnvelopeId(
+    envelopeId: string,
+  ): Promise<PolicyDocuSignEnvelope | undefined> {
+    const [envelope] = await db
+      .select()
+      .from(policyDocuSignEnvelopes)
+      .where(eq(policyDocuSignEnvelopes.envelopeId, envelopeId));
+    return envelope;
   }
 
   // Contract operations

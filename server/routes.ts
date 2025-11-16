@@ -1,11 +1,16 @@
 import type { Express, NextFunction, Request, RequestHandler, Response } from "express";
 import express from "express";
 import { createServer, type Server } from "http";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { storage, type UpdatePolicyChargeInput } from "./storage";
 import { sendMail, type MailRequest } from "./mail";
-import { sendContractEnvelope, type DocuSignContractFields } from "./docusign";
+import {
+  sendContractEnvelope,
+  downloadEnvelopeDocuments,
+  type DocuSignContractFields,
+} from "./docusign";
 import { z } from "zod";
 import {
   insertLeadSchema,
@@ -500,6 +505,222 @@ const optionalEmailString = z.string().trim().email().optional().nullable();
 const fsPromises = fs.promises;
 
 const sanitizeFileName = (value: string): string => value.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+const DEFAULT_DOCUSIGN_HMAC_SECRET = 'c4VMFFnW3065k++d+prFbxI10NpKqm7g54+X54ulkDk=';
+
+const resolveDocuSignHmacKey = (): Buffer | null => {
+  const secret = process.env.DS_WEBHOOK_HMAC_SECRET?.trim() || DEFAULT_DOCUSIGN_HMAC_SECRET;
+  if (!secret) {
+    return null;
+  }
+
+  const base64Buffer = Buffer.from(secret, 'base64');
+  if (base64Buffer.length > 0) {
+    return base64Buffer;
+  }
+
+  return Buffer.from(secret, 'utf8');
+};
+
+const docuSignHmacKey = resolveDocuSignHmacKey();
+
+const toTrimmedString = (value: unknown): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+type DocuSignWebhookDocument = {
+  name: string;
+  buffer: Buffer;
+};
+
+type DocuSignWebhookPayload = {
+  envelopeId: string;
+  status: string | null;
+  completedAt: string | null;
+  event: string | null;
+  documents: DocuSignWebhookDocument[];
+};
+
+const parseXmlSectionValue = (source: string, tagNames: string[]): string | null => {
+  for (const tag of tagNames) {
+    const pattern = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
+    const match = pattern.exec(source);
+    if (match && match[1]) {
+      const cleaned = match[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim();
+      if (cleaned) {
+        return cleaned;
+      }
+    }
+  }
+  return null;
+};
+
+const parseDocuSignXmlPayload = (xml: string): DocuSignWebhookPayload | null => {
+  const envelopeId = parseXmlSectionValue(xml, ['EnvelopeID', 'EnvelopeId']);
+  if (!envelopeId) {
+    return null;
+  }
+
+  const status = parseXmlSectionValue(xml, ['Status']);
+  const completedAt = parseXmlSectionValue(xml, ['Completed', 'CompletedDateTime']);
+  const event = parseXmlSectionValue(xml, ['Event', 'EventType']);
+  const documentBlocks = xml.match(/<DocumentPDF[\s\S]*?<\/DocumentPDF>/gi) ?? [];
+  const documents: DocuSignWebhookDocument[] = [];
+  documentBlocks.forEach((block, index) => {
+    const pdfBytes = parseXmlSectionValue(block, ['PDFBytes']);
+    if (!pdfBytes) {
+      return;
+    }
+    try {
+      const buffer = Buffer.from(pdfBytes, 'base64');
+      const rawName = parseXmlSectionValue(block, ['Name']);
+      const name = rawName && rawName.length > 0 ? rawName : `DocuSign-${index + 1}.pdf`;
+      documents.push({ name, buffer });
+    } catch (error) {
+      console.warn('Unable to decode DocuSign PDF bytes from XML payload:', error);
+    }
+  });
+
+  return { envelopeId, status, completedAt, event, documents };
+};
+
+const normalizeDocumentEntries = (value: any): any[] => {
+  if (!value) {
+    return [];
+  }
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return [value];
+};
+
+const parseDocuSignJsonPayload = (payload: any): DocuSignWebhookPayload | null => {
+  if (!payload) {
+    return null;
+  }
+
+  const statusNode =
+    payload.EnvelopeStatus || payload.envelopeStatus ||
+    payload.EnvelopeStatuses?.EnvelopeStatus ||
+    payload.envelopeStatuses?.envelopeStatus ||
+    payload;
+
+  const envelopeId =
+    toTrimmedString(statusNode?.EnvelopeID) ||
+    toTrimmedString(statusNode?.EnvelopeId) ||
+    toTrimmedString(payload.envelopeId) ||
+    toTrimmedString(statusNode?.envelopeId);
+
+  if (!envelopeId) {
+    return null;
+  }
+
+  const status =
+    toTrimmedString(statusNode?.Status) ||
+    toTrimmedString(statusNode?.status) ||
+    toTrimmedString(payload.status);
+  const completedAt =
+    toTrimmedString(statusNode?.Completed) ||
+    toTrimmedString(statusNode?.CompletedDateTime) ||
+    toTrimmedString(payload.completedDateTime);
+  const event =
+    toTrimmedString(statusNode?.Event) ||
+    toTrimmedString(statusNode?.EventType) ||
+    toTrimmedString(payload.event);
+
+  const documentRoot =
+    payload.DocumentPDFs ||
+    statusNode.DocumentPDFs ||
+    payload.documentPdfs ||
+    statusNode.documentPdfs;
+  const documentEntries = documentRoot
+    ? documentRoot.DocumentPDF || documentRoot.documentPdf || documentRoot
+    : [];
+  const documents: DocuSignWebhookDocument[] = [];
+  for (const entry of normalizeDocumentEntries(documentEntries)) {
+    const pdfBytes = toTrimmedString(entry?.PDFBytes ?? entry?.pdfBytes);
+    if (!pdfBytes) {
+      continue;
+    }
+    try {
+      const buffer = Buffer.from(pdfBytes, 'base64');
+      const rawName = toTrimmedString(entry?.Name);
+      const name = rawName || `DocuSign-${documents.length + 1}.pdf`;
+      documents.push({ name, buffer });
+    } catch (error) {
+      console.warn('Unable to decode DocuSign PDF bytes from JSON payload:', error);
+    }
+  }
+
+  return { envelopeId, status, completedAt, event, documents };
+};
+
+const parseDocuSignWebhookPayload = (
+  rawBody: Buffer,
+  contentType: string | undefined,
+): DocuSignWebhookPayload | null => {
+  const bodyText = rawBody.toString('utf8').trim();
+  if (!bodyText) {
+    return null;
+  }
+
+  if (contentType?.includes('json') || bodyText.startsWith('{') || bodyText.startsWith('[')) {
+    try {
+      const data = JSON.parse(bodyText);
+      const normalized = Array.isArray(data) ? data[0] : data;
+      const parsedJson = parseDocuSignJsonPayload(normalized);
+      if (parsedJson) {
+        return parsedJson;
+      }
+    } catch (error) {
+      console.warn('Unable to parse DocuSign JSON payload:', error);
+    }
+  }
+
+  if (contentType?.includes('xml') || bodyText.startsWith('<')) {
+    return parseDocuSignXmlPayload(bodyText);
+  }
+
+  return null;
+};
+
+const verifyDocuSignSignature = (
+  rawBody: Buffer,
+  signature: string | null | undefined,
+): boolean => {
+  if (!docuSignHmacKey) {
+    console.error('DocuSign HMAC secret is not configured.');
+    return false;
+  }
+
+  if (!signature) {
+    return false;
+  }
+
+  try {
+    const computed = createHmac('sha256', docuSignHmacKey).update(rawBody).digest();
+    const provided = Buffer.from(signature, 'base64');
+    if (provided.length !== computed.length) {
+      return false;
+    }
+    return timingSafeEqual(provided, computed);
+  } catch (error) {
+    console.error('Failed to verify DocuSign webhook signature:', error);
+    return false;
+  }
+};
+
+const parseDocuSignDate = (value: string | null): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.valueOf()) ? null : parsed;
+};
 
 const resolveInvoiceAbsolutePath = (storedPath: string | null | undefined): string | null => {
   if (!storedPath) {
@@ -3275,6 +3496,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const brandingUploadsDir = path.join(uploadsDir, "branding");
   await fs.promises.mkdir(brandingUploadsDir, { recursive: true });
 
+  const saveDocuSignPolicyFile = async (
+    policyId: string,
+    originalFileName: string,
+    fileBuffer: Buffer,
+  ): Promise<void> => {
+    await fs.promises.mkdir(uploadsDir, { recursive: true });
+    const fallbackName = originalFileName && originalFileName.trim().length > 0
+      ? originalFileName
+      : `DocuSign-${policyId}.pdf`;
+    const safeBaseName = sanitizeFileName(fallbackName) || `docusign-contract-${policyId}.pdf`;
+    const normalizedName = safeBaseName.toLowerCase().endsWith('.pdf')
+      ? safeBaseName
+      : `${safeBaseName}.pdf`;
+    const storedName = `${Date.now()}-${normalizedName}`;
+    const filePath = path.join(uploadsDir, storedName);
+    await fs.promises.writeFile(filePath, fileBuffer);
+    const normalizedPath = filePath.split(path.sep).join('/');
+    await storage.createPolicyFile({
+      policyId,
+      fileName: normalizedName,
+      filePath: normalizedPath,
+    });
+  };
+
   const BRANDING_LOGO_SETTING_KEY = "branding.logoUrl";
   const PUBLIC_BRANDING_PATH = "/uploads/branding";
 
@@ -3889,6 +4134,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         traceToken: envelope.traceToken ?? undefined,
       });
 
+      try {
+        await storage.createPolicyDocuSignEnvelope({
+          policyId: policy.id,
+          leadId: policy.leadId,
+          envelopeId: envelope.envelopeId,
+          status: envelope.status,
+          lastEvent: envelope.status,
+        });
+      } catch (error) {
+        console.error('Failed to store DocuSign envelope metadata', {
+          ...logContext,
+          envelopeId: envelope.envelopeId,
+          error,
+        });
+      }
+
       res.json({
         data: {
           envelopeId: envelope.envelopeId,
@@ -3905,6 +4166,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   app.post('/api/policies/:id/send-contract', adminAuth, sendPolicyContractHandler);
+
+  app.post(
+    '/api/docusign/webhook',
+    express.raw({ type: '*/*', limit: '15mb' }),
+    async (req, res) => {
+      const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body ?? '');
+      const signature = req.header('x-docusign-signature-1');
+      if (!verifyDocuSignSignature(rawBody, signature)) {
+        res.status(401).json({ message: 'Invalid signature' });
+        return;
+      }
+
+      const payload = parseDocuSignWebhookPayload(rawBody, req.header('content-type') ?? undefined);
+      if (!payload) {
+        res.status(202).json({ message: 'No envelope data' });
+        return;
+      }
+
+      try {
+        const envelopeRecord = await storage.getPolicyDocuSignEnvelopeByEnvelopeId(payload.envelopeId);
+        if (!envelopeRecord) {
+          console.warn('DocuSign webhook received for unknown envelope', { envelopeId: payload.envelopeId });
+          res.status(202).json({ message: 'Unknown envelope' });
+          return;
+        }
+
+        let currentEnvelope = envelopeRecord;
+        const updates: Record<string, unknown> = {};
+        if (payload.status) {
+          updates.status = payload.status;
+        }
+        if (payload.event) {
+          updates.lastEvent = payload.event;
+        }
+        const completedDate = parseDocuSignDate(payload.completedAt);
+        if (completedDate && !currentEnvelope.completedAt) {
+          updates.completedAt = completedDate;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          currentEnvelope = await storage.updatePolicyDocuSignEnvelope(currentEnvelope.id, updates);
+        }
+
+        const normalizedStatus = (payload.status ?? currentEnvelope.status ?? '').toLowerCase();
+        const alreadyDownloaded = Boolean(currentEnvelope.documentsDownloadedAt);
+
+        if (normalizedStatus === 'completed' && !alreadyDownloaded) {
+          try {
+            const document = payload.documents[0] ?? null;
+            let fileBuffer = document?.buffer ?? null;
+            let fileName = document?.name ?? `DocuSign-${payload.envelopeId}.pdf`;
+            if (!fileBuffer) {
+              const download = await downloadEnvelopeDocuments(payload.envelopeId);
+              fileBuffer = download.buffer;
+              fileName = download.fileName;
+            }
+
+            if (fileBuffer) {
+              await saveDocuSignPolicyFile(currentEnvelope.policyId, fileName, fileBuffer);
+              currentEnvelope = await storage.updatePolicyDocuSignEnvelope(currentEnvelope.id, {
+                documentsDownloadedAt: new Date(),
+              });
+              try {
+                await updateLeadStatus(currentEnvelope.leadId, 'sold');
+              } catch (error) {
+                console.error('Unable to update lead status after DocuSign completion:', error);
+              }
+            }
+          } catch (error) {
+            console.error('Failed to persist DocuSign contract PDF:', error);
+          }
+        }
+
+        res.json({ received: true });
+      } catch (error) {
+        console.error('Error processing DocuSign webhook:', error);
+        res.status(500).json({ message: 'Failed to process webhook' });
+      }
+    },
+  );
 
   const sanitizeUser = ({ passwordHash: _passwordHash, ...user }: User) => user;
   const sanitizeCustomerAccount = ({ passwordHash: _passwordHash, ...account }: CustomerAccount) => account;

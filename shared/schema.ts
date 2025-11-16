@@ -233,6 +233,23 @@ export const policyFiles = pgTable("policy_files", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const policyDocuSignEnvelopes = pgTable('policy_docusign_envelopes', {
+  id: varchar('id').primaryKey().default(shortId),
+  policyId: varchar('policy_id', { length: 8 })
+    .references(() => policies.id, { onDelete: 'cascade' })
+    .notNull(),
+  leadId: varchar('lead_id', { length: 8 })
+    .references(() => leads.id, { onDelete: 'cascade' })
+    .notNull(),
+  envelopeId: varchar('envelope_id', { length: 128 }).notNull(),
+  status: text('status'),
+  lastEvent: text('last_event'),
+  completedAt: timestamp('completed_at'),
+  documentsDownloadedAt: timestamp('documents_downloaded_at'),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 export const leadContracts = pgTable('lead_contracts', {
   id: varchar('id').primaryKey().default(shortId),
   leadId: varchar('lead_id', { length: 8 })
@@ -435,6 +452,17 @@ export const policyFilesRelations = relations(policyFiles, ({ one }) => ({
   }),
 }));
 
+export const policyDocuSignEnvelopeRelations = relations(policyDocuSignEnvelopes, ({ one }) => ({
+  policy: one(policies, {
+    fields: [policyDocuSignEnvelopes.policyId],
+    references: [policies.id],
+  }),
+  lead: one(leads, {
+    fields: [policyDocuSignEnvelopes.leadId],
+    references: [leads.id],
+  }),
+}));
+
 // Schemas for validation
 export const insertLeadSchema = createInsertSchema(leads).omit({
   id: true,
@@ -478,6 +506,12 @@ export const insertPolicyNoteSchema = createInsertSchema(policyNotes).omit({
 export const insertPolicyFileSchema = createInsertSchema(policyFiles).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertPolicyDocuSignEnvelopeSchema = createInsertSchema(policyDocuSignEnvelopes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertCustomerAccountSchema = createInsertSchema(customerAccounts).omit({
@@ -557,6 +591,8 @@ export type PolicyNote = typeof policyNotes.$inferSelect;
 export type InsertPolicyNote = z.infer<typeof insertPolicyNoteSchema>;
 export type PolicyFile = typeof policyFiles.$inferSelect;
 export type InsertPolicyFile = z.infer<typeof insertPolicyFileSchema>;
+export type PolicyDocuSignEnvelope = typeof policyDocuSignEnvelopes.$inferSelect;
+export type InsertPolicyDocuSignEnvelope = z.infer<typeof insertPolicyDocuSignEnvelopeSchema>;
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type EmailTemplate = typeof emailTemplates.$inferSelect;
