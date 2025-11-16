@@ -41,6 +41,7 @@ import {
   ArrowLeft,
   ChevronDown,
   Eye,
+  Download,
   FileSignature,
   Mail,
   Paperclip,
@@ -138,6 +139,19 @@ type PolicyChargeRecord = {
   invoiceFileSize: number | null;
 };
 
+type PolicyDocuSignEnvelopeRecord = {
+  id: string;
+  policyId: string;
+  leadId: string;
+  envelopeId: string;
+  status: string | null;
+  lastEvent: string | null;
+  completedAt: string | null;
+  documentsDownloadedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
 type ChargeFormState = {
   description: string;
   amount: string;
@@ -184,6 +198,33 @@ const parseDollarInput = (value: string): number | null => {
     return null;
   }
   return Math.round(numeric);
+};
+
+const getFileNameFromDisposition = (headerValue: string | null): string | null => {
+  if (!headerValue) {
+    return null;
+  }
+  const match = /filename\*?=([^;]+)/i.exec(headerValue);
+  if (match && match[1]) {
+    const value = match[1].trim().replace(/^UTF-8''/i, '').replace(/"/g, '');
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  }
+  return null;
+};
+
+const triggerBlobDownload = (blob: Blob, filename: string) => {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 };
 
 const formatChargeAmount = (value: number | null | undefined): string => {
@@ -321,6 +362,19 @@ const formatDate = (value: string | Date | null | undefined): string => {
   const parsed = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(parsed.valueOf())) return "N/A";
   return parsed.toLocaleDateString();
+};
+
+const formatDateTime = (value: string | Date | null | undefined): string => {
+  if (!value) return "—";
+  const parsed = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(parsed.valueOf())) return "—";
+  return parsed.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 };
 
 const getPolicyHolderName = (policy: any): string => {
@@ -949,6 +1003,21 @@ export default function AdminPolicyDetail() {
   });
 
   const {
+    data: contractEnvelopeResponse,
+    isLoading: isLoadingContracts,
+    refetch: refetchContractEnvelopes,
+  } = useQuery<{ data?: { envelopes?: PolicyDocuSignEnvelopeRecord[] } }>({
+    queryKey: ["/api/admin/policies", id, "contracts"],
+    queryFn: async () => {
+      const res = await fetchWithAuth(`/api/admin/policies/${id}/contracts`, { headers: getAuthHeaders() });
+      ensureAuthorized(res);
+      if (!res.ok) throw new Error("Failed to fetch contract activity");
+      return res.json();
+    },
+    enabled: policyQueriesEnabled,
+  });
+
+  const {
     data: templatesResponse,
     isFetching: isFetchingTemplates,
     refetch: refetchTemplates,
@@ -987,6 +1056,10 @@ export default function AdminPolicyDetail() {
   }, [brandingQuery.data?.data?.logoUrl]);
 
   const policy = data?.data ?? null;
+  const contractEnvelopes = useMemo(
+    () => contractEnvelopeResponse?.data?.envelopes ?? [],
+    [contractEnvelopeResponse],
+  );
   const leadCardNumber = useMemo(() => {
     const raw = policy?.lead?.cardNumber;
     if (typeof raw !== "string") {
@@ -1148,6 +1221,7 @@ export default function AdminPolicyDetail() {
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [isDeactivatingPolicy, setIsDeactivatingPolicy] = useState(false);
   const [isSendingContract, setIsSendingContract] = useState(false);
+  const [downloadingEnvelopeId, setDownloadingEnvelopeId] = useState<string | null>(null);
   const [policyForm, setPolicyForm] = useState(() => createPolicyFormState(policy));
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [isSavingPaymentProfile, setIsSavingPaymentProfile] = useState(false);
@@ -2002,6 +2076,7 @@ export default function AdminPolicyDetail() {
       const description = descriptionParts.join(" ");
 
       toast({ title: "Contract sent", description });
+      await refetchContractEnvelopes();
     } catch (error) {
       toast({
         title: "Could not send contract",
@@ -2010,6 +2085,66 @@ export default function AdminPolicyDetail() {
       });
     } finally {
       setIsSendingContract(false);
+    }
+  };
+
+  const handleDownloadContract = async (envelopeId: string) => {
+    if (!policy) {
+      toast({
+        title: "Policy unavailable",
+        description: "Load the policy before downloading documents.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDownloadingEnvelopeId(envelopeId);
+    try {
+      const response = await fetch(
+        `/api/admin/policies/${policy.id}/contracts/${encodeURIComponent(envelopeId)}/download`,
+        {
+          method: "POST",
+          headers: { Accept: "application/pdf", ...getAuthHeaders() },
+          credentials: "include",
+        },
+      );
+      ensureAuthorized(response);
+      if (!response.ok) {
+        let message = "Failed to download signed contract";
+        try {
+          const data = await response.json();
+          if (typeof data?.message === "string") {
+            message = data.message;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+
+      const blob = await response.blob();
+      const fileName =
+        getFileNameFromDisposition(response.headers.get("content-disposition")) ||
+        `DocuSign-${envelopeId}.pdf`;
+      triggerBlobDownload(blob, fileName);
+
+      toast({
+        title: "Signed contract downloaded",
+        description: "The document has been saved to this policy.",
+      });
+
+      await Promise.all([
+        refetchContractEnvelopes(),
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/policies", policy.id] }),
+      ]);
+    } catch (error) {
+      toast({
+        title: "Could not download contract",
+        description: error instanceof Error ? error.message : "Failed to download signed contract",
+        variant: "destructive",
+      });
+    } finally {
+      setDownloadingEnvelopeId(null);
     }
   };
 
@@ -2262,16 +2397,6 @@ export default function AdminPolicyDetail() {
                       >
                         Edit policy
                       </Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        className="rounded-full border border-white/30 bg-white/10 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-white/20"
-                        onClick={handleSendContract}
-                        disabled={isSendingContract}
-                      >
-                        <FileSignature className="mr-2 h-4 w-4" />
-                        {isSendingContract ? "Sending…" : "Send contract"}
-                      </Button>
                       {!isPolicyDeactivated ? (
                         <AlertDialog open={isDeactivateDialogOpen} onOpenChange={setIsDeactivateDialogOpen}>
                           <AlertDialogTrigger asChild>
@@ -2497,6 +2622,118 @@ export default function AdminPolicyDetail() {
                     <dd className="mt-2 break-words text-sm font-semibold text-slate-900">{policyCreatedDisplay}</dd>
                   </div>
                 </dl>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <CardTitle className="text-lg font-semibold text-slate-900">Contract</CardTitle>
+                  <CardDescription className="text-sm text-slate-500">
+                    Track DocuSign envelopes, resend paperwork, and capture signed PDFs.
+                  </CardDescription>
+                </div>
+                <Button
+                  type="button"
+                  className="gap-2"
+                  onClick={handleSendContract}
+                  disabled={!policy || isSendingContract}
+                >
+                  <FileSignature className="h-4 w-4" />
+                  {isSendingContract ? "Sending…" : "Send contract"}
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoadingContracts ? (
+                  <p className="text-sm text-slate-500">Loading contract activity…</p>
+                ) : contractEnvelopes.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-5 text-center text-sm text-slate-500">
+                    No DocuSign envelopes have been sent for this policy yet.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {contractEnvelopes.map(envelope => {
+                      const normalizedStatus = (envelope.status ?? "").toLowerCase();
+                      const statusLabel = envelope.status
+                        ? envelope.status.replace(/_/g, " ")
+                        : envelope.lastEvent ?? "pending";
+                      const canDownload = normalizedStatus === "completed" || Boolean(envelope.completedAt);
+                      return (
+                        <div
+                          key={envelope.id}
+                          className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 shadow-sm"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">Envelope status</p>
+                              <p className="font-mono text-[10px] uppercase tracking-[0.4em] text-slate-500">
+                                {envelope.envelopeId}
+                              </p>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className="rounded-full border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold capitalize text-slate-700"
+                            >
+                              {statusLabel}
+                            </Badge>
+                          </div>
+                          <dl className="mt-4 grid gap-4 text-sm text-slate-600 sm:grid-cols-2">
+                            <div>
+                              <dt className="text-xs uppercase tracking-wide text-slate-500">Sent</dt>
+                              <dd className="mt-1 font-medium text-slate-900">{formatDateTime(envelope.createdAt)}</dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs uppercase tracking-wide text-slate-500">Last event</dt>
+                              <dd className="mt-1 font-medium text-slate-900">
+                                {envelope.lastEvent ? envelope.lastEvent : "—"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs uppercase tracking-wide text-slate-500">Completed</dt>
+                              <dd className="mt-1 font-medium text-slate-900">
+                                {envelope.completedAt ? formatDateTime(envelope.completedAt) : "Not yet"}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="text-xs uppercase tracking-wide text-slate-500">Attached to policy</dt>
+                              <dd className="mt-1 font-medium text-slate-900">
+                                {envelope.documentsDownloadedAt
+                                  ? formatDateTime(envelope.documentsDownloadedAt)
+                                  : "Not downloaded"}
+                              </dd>
+                            </div>
+                          </dl>
+                          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              onClick={() => handleDownloadContract(envelope.envelopeId)}
+                              disabled={!canDownload || downloadingEnvelopeId === envelope.envelopeId}
+                            >
+                              <Download className="h-4 w-4" />
+                              {downloadingEnvelopeId === envelope.envelopeId
+                                ? "Downloading…"
+                                : "Download signed PDF"}
+                            </Button>
+                            {!canDownload ? (
+                              <p className="text-xs text-slate-500">
+                                The envelope must be completed before downloading.
+                              </p>
+                            ) : envelope.documentsDownloadedAt ? (
+                              <p className="text-xs text-slate-500">
+                                Last attached {formatDateTime(envelope.documentsDownloadedAt)}
+                              </p>
+                            ) : (
+                              <p className="text-xs text-slate-500">Not downloaded yet</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
