@@ -34,6 +34,15 @@ type DocuSignEnvelopeResponse = {
   traceToken?: string | null;
 };
 
+type DocuSignEnvelopeStatusResponse = {
+  envelopeId: string;
+  status: string | null;
+  statusDateTime: string | null;
+  statusChangedDateTime: string | null;
+  sentDateTime: string | null;
+  completedDateTime: string | null;
+};
+
 // --------------------------------------------------------
 // Utilities
 // --------------------------------------------------------
@@ -255,6 +264,43 @@ export const downloadEnvelopeDocuments = async (
   const fallbackName = `docusign-${envelopeId}.pdf`;
   const fileName = parseDispositionFileName(response.headers.get('content-disposition')) ?? fallbackName;
   return { buffer, fileName };
+};
+
+export const fetchEnvelopeStatus = async (
+  envelopeId: string,
+): Promise<DocuSignEnvelopeStatusResponse> => {
+  const config = getConfig();
+  const accessToken = await requestAccessToken(config);
+  const response = await fetch(
+    `${config.basePath}/v2.1/accounts/${config.accountId}/envelopes/${envelopeId}`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    throw new Error(
+      `Failed to fetch DocuSign envelope status (${response.status}): ${errorText || response.statusText}`,
+    );
+  }
+
+  const data = await response.json().catch(() => ({}));
+  const getString = (key: string): string | null => {
+    const value = data?.[key];
+    return typeof value === "string" && value.trim().length > 0 ? value : null;
+  };
+
+  return {
+    envelopeId: getString("envelopeId") ?? envelopeId,
+    status: getString("status"),
+    statusDateTime: getString("statusDateTime"),
+    statusChangedDateTime: getString("statusChangedDateTime"),
+    sentDateTime: getString("sentDateTime"),
+    completedDateTime: getString("completedDateTime"),
+  };
 };
 
 export type { DocuSignContractFields, SendContractOptions };

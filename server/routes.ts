@@ -9,6 +9,7 @@ import { sendMail, type MailRequest } from "./mail";
 import {
   sendContractEnvelope,
   downloadEnvelopeDocuments,
+  fetchEnvelopeStatus,
   type DocuSignContractFields,
 } from "./docusign";
 import { z } from "zod";
@@ -3550,6 +3551,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     updatedAt: toIsoString(envelope.updatedAt ?? null),
   });
 
+  const TERMINAL_DOCUSIGN_STATUSES = new Set([
+    'completed',
+    'declined',
+    'voided',
+    'deleted',
+  ]);
+
+  const normalizeDocuSignStatus = (status: string | null | undefined): string | null => {
+    if (typeof status !== 'string') {
+      return null;
+    }
+    const trimmed = status.trim().toLowerCase();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const shouldRefreshDocuSignEnvelope = (envelope: PolicyDocuSignEnvelope): boolean => {
+    const normalizedStatus = normalizeDocuSignStatus(envelope.status ?? null);
+    if (!normalizedStatus) {
+      return true;
+    }
+    if (normalizedStatus === 'completed' && !envelope.completedAt) {
+      return true;
+    }
+    return !TERMINAL_DOCUSIGN_STATUSES.has(normalizedStatus);
+  };
+
+  const refreshDocuSignEnvelopes = async (
+    envelopes: PolicyDocuSignEnvelope[],
+  ): Promise<PolicyDocuSignEnvelope[]> => {
+    return Promise.all(
+      envelopes.map(async (envelope) => {
+        if (!shouldRefreshDocuSignEnvelope(envelope)) {
+          return envelope;
+        }
+
+        try {
+          const latest = await fetchEnvelopeStatus(envelope.envelopeId);
+          const updates: Partial<PolicyDocuSignEnvelope> = {};
+
+          if (latest.status && latest.status !== envelope.status) {
+            updates.status = latest.status;
+          }
+
+          if (latest.status && !envelope.lastEvent) {
+            updates.lastEvent = latest.status;
+          }
+
+          if (latest.completedDateTime) {
+            const completedAt = new Date(latest.completedDateTime);
+            if (!envelope.completedAt || envelope.completedAt.valueOf() !== completedAt.valueOf()) {
+              updates.completedAt = completedAt;
+            }
+          }
+
+          if (Object.keys(updates).length > 0) {
+            return await storage.updatePolicyDocuSignEnvelope(envelope.id, updates);
+          }
+        } catch (error) {
+          console.error('Failed to refresh DocuSign envelope status', {
+            envelopeId: envelope.envelopeId,
+            error,
+          });
+        }
+
+        return envelope;
+      }),
+    );
+  };
+
   const mapDocumentRequestForAdmin = (request: any) => ({
     id: request.id,
     policyId: request.policyId,
@@ -7076,8 +7146,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const envelopes = await storage.getPolicyDocuSignEnvelopes(req.params.id);
+      const syncedEnvelopes = await refreshDocuSignEnvelopes(envelopes);
       res.json({
-        data: { envelopes: envelopes.map(mapDocuSignEnvelopeForAdmin) },
+        data: { envelopes: syncedEnvelopes.map(mapDocuSignEnvelopeForAdmin) },
         message: 'Contract activity retrieved successfully',
       });
     } catch (error) {
