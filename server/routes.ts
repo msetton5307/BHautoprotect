@@ -3524,6 +3524,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return fileRecord;
   };
 
+  const attachDocuSignEnvelopeDocuments = async (
+    envelope: PolicyDocuSignEnvelope,
+    options?: { buffer?: Buffer | null; fileName?: string | null },
+  ): Promise<PolicyDocuSignEnvelope> => {
+    if (envelope.documentsDownloadedAt) {
+      return envelope;
+    }
+
+    let fileBuffer = options?.buffer ?? null;
+    let fileName = options?.fileName ?? undefined;
+
+    if (!fileBuffer) {
+      const download = await downloadEnvelopeDocuments(envelope.envelopeId);
+      fileBuffer = download.buffer;
+      fileName = download.fileName;
+    }
+
+    if (!fileBuffer) {
+      throw new Error('DocuSign envelope did not include any documents');
+    }
+
+    await saveDocuSignPolicyFile(
+      envelope.policyId,
+      fileName ?? `DocuSign-${envelope.envelopeId}.pdf`,
+      fileBuffer,
+    );
+
+    const updatedEnvelope = await storage.updatePolicyDocuSignEnvelope(envelope.id, {
+      documentsDownloadedAt: new Date(),
+    });
+
+    try {
+      await updateLeadStatus(envelope.leadId, 'sold');
+    } catch (error) {
+      console.error('Unable to update lead status after DocuSign completion:', error);
+    }
+
+    return updatedEnvelope;
+  };
+
   const BRANDING_LOGO_SETTING_KEY = "branding.logoUrl";
   const PUBLIC_BRANDING_PATH = "/uploads/branding";
 
@@ -3582,40 +3622,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
   ): Promise<PolicyDocuSignEnvelope[]> => {
     return Promise.all(
       envelopes.map(async (envelope) => {
-        if (!shouldRefreshDocuSignEnvelope(envelope)) {
-          return envelope;
-        }
+        let currentEnvelope = envelope;
 
-        try {
-          const latest = await fetchEnvelopeStatus(envelope.envelopeId);
-          const updates: Partial<PolicyDocuSignEnvelope> = {};
+        if (shouldRefreshDocuSignEnvelope(currentEnvelope)) {
+          try {
+            const latest = await fetchEnvelopeStatus(currentEnvelope.envelopeId);
+            const updates: Partial<PolicyDocuSignEnvelope> = {};
 
-          if (latest.status && latest.status !== envelope.status) {
-            updates.status = latest.status;
-          }
-
-          if (latest.status && !envelope.lastEvent) {
-            updates.lastEvent = latest.status;
-          }
-
-          if (latest.completedDateTime) {
-            const completedAt = new Date(latest.completedDateTime);
-            if (!envelope.completedAt || envelope.completedAt.valueOf() !== completedAt.valueOf()) {
-              updates.completedAt = completedAt;
+            if (latest.status && latest.status !== currentEnvelope.status) {
+              updates.status = latest.status;
             }
-          }
 
-          if (Object.keys(updates).length > 0) {
-            return await storage.updatePolicyDocuSignEnvelope(envelope.id, updates);
+            if (latest.status && !currentEnvelope.lastEvent) {
+              updates.lastEvent = latest.status;
+            }
+
+            if (latest.completedDateTime) {
+              const completedAt = new Date(latest.completedDateTime);
+              if (
+                !currentEnvelope.completedAt ||
+                currentEnvelope.completedAt.valueOf() !== completedAt.valueOf()
+              ) {
+                updates.completedAt = completedAt;
+              }
+            }
+
+            if (Object.keys(updates).length > 0) {
+              currentEnvelope = await storage.updatePolicyDocuSignEnvelope(
+                currentEnvelope.id,
+                updates,
+              );
+            }
+          } catch (error) {
+            console.error('Failed to refresh DocuSign envelope status', {
+              envelopeId: currentEnvelope.envelopeId,
+              error,
+            });
           }
-        } catch (error) {
-          console.error('Failed to refresh DocuSign envelope status', {
-            envelopeId: envelope.envelopeId,
-            error,
-          });
         }
 
-        return envelope;
+        const normalizedStatus = normalizeDocuSignStatus(currentEnvelope.status ?? null);
+        if (!currentEnvelope.documentsDownloadedAt && normalizedStatus === 'completed') {
+          try {
+            currentEnvelope = await attachDocuSignEnvelopeDocuments(currentEnvelope);
+          } catch (error) {
+            console.error('Failed to attach DocuSign documents after refresh', {
+              envelopeId: currentEnvelope.envelopeId,
+              error,
+            });
+          }
+        }
+
+        return currentEnvelope;
       }),
     );
   };
@@ -4301,25 +4359,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (normalizedStatus === 'completed' && !alreadyDownloaded) {
           try {
             const document = payload.documents[0] ?? null;
-            let fileBuffer = document?.buffer ?? null;
-            let fileName = document?.name ?? `DocuSign-${payload.envelopeId}.pdf`;
-            if (!fileBuffer) {
-              const download = await downloadEnvelopeDocuments(payload.envelopeId);
-              fileBuffer = download.buffer;
-              fileName = download.fileName;
-            }
-
-            if (fileBuffer) {
-              await saveDocuSignPolicyFile(currentEnvelope.policyId, fileName, fileBuffer);
-              currentEnvelope = await storage.updatePolicyDocuSignEnvelope(currentEnvelope.id, {
-                documentsDownloadedAt: new Date(),
-              });
-              try {
-                await updateLeadStatus(currentEnvelope.leadId, 'sold');
-              } catch (error) {
-                console.error('Unable to update lead status after DocuSign completion:', error);
-              }
-            }
+            currentEnvelope = await attachDocuSignEnvelopeDocuments(currentEnvelope, {
+              buffer: document?.buffer ?? null,
+              fileName: document?.name ?? undefined,
+            });
           } catch (error) {
             console.error('Failed to persist DocuSign contract PDF:', error);
           }
