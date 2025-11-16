@@ -215,4 +215,46 @@ export const sendContractEnvelope = async (
   };
 };
 
+const parseDispositionFileName = (headerValue: string | null): string | null => {
+  if (!headerValue) {
+    return null;
+  }
+
+  const match = /filename\*?=([^;]+)/i.exec(headerValue);
+  if (match && match[1]) {
+    const value = match[1].trim().replace(/^UTF-8''/, '');
+    return value.replace(/"/g, '').split('/').pop() ?? null;
+  }
+
+  return null;
+};
+
+export const downloadEnvelopeDocuments = async (
+  envelopeId: string,
+): Promise<{ buffer: Buffer; fileName: string }> => {
+  const config = getConfig();
+  const accessToken = await requestAccessToken(config);
+  const response = await fetch(
+    `${config.basePath}/v2.1/accounts/${config.accountId}/envelopes/${envelopeId}/documents/combined`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '');
+    throw new Error(
+      `Failed to download DocuSign documents (${response.status}): ${errorText || response.statusText}`,
+    );
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  const fallbackName = `docusign-${envelopeId}.pdf`;
+  const fileName = parseDispositionFileName(response.headers.get('content-disposition')) ?? fallbackName;
+  return { buffer, fileName };
+};
+
 export type { DocuSignContractFields, SendContractOptions };
