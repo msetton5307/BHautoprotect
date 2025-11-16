@@ -37,6 +37,8 @@ import {
   documentRequestStatusEnum,
   type LeadContract,
   policyStatusEnum,
+  type PolicyFile,
+  type PolicyDocuSignEnvelope,
 } from "@shared/schema";
 import {
   getCoveragePlanDefinition,
@@ -3500,7 +3502,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     policyId: string,
     originalFileName: string,
     fileBuffer: Buffer,
-  ): Promise<void> => {
+  ): Promise<PolicyFile> => {
     await fs.promises.mkdir(uploadsDir, { recursive: true });
     const fallbackName = originalFileName && originalFileName.trim().length > 0
       ? originalFileName
@@ -3513,11 +3515,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const filePath = path.join(uploadsDir, storedName);
     await fs.promises.writeFile(filePath, fileBuffer);
     const normalizedPath = filePath.split(path.sep).join('/');
-    await storage.createPolicyFile({
+    const fileRecord = await storage.createPolicyFile({
       policyId,
       fileName: normalizedName,
       filePath: normalizedPath,
     });
+    return fileRecord;
   };
 
   const BRANDING_LOGO_SETTING_KEY = "branding.logoUrl";
@@ -3532,6 +3535,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     fileType: upload.fileType ?? null,
     fileSize: upload.fileSize ?? null,
     createdAt: toIsoString(upload.createdAt ?? null),
+  });
+
+  const mapDocuSignEnvelopeForAdmin = (envelope: PolicyDocuSignEnvelope) => ({
+    id: envelope.id,
+    policyId: envelope.policyId,
+    leadId: envelope.leadId,
+    envelopeId: envelope.envelopeId,
+    status: envelope.status ?? null,
+    lastEvent: envelope.lastEvent ?? null,
+    completedAt: toIsoString(envelope.completedAt ?? null),
+    documentsDownloadedAt: toIsoString(envelope.documentsDownloadedAt ?? null),
+    createdAt: toIsoString(envelope.createdAt ?? null),
+    updatedAt: toIsoString(envelope.updatedAt ?? null),
   });
 
   const mapDocumentRequestForAdmin = (request: any) => ({
@@ -7050,6 +7066,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching policy:', error);
       res.status(500).json({ message: 'Failed to fetch policy' });
+    }
+  });
+
+  app.get('/api/admin/policies/:id/contracts', async (req, res) => {
+    if (!ensureAdminOrStaffUser(res)) {
+      return;
+    }
+
+    try {
+      const envelopes = await storage.getPolicyDocuSignEnvelopes(req.params.id);
+      res.json({
+        data: { envelopes: envelopes.map(mapDocuSignEnvelopeForAdmin) },
+        message: 'Contract activity retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error fetching contract activity for policy:', error);
+      res.status(500).json({ message: 'Failed to load contract activity' });
+    }
+  });
+
+  app.post('/api/admin/policies/:policyId/contracts/:envelopeId/download', async (req, res) => {
+    if (!ensureAdminOrStaffUser(res)) {
+      return;
+    }
+
+    const { policyId, envelopeId } = req.params;
+
+    try {
+      const policy = await storage.getPolicy(policyId);
+      if (!policy) {
+        res.status(404).json({ message: 'Policy not found' });
+        return;
+      }
+
+      const envelopeRecord = await storage.getPolicyDocuSignEnvelopeByEnvelopeId(envelopeId);
+      if (!envelopeRecord || envelopeRecord.policyId !== policyId) {
+        res.status(404).json({ message: 'Contract envelope not found' });
+        return;
+      }
+
+      const normalizedStatus = (envelopeRecord.status ?? '').toLowerCase();
+      const isCompleted = normalizedStatus === 'completed' || Boolean(envelopeRecord.completedAt);
+      if (!isCompleted) {
+        res.status(409).json({ message: 'The envelope has not been completed yet' });
+        return;
+      }
+
+      const download = await downloadEnvelopeDocuments(envelopeRecord.envelopeId);
+      const fileRecord = await saveDocuSignPolicyFile(policyId, download.fileName, download.buffer);
+      await storage.updatePolicyDocuSignEnvelope(envelopeRecord.id, {
+        documentsDownloadedAt: new Date(),
+      });
+
+      const safeName = fileRecord.fileName.replace(/"/g, '');
+      const encodedName = encodeURIComponent(safeName);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${encodedName}"; filename*=UTF-8''${encodedName}`,
+      );
+      res.setHeader('Content-Length', download.buffer.length.toString());
+      res.send(download.buffer);
+    } catch (error) {
+      console.error('Error downloading DocuSign contract PDF', {
+        policyId,
+        envelopeId,
+        error,
+      });
+      res.status(500).json({ message: 'Failed to download contract PDF' });
     }
   });
 

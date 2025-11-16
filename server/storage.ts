@@ -272,6 +272,7 @@ export interface IStorage {
   createPolicyDocuSignEnvelope(
     envelope: InsertPolicyDocuSignEnvelope,
   ): Promise<PolicyDocuSignEnvelope>;
+  getPolicyDocuSignEnvelopes(policyId: string): Promise<PolicyDocuSignEnvelope[]>;
   updatePolicyDocuSignEnvelope(
     envelopeId: string,
     updates: Partial<
@@ -676,6 +677,15 @@ export class DatabaseStorage implements IStorage {
       .values(envelopeData)
       .returning();
     return envelope;
+  }
+
+  async getPolicyDocuSignEnvelopes(policyId: string): Promise<PolicyDocuSignEnvelope[]> {
+    const records = await db
+      .select()
+      .from(policyDocuSignEnvelopes)
+      .where(eq(policyDocuSignEnvelopes.policyId, policyId))
+      .orderBy(desc(policyDocuSignEnvelopes.createdAt));
+    return records;
   }
 
   async updatePolicyDocuSignEnvelope(
