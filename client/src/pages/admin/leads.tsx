@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Search, Filter, ArrowUpDown, LayoutList } from "lucide-react";
+import { Search, Filter, ArrowUpDown, LayoutList, Download } from "lucide-react";
 import { Link, useLocation, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import AdminNav from "@/components/admin-nav";
@@ -365,6 +365,80 @@ export default function AdminLeads() {
     }
   }, [currentPage]);
 
+  const handleExportCsv = useCallback(() => {
+    if (leads.length === 0) {
+      toast({
+        title: 'No leads to export',
+        description: 'There are no leads available to export right now.',
+      });
+      return;
+    }
+
+    const headers = [
+      'Lead ID',
+      'First Name',
+      'Last Name',
+      'Email',
+      'Phone',
+      'City',
+      'State',
+      'ZIP',
+      'Status',
+      'Source',
+      'Vehicle Year',
+      'Vehicle Make',
+      'Vehicle Model',
+      'Created At',
+    ];
+
+    const escapeCsvValue = (value: string | number | undefined | null) => {
+      if (value === undefined || value === null) return '""';
+      const stringValue = String(value).replace(/"/g, '""');
+      return `"${stringValue}"`;
+    };
+
+    const rows = leads.map((item: any) => {
+      const lead = item.lead || {};
+      const vehicle = item.vehicle || {};
+      const createdAt = lead.createdAt
+        ? new Date(lead.createdAt).toISOString()
+        : '';
+
+      return [
+        lead.id,
+        lead.firstName,
+        lead.lastName,
+        lead.email,
+        lead.phone,
+        lead.city || lead.shippingCity,
+        lead.state,
+        lead.zip,
+        lead.status,
+        lead.referrer || lead.source,
+        vehicle.year,
+        vehicle.make,
+        vehicle.model,
+        createdAt,
+      ]
+        .map(escapeCsvValue)
+        .join(',');
+    });
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `leads-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    window.URL.revokeObjectURL(url);
+
+    toast({
+      title: 'Export started',
+      description: 'Your CSV download should begin shortly.',
+    });
+  }, [leads, toast]);
+
   if (checking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -398,6 +472,14 @@ export default function AdminLeads() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleExportCsv}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              Export CSV
+            </Button>
             <Button
               variant={hideDuplicates ? 'default' : 'outline'}
               onClick={() => setHideDuplicates(!hideDuplicates)}
