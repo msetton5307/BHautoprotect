@@ -3434,7 +3434,7 @@ const buildQuoteEmail = ({
               <td class="email-content" bgcolor="#ffffff" style="padding:32px;background:#ffffff;color:#0f172a;">
                 <p class="email-paragraph" style="margin:0 0 18px;font-size:16px;line-height:1.7;background:#ffffff;color:#0f172a;">Hi ${escapeHtml(displayName)},</p>
                 <p class="email-paragraph" style="margin:0 0 24px;font-size:15px;line-height:1.7;background:#ffffff;color:#0f172a;">
-                  Thanks for connecting with <strong>BHAutoProtect</strong>. Here’s the personalized coverage quote we created for ${escapeHtml(vehicleSummary)}. Choose the payment approach that fits best and we’ll handle the rest.
+                  Thanks for connecting with <strong>BHAutoProtect</strong>. Here’s the personalized quote we created for ${escapeHtml(vehicleSummary)}. Choose the payment approach that fits best and we’ll handle the rest.
                 </p>
                 <div class="email-highlight" style="padding:20px;border-radius:12px;border:1px solid #bfdbfe;background:#f8fafc;color:#0f172a;margin-bottom:28px;">
                   <div class="email-highlight-label" style="font-size:12px;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;background:#f8fafc;color:#2563eb;margin-bottom:6px;">${escapeHtml(highlightLabel)}</div>
@@ -3446,8 +3446,14 @@ const buildQuoteEmail = ({
                     ${renderDetailRows(summaryRows)}
                   </tbody>
                 </table>
+                <p class="email-paragraph" style="margin:0 0 18px;font-size:15px;line-height:1.7;background:#ffffff;color:#0f172a;">
+                  Get a free quote with no obligation—review everything at your own pace before you decide.
+                </p>
                 ${instructionsBlock}
                 ${salesRepBlock}
+                <p class="email-paragraph" style="margin:0 0 18px;font-size:15px;line-height:1.7;background:#ffffff;color:#0f172a;">
+                  When you’re ready, we’ll walk you through your vehicle protection plan options and coverage details below.
+                </p>
                 ${coverageBlock}
                 <div style="display:flex;flex-wrap:wrap;gap:24px;margin-bottom:28px;background:#ffffff;color:#0f172a;">
                   <table role="presentation" cellpadding="0" cellspacing="0" class="info-table" bgcolor="#ffffff" style="flex:1 1 260px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;background:#ffffff;color:#0f172a;min-width:240px;">
@@ -3475,7 +3481,11 @@ const buildQuoteEmail = ({
             </tr>
             <tr>
               <td class="email-footer" bgcolor="#f9fafb" style="background:#f9fafb;color:#6b7280;padding:22px 32px;font-size:12px;line-height:1.6;">
-                You’re receiving this email because you requested coverage details from BHAutoProtect. Reply to this message if anything looks off and we’ll make it right immediately.
+                You’re receiving this email because you requested information from BHAutoProtect. Reply to this message if anything looks off and we’ll make it right immediately.<br /><br />
+                BH Auto Protect • 800 N King St, Suite 304-2390, Wilmington, DE 19801 • <a href="tel:+18339400234" style="color:#2563eb;text-decoration:underline;">(833) 940-0234</a><br />
+                <div style="margin-top:8px;">
+                  <a href="mailto:support@bhautoprotect.com?subject=Unsubscribe%20request&body=Please%20unsubscribe%20me%20from%20future%20emails." style="display:inline-block;color:#2563eb;text-decoration:underline;">Unsubscribe</a>
+                </div>
               </td>
             </tr>
           </table>
