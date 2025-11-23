@@ -3580,7 +3580,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const MAX_LOGO_BYTES = 2 * 1024 * 1024;
   const MAX_DOCUMENT_UPLOAD_BYTES = 20 * 1024 * 1024;
   const MAX_DOCUMENT_UPLOAD_MB = MAX_DOCUMENT_UPLOAD_BYTES / (1024 * 1024);
-  const RAW_UPLOAD_BODY_LIMIT = "30mb";
+  // Allow headroom for base64 expansion and multipart overhead so that valid
+  // 20MB images (especially HEIC/JPEG from mobile devices) are not rejected
+  // by the raw body parser before we can apply our own 20MB limit.
+  const RAW_UPLOAD_BODY_LIMIT = `${Math.ceil((MAX_DOCUMENT_UPLOAD_MB * (4 / 3)) + 8)}mb`;
   const RAW_UPLOAD_TYPES: Array<string | ((req: Request) => boolean)> = [
     (req: Request) => {
       const contentType = req.headers["content-type"] ?? "";
