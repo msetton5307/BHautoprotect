@@ -13,8 +13,17 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024;
-const ACCEPTED_MIME_TYPES = ["image/jpeg", "image/pjpeg", "image/png", "image/x-png"];
-const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png"];
+const ACCEPTED_MIME_TYPES = [
+  "image/jpeg",
+  "image/pjpeg",
+  "image/png",
+  "image/x-png",
+  "image/heic",
+  "image/heif",
+  "image/heic-sequence",
+  "image/heif-sequence",
+];
+const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".heic", ".heif"];
 const MAX_CONTRACT_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_CONTRACT_ACCEPT = ".pdf,application/pdf";
 const DEFAULT_INSTRUCTIONS_FALLBACK =
@@ -199,7 +208,9 @@ export default function AdminSettings() {
           ? "image/png"
           : normalizedFileName.endsWith(".jpeg") || normalizedFileName.endsWith(".jpg")
             ? "image/jpeg"
-            : "image/jpeg");
+            : normalizedFileName.endsWith(".heic") || normalizedFileName.endsWith(".heif")
+              ? "image/heic"
+              : "image/jpeg");
 
       const response = await fetchWithAuth("/api/admin/branding/logo", {
         method: "POST",
@@ -677,7 +688,7 @@ export default function AdminSettings() {
                     <Input
                       id="logo"
                       type="file"
-                      accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                      accept=".jpg,.jpeg,.png,.heic,.heif,image/jpeg,image/png,image/heic,image/heif"
                       onChange={handleFileChange}
                       disabled={uploadMutation.isPending}
                     />

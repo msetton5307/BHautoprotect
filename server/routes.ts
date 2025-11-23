@@ -5659,9 +5659,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const normalizedMime = payload.mimeType?.toLowerCase();
-      const allowedMimes = ['image/jpeg', 'image/pjpeg', 'image/jpg', 'image/png', 'image/x-png'];
+      const allowedMimes = [
+        'image/jpeg',
+        'image/pjpeg',
+        'image/jpg',
+        'image/png',
+        'image/x-png',
+        'image/heic',
+        'image/heif',
+        'image/heic-sequence',
+        'image/heif-sequence',
+      ];
       if (normalizedMime && !allowedMimes.includes(normalizedMime)) {
-        res.status(400).json({ message: 'Only JPG or PNG images are allowed' });
+        res.status(400).json({ message: 'Only JPG, PNG, or HEIC images are allowed' });
         return;
       }
 
@@ -5683,15 +5693,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         buffer[6] === 0x1a &&
         buffer[7] === 0x0a;
 
-      let detectedExtension: 'jpg' | 'png' | null = null;
+      const isLikelyHeic =
+        buffer.length >= 12 &&
+        buffer.slice(4, 8).toString('ascii') === 'ftyp' &&
+        ['heic', 'heix', 'hevc', 'hevx', 'mif1', 'msf1', 'heis', 'hevm', 'hevs', 'heim'].includes(
+          buffer.slice(8, 12).toString('ascii')
+        );
+
+      let detectedExtension: 'jpg' | 'png' | 'heic' | null = null;
       if (isLikelyPng) {
         detectedExtension = 'png';
       } else if (isLikelyJpeg) {
         detectedExtension = 'jpg';
+      } else if (isLikelyHeic) {
+        detectedExtension = 'heic';
       }
 
       if (!detectedExtension) {
-        res.status(400).json({ message: 'The uploaded file is not a valid JPG or PNG image.' });
+        res.status(400).json({ message: 'The uploaded file is not a valid JPG, PNG, or HEIC image.' });
         return;
       }
 
@@ -5703,6 +5722,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (normalizedMime?.includes('jpg') || normalizedMime?.includes('jpeg') || normalizedMime?.includes('pjpeg')) {
         if (detectedExtension !== 'jpg') {
           res.status(400).json({ message: 'The uploaded file does not match the expected JPG format.' });
+          return;
+        }
+      }
+
+      if (normalizedMime?.includes('heic') || normalizedMime?.includes('heif')) {
+        if (detectedExtension !== 'heic') {
+          res.status(400).json({ message: 'The uploaded file does not match the expected HEIC format.' });
           return;
         }
       }
