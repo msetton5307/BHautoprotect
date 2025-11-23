@@ -7,8 +7,10 @@ import { setupVite, serveStatic, log } from "./vite";
 const app = express();
 
 // Middleware
-app.use(express.json({ limit: "15mb" }));
-app.use(express.urlencoded({ extended: true, limit: "15mb" }));
+// Allow ~20MB binary uploads encoded as base64 data URLs (≈4/3 expansion).
+const BODY_PARSER_LIMIT = "30mb";
+app.use(express.json({ limit: BODY_PARSER_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_PARSER_LIMIT }));
 
 async function startServer() {
   const server = await registerRoutes(app);

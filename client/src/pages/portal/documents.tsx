@@ -255,8 +255,13 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
                 <UploadCloud className="h-4 w-4 text-primary" />
                 Choose a file
               </span>
-              <span className="mt-1 text-xs text-slate-500">JPG, PNG, HEIC, or PDF up to 5MB.</span>
-              <Input type="file" className="mt-3 cursor-pointer border-0 px-0 text-sm" accept="image/*,.pdf" onChange={handleFileChange} disabled={uploadDisabled || uploadMutation.isPending || isReading} />
+              <span className="mt-1 text-xs text-slate-500">JPG, JPEG, PNG, or any file type up to 20MB.</span>
+              <Input
+                type="file"
+                className="mt-3 cursor-pointer border-0 px-0 text-sm"
+                onChange={handleFileChange}
+                disabled={uploadDisabled || uploadMutation.isPending || isReading}
+              />
             </label>
             <Button type="submit" className="justify-self-end" disabled={!fileState || uploadDisabled || uploadMutation.isPending || isReading}>
               {uploadMutation.isPending ? "Uploading…" : "Send to BH"}
