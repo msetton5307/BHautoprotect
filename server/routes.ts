@@ -5665,11 +5665,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      const isLikelyJpeg =
-        buffer[0] === 0xff &&
-        buffer[1] === 0xd8 &&
-        buffer[buffer.length - 2] === 0xff &&
-        buffer[buffer.length - 1] === 0xd9;
+      const hasJpegHeader = buffer[0] === 0xff && buffer[1] === 0xd8;
+      // Some JPEGs include trailing padding or metadata, so scan for the last 0xffd9 marker
+      // instead of requiring it to be the final two bytes in the file.
+      const jpegFooterIndex = buffer.lastIndexOf(0xd9);
+      const hasJpegFooter = jpegFooterIndex > 0 && buffer[jpegFooterIndex - 1] === 0xff;
+      const isLikelyJpeg = hasJpegHeader && hasJpegFooter;
 
       const isLikelyPng =
         buffer.length >= 8 &&
