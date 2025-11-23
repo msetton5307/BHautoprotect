@@ -32,10 +32,7 @@ type Props = {
 
 type UploadPayload = {
   requestId: string;
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  data: string;
+  file: File;
 };
 
 const STATUS_TONE_CLASSES: Record<string, string> = {
@@ -58,21 +55,6 @@ function formatDate(value: string | null | undefined): string {
   return formatter.format(parsed);
 }
 
-async function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("Unable to read file"));
-      }
-    };
-    reader.onerror = () => reject(reader.error ?? new Error("Unable to read file"));
-    reader.readAsDataURL(file);
-  });
-}
-
 function buildDownloadLink(dataUrl: string, filename: string) {
   const link = document.createElement("a");
   link.href = dataUrl;
@@ -90,8 +72,7 @@ type DocumentRequestCardProps = {
 function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const [fileState, setFileState] = useState<{ file: File; dataUrl: string } | null>(null);
-  const [isReading, setIsReading] = useState(false);
+  const [fileState, setFileState] = useState<File | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -104,16 +85,16 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: UploadPayload) => {
+      const buffer = await payload.file.arrayBuffer();
       const res = await fetch(`/api/customer/document-requests/${payload.requestId}/upload`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": payload.file.type || "application/octet-stream",
+          "X-File-Name": encodeURIComponent(payload.file.name),
+          "X-File-Size": `${payload.file.size}`,
+        },
         credentials: "include",
-        body: JSON.stringify({
-          fileName: payload.fileName,
-          fileType: payload.fileType,
-          fileSize: payload.fileSize,
-          data: payload.data,
-        }),
+        body: buffer,
       });
 
       if (!res.ok) {
@@ -147,21 +128,7 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
       setFileState(null);
       return;
     }
-    setIsReading(true);
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      setFileState({ file, dataUrl });
-    } catch (error) {
-      console.error(error);
-      setFileState(null);
-      toast({
-        title: "Unable to read file",
-        description: "Please try selecting a different file.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsReading(false);
-    }
+    setFileState(file);
   };
 
   const handleUpload = async (event: React.FormEvent) => {
@@ -170,10 +137,7 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
 
     uploadMutation.mutate({
       requestId: request.id,
-      fileName: fileState.file.name,
-      fileType: fileState.file.type,
-      fileSize: fileState.file.size,
-      data: fileState.dataUrl,
+      file: fileState,
     });
   };
 
@@ -260,10 +224,10 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
                 type="file"
                 className="mt-3 cursor-pointer border-0 px-0 text-sm"
                 onChange={handleFileChange}
-                disabled={uploadDisabled || uploadMutation.isPending || isReading}
+                disabled={uploadDisabled || uploadMutation.isPending}
               />
             </label>
-            <Button type="submit" className="justify-self-end" disabled={!fileState || uploadDisabled || uploadMutation.isPending || isReading}>
+            <Button type="submit" className="justify-self-end" disabled={!fileState || uploadDisabled || uploadMutation.isPending}>
               {uploadMutation.isPending ? "Uploading…" : "Send to BH"}
             </Button>
           </div>
@@ -271,8 +235,8 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
             <div className="flex items-center gap-3 rounded-md border border-slate-200 bg-white p-3 text-sm text-slate-600">
               <Paperclip className="h-4 w-4 text-slate-400" />
               <div className="flex-1 truncate">
-                <p className="truncate font-medium text-slate-700">{fileState.file.name}</p>
-                <p className="text-xs text-slate-500">{formatFileSize(fileState.file.size)} • {fileState.file.type || "Unknown type"}</p>
+                <p className="truncate font-medium text-slate-700">{fileState.name}</p>
+                <p className="text-xs text-slate-500">{formatFileSize(fileState.size)} • {fileState.type || "Unknown type"}</p>
               </div>
               <Button type="button" variant="ghost" size="sm" onClick={() => setFileState(null)}>
                 Clear
