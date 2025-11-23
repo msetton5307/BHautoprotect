@@ -3578,7 +3578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const PUBLIC_BRANDING_PATH = "/uploads/branding";
 
   const MAX_LOGO_BYTES = 2 * 1024 * 1024;
-  const MAX_DOCUMENT_UPLOAD_BYTES = 5 * 1024 * 1024;
+  const MAX_DOCUMENT_UPLOAD_BYTES = 20 * 1024 * 1024;
 
   const mapUploadMetadata = (upload: any) => ({
     id: upload.id,
@@ -5504,15 +5504,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      if (payload.fileType) {
-        const normalizedType = payload.fileType.toLowerCase();
-        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/heic', 'image/heif', 'application/pdf'];
-        if (!allowedMimeTypes.includes(normalizedType)) {
-          res.status(400).json({ message: 'Please upload a photo (JPG, PNG, HEIC) or a PDF document.' });
-          return;
-        }
-      }
-
       const base64Data = payload.data.includes(',') ? payload.data.split(',').pop() ?? '' : payload.data;
       let buffer: Buffer;
       try {
@@ -5528,12 +5519,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (buffer.length > MAX_DOCUMENT_UPLOAD_BYTES) {
-        res.status(400).json({ message: 'Files must be 5MB or smaller.' });
+        res.status(400).json({ message: 'Files must be 20MB or smaller.' });
         return;
       }
 
       if (payload.fileSize && payload.fileSize > MAX_DOCUMENT_UPLOAD_BYTES) {
-        res.status(400).json({ message: 'Files must be 5MB or smaller.' });
+        res.status(400).json({ message: 'Files must be 20MB or smaller.' });
         return;
       }
 
