@@ -3579,6 +3579,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const MAX_LOGO_BYTES = 2 * 1024 * 1024;
   const MAX_DOCUMENT_UPLOAD_BYTES = 20 * 1024 * 1024;
+  const MAX_DOCUMENT_UPLOAD_MB = MAX_DOCUMENT_UPLOAD_BYTES / (1024 * 1024);
+  const RAW_UPLOAD_BODY_LIMIT = "30mb";
+  const RAW_UPLOAD_TYPES: Array<string | ((req: Request) => boolean)> = [
+    (req: Request) => {
+      const contentType = req.headers["content-type"] ?? "";
+      return (
+        typeof contentType === "string" &&
+        (contentType.startsWith("application/octet-stream") ||
+          contentType.startsWith("image/") ||
+          contentType.startsWith("application/pdf"))
+      );
+    },
+  ];
+  const binaryUploadParser = express.raw({ type: RAW_UPLOAD_TYPES, limit: RAW_UPLOAD_BODY_LIMIT });
 
   const mapUploadMetadata = (upload: any) => ({
     id: upload.id,
@@ -5484,10 +5498,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/customer/document-requests/:id/upload', customerAuth, async (req, res) => {
+  app.post('/api/customer/document-requests/:id/upload', customerAuth, binaryUploadParser, async (req, res) => {
     try {
       const account = res.locals.customerAccount as CustomerAccount;
-      const payload = documentUploadSchema.parse(req.body ?? {});
+      const isBinaryUpload = Buffer.isBuffer(req.body) && req.body.length > 0;
+
+      let payload: z.infer<typeof documentUploadSchema>;
+      if (isBinaryUpload) {
+        const fileNameHeader = req.headers['x-file-name'];
+        const fileSizeHeader = req.headers['x-file-size'];
+        const parsedSize =
+          typeof fileSizeHeader === 'string' && fileSizeHeader.trim().length > 0
+            ? Number.parseInt(fileSizeHeader, 10)
+            : Number.NaN;
+        const safeFileName = (() => {
+          if (typeof fileNameHeader !== 'string' || fileNameHeader.trim().length === 0) {
+            return 'upload';
+          }
+          try {
+            return decodeURIComponent(fileNameHeader).slice(0, 240);
+          } catch {
+            return fileNameHeader.slice(0, 240);
+          }
+        })();
+
+        payload = documentUploadSchema.parse({
+          fileName: safeFileName,
+          fileType: typeof req.headers['content-type'] === 'string' ? req.headers['content-type'] : undefined,
+          fileSize: Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : (req.body as Buffer).length,
+          data: (req.body as Buffer).toString('base64'),
+        });
+      } else {
+        payload = documentUploadSchema.parse(req.body ?? {});
+      }
       const requestRecord = await storage.getCustomerDocumentRequestForCustomer(req.params.id, account.id);
       if (!requestRecord) {
         res.status(404).json({ message: 'Document request not found' });
@@ -8249,7 +8292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const maybeType = typeof error === 'object' && error !== null ? (error as { type?: string }).type : undefined;
     if (maybeType === 'entity.too.large') {
       console.error('File upload rejected because it exceeded size limits:', error);
-      res.status(413).json({ message: 'File is too large (max 10 MB)' });
+      res.status(413).json({ message: `File is too large (max ${MAX_DOCUMENT_UPLOAD_MB} MB)` });
       return;
     }
     next(error);
