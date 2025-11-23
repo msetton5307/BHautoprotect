@@ -85,16 +85,12 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
 
   const uploadMutation = useMutation({
     mutationFn: async (payload: UploadPayload) => {
-      const buffer = await payload.file.arrayBuffer();
+      const formData = new FormData();
+      formData.append("file", payload.file);
       const res = await fetch(`/api/customer/document-requests/${payload.requestId}/upload`, {
         method: "POST",
-        headers: {
-          "Content-Type": payload.file.type || "application/octet-stream",
-          "X-File-Name": encodeURIComponent(payload.file.name),
-          "X-File-Size": `${payload.file.size}`,
-        },
         credentials: "include",
-        body: buffer,
+        body: formData,
       });
 
       if (!res.ok) {

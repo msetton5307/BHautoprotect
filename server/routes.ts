@@ -3587,12 +3587,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return (
         typeof contentType === "string" &&
         (contentType.startsWith("application/octet-stream") ||
+          contentType.startsWith("multipart/form-data") ||
           contentType.startsWith("image/") ||
           contentType.startsWith("application/pdf"))
       );
     },
   ];
   const binaryUploadParser = express.raw({ type: RAW_UPLOAD_TYPES, limit: RAW_UPLOAD_BODY_LIMIT });
+  const documentUploadParser: RequestHandler = binaryUploadParser;
+
+  const parseMultipartUpload = (
+    req: Request,
+  ): { fileName: string; fileType?: string; fileSize: number; data: Buffer } | null => {
+    const contentType = req.headers["content-type"];
+    if (typeof contentType !== "string" || !contentType.toLowerCase().startsWith("multipart/form-data")) {
+      return null;
+    }
+
+    const boundaryMatch = contentType.match(/boundary=([^;]+)/i);
+    const boundary = boundaryMatch?.[1];
+    if (!boundary) {
+      return null;
+    }
+
+    const bodyBuffer = Buffer.isBuffer(req.body) ? req.body : null;
+    if (!bodyBuffer || bodyBuffer.length === 0) {
+      return null;
+    }
+
+    const boundaryText = `--${boundary}`;
+    const parts = bodyBuffer.toString("latin1").split(boundaryText);
+    for (const part of parts) {
+      if (!part || part === "--" || part === "--\r\n") {
+        continue;
+      }
+
+      const normalizedPart = part.startsWith("\r\n") ? part.slice(2) : part;
+
+      const headerEndIndex = normalizedPart.indexOf("\r\n\r\n");
+      if (headerEndIndex === -1) {
+        continue;
+      }
+
+      const headersText = normalizedPart.slice(0, headerEndIndex);
+      const bodyText = normalizedPart.slice(headerEndIndex + 4);
+      const contentDisposition = headersText
+        .split("\r\n")
+        .find((line) => line.toLowerCase().startsWith("content-disposition"));
+
+      if (!contentDisposition || !contentDisposition.includes("name=\"file\"")) {
+        continue;
+      }
+
+      const nameMatch = contentDisposition.match(/filename="([^"]*)"/i);
+      const fileName = nameMatch?.[1]?.trim() || "upload";
+      const typeMatch = headersText
+        .split("\r\n")
+        .find((line) => line.toLowerCase().startsWith("content-type"))
+        ?.split(":")
+        .slice(1)
+        .join(":")
+        .trim();
+
+      const cleanedBodyText = bodyText.endsWith("\r\n") ? bodyText.slice(0, -2) : bodyText;
+      const fileBuffer = Buffer.from(cleanedBodyText, "latin1");
+
+      return {
+        fileName: fileName.slice(0, 240),
+        fileType: typeMatch && typeMatch.length > 0 ? typeMatch : undefined,
+        fileSize: fileBuffer.length,
+        data: fileBuffer,
+      };
+    }
+
+    return null;
+  };
 
   const mapUploadMetadata = (upload: any) => ({
     id: upload.id,
@@ -5498,13 +5567,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/customer/document-requests/:id/upload', customerAuth, binaryUploadParser, async (req, res) => {
+  app.post('/api/customer/document-requests/:id/upload', customerAuth, documentUploadParser, async (req, res) => {
     try {
       const account = res.locals.customerAccount as CustomerAccount;
+      const parsedMultipart = parseMultipartUpload(req);
+      const isMultipartUpload = parsedMultipart !== null;
       const isBinaryUpload = Buffer.isBuffer(req.body) && req.body.length > 0;
 
       let payload: z.infer<typeof documentUploadSchema>;
-      if (isBinaryUpload) {
+      if (isMultipartUpload) {
+        payload = documentUploadSchema.parse({
+          fileName: parsedMultipart.fileName,
+          fileType: parsedMultipart.fileType,
+          fileSize: parsedMultipart.fileSize,
+          data: parsedMultipart.data.toString('base64'),
+        });
+      } else if (isBinaryUpload) {
         const fileNameHeader = req.headers['x-file-name'];
         const fileSizeHeader = req.headers['x-file-size'];
         const parsedSize =
