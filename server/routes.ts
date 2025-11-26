@@ -475,8 +475,8 @@ const POLICY_CHARGE_STATUS_VALUES = policyChargeStatusEnum.enumValues as [
 
 const POLICY_STATUS_VALUES = policyStatusEnum.enumValues as ['active', 'deactivated'];
 
-const MAX_INVOICE_FILE_SIZE_BYTES = 10 * 1024 * 1024;
-const MAX_POLICY_FILE_BYTES = 10 * 1024 * 1024;
+const MAX_INVOICE_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+const MAX_POLICY_FILE_BYTES = 50 * 1024 * 1024;
 
 const DOCUMENT_REQUEST_TYPE_COPY: Record<(typeof DOCUMENT_REQUEST_TYPE_VALUES)[number], { label: string; hint: string }> = {
   vin_photo: {
@@ -845,7 +845,7 @@ const portalLoginBaseUrl = trimmedPortalBaseUrl
   ? `${trimmedPortalBaseUrl}/portal`
   : `${defaultPortalBaseUrl}/portal`;
 
-const MAX_CONTRACT_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_CONTRACT_FILE_BYTES = 50 * 1024 * 1024;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -3577,12 +3577,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const BRANDING_LOGO_SETTING_KEY = "branding.logoUrl";
   const PUBLIC_BRANDING_PATH = "/uploads/branding";
 
-  const MAX_LOGO_BYTES = 2 * 1024 * 1024;
-  const MAX_DOCUMENT_UPLOAD_BYTES = 20 * 1024 * 1024;
+  const MAX_LOGO_BYTES = 50 * 1024 * 1024;
+  const MAX_DOCUMENT_UPLOAD_BYTES = 50 * 1024 * 1024;
   const MAX_DOCUMENT_UPLOAD_MB = MAX_DOCUMENT_UPLOAD_BYTES / (1024 * 1024);
   // Allow headroom for base64 expansion and multipart overhead so that valid
-  // 20MB images (especially HEIC/JPEG from mobile devices) are not rejected
-  // by the raw body parser before we can apply our own 20MB limit.
+  // 50MB images (especially HEIC/JPEG from mobile devices) are not rejected
+  // by the raw body parser before we can apply our own 50MB limit.
   const RAW_UPLOAD_BODY_LIMIT = `${Math.ceil((MAX_DOCUMENT_UPLOAD_MB * (4 / 3)) + 8)}mb`;
   const RAW_UPLOAD_TYPES: Array<string | ((req: Request) => boolean)> = [
     (req: Request) => {
@@ -4409,7 +4409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post(
     '/api/docusign/webhook',
-    express.raw({ type: '*/*', limit: '15mb' }),
+    express.raw({ type: '*/*', limit: '50mb' }),
     async (req, res) => {
       const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body ?? '');
       const signature = req.header('x-docusign-signature-1');
@@ -5643,12 +5643,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (buffer.length > MAX_DOCUMENT_UPLOAD_BYTES) {
-        res.status(400).json({ message: 'Files must be 20MB or smaller.' });
+        res.status(400).json({ message: 'Files must be 50MB or smaller.' });
         return;
       }
 
       if (payload.fileSize && payload.fileSize > MAX_DOCUMENT_UPLOAD_BYTES) {
-        res.status(400).json({ message: 'Files must be 20MB or smaller.' });
+        res.status(400).json({ message: 'Files must be 50MB or smaller.' });
         return;
       }
 
@@ -5778,7 +5778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (buffer.length > MAX_LOGO_BYTES) {
-        res.status(400).json({ message: 'Logo must be 2MB or smaller.' });
+        res.status(400).json({ message: 'Logo must be 50MB or smaller.' });
         return;
       }
 
@@ -5961,7 +5961,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (buffer.length > MAX_CONTRACT_FILE_BYTES) {
-        res.status(400).json({ message: 'Contract files must be 5MB or smaller.' });
+        res.status(400).json({ message: 'Contract files must be 50MB or smaller.' });
         return;
       }
 
@@ -6032,7 +6032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (buffer.length > MAX_CONTRACT_FILE_BYTES) {
-        res.status(400).json({ message: 'Contract files must be 5MB or smaller.' });
+        res.status(400).json({ message: 'Contract files must be 50MB or smaller.' });
         return;
       }
 
@@ -6614,7 +6614,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (buffer.length > MAX_CONTRACT_FILE_BYTES) {
-          res.status(400).json({ message: 'Contract files must be 5MB or smaller.' });
+          res.status(400).json({ message: 'Contract files must be 50MB or smaller.' });
           return;
         }
 
@@ -7721,7 +7721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (buffer.length > MAX_INVOICE_FILE_SIZE_BYTES) {
-          res.status(400).json({ message: 'Invoice file is too large (max 10 MB)' });
+          res.status(400).json({ message: 'Invoice file is too large (max 50 MB)' });
           return;
         }
 
@@ -7819,7 +7819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
         if (buffer.length > MAX_INVOICE_FILE_SIZE_BYTES) {
-          res.status(400).json({ message: 'Invoice file is too large (max 10 MB)' });
+          res.status(400).json({ message: 'Invoice file is too large (max 50 MB)' });
           return;
         }
 
@@ -8134,7 +8134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const policyFileUploadParser = express.raw({
     type: () => true,
-    limit: '10mb',
+    limit: '50mb',
   });
 
   const logPolicyFileUploadFailure = (
@@ -8197,7 +8197,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           fileSize: fileBuffer.length,
           maxSize: MAX_POLICY_FILE_BYTES,
         });
-        res.status(400).json({ message: 'File is too large (max 10 MB)' });
+        res.status(400).json({ message: 'File is too large (max 50 MB)' });
         return;
       }
 
