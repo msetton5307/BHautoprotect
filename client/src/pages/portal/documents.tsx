@@ -25,6 +25,7 @@ import {
   Paperclip,
   UploadCloud,
 } from "lucide-react";
+import heic2any from "heic2any";
 
 type Props = {
   session: CustomerSessionSnapshot;
@@ -124,6 +125,37 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
       setFileState(null);
       return;
     }
+
+    const isHeic = (() => {
+      const mime = file.type?.toLowerCase() ?? "";
+      const name = file.name.toLowerCase();
+      return mime.includes("image/heic") || mime.includes("image/heif") || name.endsWith(".heic") || name.endsWith(".heif");
+    })();
+
+    if (isHeic) {
+      try {
+        const converted = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 });
+        const jpegBlob = Array.isArray(converted) ? converted[0] : converted;
+        const safeName = file.name.replace(/\.(heic|heif)$/i, "") || "upload";
+        const jpegFile = new File([jpegBlob], `${safeName}.jpg`, {
+          type: "image/jpeg",
+          lastModified: Date.now(),
+        });
+        setFileState(jpegFile);
+        return;
+      } catch (error) {
+        console.error("Failed to convert HEIC file", error);
+        toast({
+          title: "We couldn't process that HEIC file",
+          description: "Please try again or convert it to JPG or PNG before uploading.",
+          variant: "destructive",
+        });
+        event.target.value = "";
+        setFileState(null);
+        return;
+      }
+    }
+
     setFileState(file);
   };
 
@@ -215,7 +247,9 @@ function DocumentRequestCard({ request, highlighted }: DocumentRequestCardProps)
                 <UploadCloud className="h-4 w-4 text-primary" />
                 Choose a file
               </span>
-              <span className="mt-1 text-xs text-slate-500">JPG, JPEG, PNG, or any file type up to 20MB.</span>
+              <span className="mt-1 text-xs text-slate-500">
+                JPG, JPEG, PNG, HEIC/HEIF (auto-converts to JPEG), or any file type up to 50MB.
+              </span>
               <Input
                 type="file"
                 className="mt-3 cursor-pointer border-0 px-0 text-sm"
