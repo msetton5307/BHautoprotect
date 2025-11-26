@@ -1,6 +1,5 @@
 import { createSign } from "crypto";
-import dotenv from "dotenv";
-dotenv.config();
+import "./env";
 
 type DocuSignConfig = {
   integrationKey: string;

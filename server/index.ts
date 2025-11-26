@@ -1,4 +1,4 @@
-import "dotenv/config";
+import "./env";
 import express from "express";
 import net from "node:net";
 import { registerRoutes } from "./routes";
@@ -9,8 +9,31 @@ const app = express();
 // Middleware
 // Allow up to 50MB uploads, including base64 or multipart overhead.
 const BODY_PARSER_LIMIT = "50mb";
-app.use(express.json({ limit: BODY_PARSER_LIMIT }));
-app.use(express.urlencoded({ extended: true, limit: BODY_PARSER_LIMIT }));
+const JSON_EXCLUDED_PATHS = ["/api/docusign/webhook"];
+const shouldBypassBodyParser = (req: express.Request): boolean =>
+  JSON_EXCLUDED_PATHS.some((path) => req.path.startsWith(path));
+
+const jsonParser = express.json({ limit: BODY_PARSER_LIMIT });
+const urlEncodedParser = express.urlencoded({
+  extended: true,
+  limit: BODY_PARSER_LIMIT,
+});
+
+app.use((req, res, next) => {
+  if (shouldBypassBodyParser(req)) {
+    next();
+    return;
+  }
+  jsonParser(req, res, next);
+});
+
+app.use((req, res, next) => {
+  if (shouldBypassBodyParser(req)) {
+    next();
+    return;
+  }
+  urlEncodedParser(req, res, next);
+});
 
 async function startServer() {
   const server = await registerRoutes(app);
