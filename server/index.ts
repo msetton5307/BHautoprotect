@@ -9,6 +9,10 @@ const app = express();
 // Middleware
 // Allow up to 50MB uploads, including base64 or multipart overhead.
 const BODY_PARSER_LIMIT = "50mb";
+app.use(
+  "/api/customer/document-requests",
+  express.raw({ type: "*/*", limit: BODY_PARSER_LIMIT }),
+);
 const JSON_EXCLUDED_PATHS = ["/api/docusign/webhook"];
 const shouldBypassBodyParser = (req: express.Request): boolean =>
   JSON_EXCLUDED_PATHS.some((path) => req.path.startsWith(path));
