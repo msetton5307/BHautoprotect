@@ -5587,11 +5587,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else if (isBinaryUpload) {
         const fileNameHeader = req.headers['x-file-name'];
-        const fileSizeHeader = req.headers['x-file-size'];
-        const parsedSize =
-          typeof fileSizeHeader === 'string' && fileSizeHeader.trim().length > 0
-            ? Number.parseInt(fileSizeHeader, 10)
-            : Number.NaN;
         const safeFileName = (() => {
           if (typeof fileNameHeader !== 'string' || fileNameHeader.trim().length === 0) {
             return 'upload';
@@ -5603,12 +5598,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
         })();
 
-        payload = documentUploadSchema.parse({
+        payload = {
           fileName: safeFileName,
-          fileType: typeof req.headers['content-type'] === 'string' ? req.headers['content-type'] : undefined,
-          fileSize: Number.isFinite(parsedSize) && parsedSize > 0 ? parsedSize : (req.body as Buffer).length,
-          data: (req.body as Buffer).toString('base64'),
-        });
+          fileType: req.headers['content-type'],
+          fileSize: req.body.length,
+          data: req.body.toString('base64'),
+        } as z.infer<typeof documentUploadSchema>;
+
+        payload = documentUploadSchema.parse(payload);
       } else {
         payload = documentUploadSchema.parse(req.body ?? {});
       }
