@@ -3729,8 +3729,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               updates.status = latest.status;
             }
 
-            if (latest.status && !currentEnvelope.lastEvent) {
-              updates.lastEvent = latest.status;
+            if (latest.status) {
+              const normalizedLatestStatus = latest.status.toLowerCase();
+              if (!currentEnvelope.lastEvent || normalizedLatestStatus === 'completed') {
+                updates.lastEvent = latest.status;
+              }
             }
 
             if (latest.completedDateTime) {
@@ -4439,6 +4442,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         if (payload.event) {
           updates.lastEvent = payload.event;
+        } else if ((payload.status ?? '').toLowerCase() === 'completed') {
+          updates.lastEvent = payload.status;
         }
         const completedDate = parseDocuSignDate(payload.completedAt);
         if (completedDate && !currentEnvelope.completedAt) {
