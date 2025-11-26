@@ -5571,6 +5571,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post('/api/customer/document-requests/:id/upload', customerAuth, documentUploadParser, async (req, res) => {
+    console.log('BODY:', req.body);
+    console.log('HEADERS:', req.headers);
+
     try {
       const account = res.locals.customerAccount as CustomerAccount;
       const parsedMultipart = parseMultipartUpload(req);
