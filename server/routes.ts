@@ -7410,7 +7410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.put('/api/admin/policies/:id', async (req, res) => {
-    if (!ensureAdminUser(res)) {
+    if (!ensureAdminOrStaffUser(res)) {
       return;
     }
 
