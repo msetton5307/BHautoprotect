@@ -247,7 +247,7 @@ export default function Landing() {
 
       {/* Why Choose Us */}
       <motion.section
-        className="pt-20 pb-12"
+        className="py-20"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.25 }}
@@ -331,7 +331,7 @@ export default function Landing() {
       {/* Plan Comparison */}
       <motion.section
         id="plans"
-        className="bg-white pt-12 pb-20"
+        className="bg-white py-20"
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.3 }}
@@ -375,25 +375,16 @@ export default function Landing() {
                           <p className="text-sm font-semibold text-primary uppercase tracking-[0.3em]">{plan.description}</p>
                         )}
                       </div>
-                      <Accordion type="single" collapsible className="mb-8">
-                        <AccordionItem value={`${tier}-features`} className="rounded-2xl border border-blue-100 px-2">
-                          <AccordionTrigger className="text-left px-2 py-3 text-base font-semibold text-gray-900">
-                            See what's included
-                          </AccordionTrigger>
-                          <AccordionContent className="pb-4">
-                            <ul className="space-y-3 text-left">
-                              {plan.features.map((feature) => (
-                                <li key={feature} className="flex items-start gap-3 text-gray-700">
-                                  <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-50">
-                                    <Check className="w-4 h-4 text-primary" />
-                                  </span>
-                                  <span>{feature}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </AccordionContent>
-                        </AccordionItem>
-                      </Accordion>
+                      <ul className="space-y-4 mb-10 text-left">
+                        {plan.features.map((feature) => (
+                          <li key={feature} className="flex items-start gap-3 text-gray-700">
+                            <span className="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-50">
+                              <Check className="w-4 h-4 text-primary" />
+                            </span>
+                            <span>{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
                       <Button
                         className={`w-full ${
                           highlight
