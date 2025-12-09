@@ -32,7 +32,7 @@ export default function Plans() {
                   </p>
                 )}
               </div>
-              <ul className="space-y-4 mb-8">
+              <ul className="space-y-2.5 mb-6">
                 {COVERAGE_PLANS.basic.features.map((feature) => (
                   <li key={feature} className="flex items-center">
                     <Check className="w-5 h-5 text-accent mr-3" />
@@ -60,7 +60,7 @@ export default function Plans() {
                   </p>
                 )}
               </div>
-              <ul className="space-y-4 mb-8">
+              <ul className="space-y-2.5 mb-6">
                 {COVERAGE_PLANS.gold.features.map((feature) => (
                   <li key={feature} className="flex items-center">
                     <Check className="w-5 h-5 text-accent mr-3" />
@@ -88,7 +88,7 @@ export default function Plans() {
                   </p>
                 )}
               </div>
-              <ul className="space-y-4 mb-8">
+              <ul className="space-y-2.5 mb-6">
                 {COVERAGE_PLANS.silver.features.map((feature) => (
                   <li key={feature} className="flex items-center">
                     <Check className="w-5 h-5 text-accent mr-3" />
