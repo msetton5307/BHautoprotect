@@ -80,6 +80,17 @@ export default function Footer() {
             </ul>
           </div>
         </div>
+        <div className="mt-12 rounded-2xl border border-white/10 bg-white/5 p-6 text-center sm:text-left">
+          <p className="text-lg font-semibold text-white">
+            Questions? Speak to a licensed protection specialist
+          </p>
+          <a
+            href="tel:+18339400234"
+            className="mt-2 inline-flex items-center justify-center rounded-full bg-white/10 px-4 py-2 text-base font-semibold text-white hover:bg-white/20"
+          >
+            (833) 940-0234
+          </a>
+        </div>
         <div className="border-t border-gray-800 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <p className="text-gray-400 text-sm">© 2024 BH Auto Protect. All rights reserved.</p>

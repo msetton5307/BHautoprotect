@@ -85,7 +85,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       className,
       title = "Get Your Free Quote",
       description = "Provide a few quick details and we'll prepare a personalized quote for your vehicle warranty coverage.",
-      submitLabel = "Get my quote",
+      submitLabel = "Get My $700 Discount Quote",
       onSubmitted,
       leadSource = "web",
     },
@@ -112,6 +112,8 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     });
     const [manualMake, setManualMake] = useState(false);
     const [manualModel, setManualModel] = useState(false);
+    const [formStep, setFormStep] = useState<1 | 2>(1);
+    const [pendingRecaptchaSubmit, setPendingRecaptchaSubmit] = useState(false);
 
     useEffect(() => {
       if (typeof window === "undefined") {
@@ -377,6 +379,10 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       "6LdzavUrAAAAAG40FqY9lEYBl451R5eDUHTAeSZg";
 
     useEffect(() => {
+      if (formStep !== 2) {
+        return;
+      }
+
       if (typeof window === "undefined" || !recaptchaContainerRef.current) {
         return;
       }
@@ -400,6 +406,8 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             recaptchaContainerRef.current,
             {
               sitekey: recaptchaSiteKey,
+              size: "invisible",
+              badge: "bottomright",
               callback: (token: string) => {
                 setRecaptchaToken(token);
                 setRecaptchaError(false);
@@ -440,7 +448,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       return () => {
         script?.removeEventListener("load", initializeRecaptcha);
       };
-    }, [recaptchaSiteKey]);
+    }, [formStep, recaptchaSiteKey]);
 
     const submitQuoteMutation = useMutation({
       mutationFn: async (data: QuoteData) => {
@@ -520,8 +528,10 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       });
       setManualMake(false);
       setManualModel(false);
+      setFormStep(1);
       setRecaptchaToken(null);
       setRecaptchaError(false);
+      setPendingRecaptchaSubmit(false);
       if (
         typeof window !== "undefined" &&
         window.grecaptcha &&
@@ -557,6 +567,15 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       handleVehicleChange("model", value);
     };
 
+    useEffect(() => {
+      if (!pendingRecaptchaSubmit || !recaptchaToken) {
+        return;
+      }
+
+      setPendingRecaptchaSubmit(false);
+      mutateQuote(quoteData);
+    }, [pendingRecaptchaSubmit, recaptchaToken, mutateQuote, quoteData]);
+
     const submitQuote = () => {
       if (submitQuoteMutation.isPending) {
         return;
@@ -572,6 +591,16 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       }
 
       if (!recaptchaToken) {
+        if (
+          typeof window !== "undefined" &&
+          window.grecaptcha &&
+          recaptchaWidgetIdRef.current !== null
+        ) {
+          setPendingRecaptchaSubmit(true);
+          window.grecaptcha.execute(recaptchaWidgetIdRef.current);
+          return;
+        }
+
         setRecaptchaError(true);
         toast({
           title: "Verification Required",
@@ -610,9 +639,8 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       }));
     };
 
-    const validateRequiredFields = () => {
+    const validateVehicleFields = () => {
       const { year, make, model, odometer } = quoteData.vehicle;
-      const { firstName, lastName, email, phone, state } = quoteData.owner;
 
       if (!year || !make || !model || !odometer) {
         toast({
@@ -622,6 +650,12 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         });
         return false;
       }
+
+      return true;
+    };
+
+    const validateContactFields = () => {
+      const { firstName, lastName, email, phone, state } = quoteData.owner;
 
       if (!firstName || !lastName || !email || !phone || !state) {
         toast({
@@ -637,7 +671,21 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
     const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!validateRequiredFields()) {
+
+      if (formStep === 1) {
+        if (!validateVehicleFields()) {
+          return;
+        }
+
+        setFormStep(2);
+        return;
+      }
+
+      if (!validateVehicleFields()) {
+        return;
+      }
+
+      if (!validateContactFields()) {
         return;
       }
 
@@ -654,6 +702,18 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         )}
       >
         <div className="space-y-2">
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.2em] text-primary/80">
+            <span>Step {formStep} of 2</span>
+            {formStep === 2 ? (
+              <button
+                type="button"
+                className="text-xs font-semibold text-primary hover:underline"
+                onClick={() => setFormStep(1)}
+              >
+                Edit vehicle details
+              </button>
+            ) : null}
+          </div>
           <h2 className="text-2xl font-semibold text-gray-900">{title}</h2>
           <p className="text-sm text-gray-600">{description}</p>
         </div>
@@ -669,9 +729,11 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
               <Input
                 id="year"
                 type="number"
+                inputMode="numeric"
                 placeholder="e.g., 2020"
                 value={quoteData.vehicle.year}
                 onChange={(e) => handleVehicleChange("year", e.target.value)}
+                className="h-11"
                 required
               />
             </div>
@@ -684,6 +746,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                     placeholder="Start typing your vehicle make"
                     value={quoteData.vehicle.make}
                     onChange={(e) => handleVehicleChange("make", e.target.value)}
+                    className="h-11"
                     required
                   />
                   <Button
@@ -721,12 +784,15 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                     searchPlaceholder="Search makes..."
                     loading={vehicleMakesLoading && vehicleMakes.length === 0}
                     loadingMessage="Loading vehicle makes..."
+                    triggerClassName="h-11"
                   />
-                  {vehicleMakesError ? (
-                    <p className="text-sm text-red-600">
-                      We couldn't load vehicle makes. Please enter your make manually.
-                    </p>
-                  ) : null}
+                  <div className="min-h-[1.25rem]">
+                    {vehicleMakesError ? (
+                      <p className="text-sm text-red-600">
+                        We couldn't load vehicle makes. Please enter your make manually.
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
               )}
             </div>
@@ -739,6 +805,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                     placeholder="Start typing your vehicle model"
                     value={quoteData.vehicle.model}
                     onChange={(e) => handleVehicleChange("model", e.target.value)}
+                    className="h-11"
                     required
                   />
                   {canShowModelSelectButton && (
@@ -783,20 +850,23 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                     }
                     loadingMessage="Loading vehicle models..."
                     disabled={disableModelCombobox}
+                    triggerClassName="h-11"
                   />
-                  {vehicleModelsError ? (
-                    <p className="text-sm text-red-600">
-                      We couldn't load vehicle models. Please enter your model manually.
-                    </p>
-                  ) : disableModelCombobox ? (
-                    <p className="text-sm text-muted-foreground">
-                      {selectedMake
-                        ? "Enter your vehicle year to see models available in the United States or enter your model manually."
-                        : "Select a make to browse models or enter your model manually."}
-                    </p>
-                  ) : noModelsAvailable ? (
-                    <p className="text-sm text-muted-foreground">{noModelsHelperText}</p>
-                  ) : null}
+                  <div className="min-h-[1.25rem]">
+                    {vehicleModelsError ? (
+                      <p className="text-sm text-red-600">
+                        We couldn't load vehicle models. Please enter your model manually.
+                      </p>
+                    ) : disableModelCombobox ? (
+                      <p className="text-sm text-muted-foreground">
+                        {selectedMake
+                          ? "Enter your vehicle year to see models available in the United States or enter your model manually."
+                          : "Select a make to browse models or enter your model manually."}
+                      </p>
+                    ) : noModelsAvailable ? (
+                      <p className="text-sm text-muted-foreground">{noModelsHelperText}</p>
+                    ) : null}
+                  </div>
                 </div>
               )}
             </div>
@@ -805,139 +875,169 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
               <Input
                 id="odometer"
                 type="number"
+                inputMode="numeric"
                 placeholder="How many miles are on the dash?"
                 value={quoteData.vehicle.odometer}
                 onChange={(e) => handleVehicleChange("odometer", e.target.value)}
+                className="h-11"
                 required
               />
             </div>
           </div>
         </div>
 
-        <div className="space-y-5">
-          <div className="space-y-2">
-            <h3 className="text-lg font-semibold text-gray-900">Contact information</h3>
-            <p className="text-sm text-gray-500">We'll deliver your quote and follow up with any questions.</p>
+        {formStep === 2 ? (
+          <div className="space-y-5">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-gray-900">Contact information</h3>
+              <p className="text-sm text-gray-500">We'll deliver your quote and follow up with any questions.</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <Label htmlFor="firstName">First name</Label>
+                <Input
+                  id="firstName"
+                  value={quoteData.owner.firstName}
+                  onChange={(e) => handleOwnerChange("firstName", e.target.value)}
+                  className="h-11"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="lastName">Last name</Label>
+                <Input
+                  id="lastName"
+                  value={quoteData.owner.lastName}
+                  onChange={(e) => handleOwnerChange("lastName", e.target.value)}
+                  className="h-11"
+                  required
+                />
+              </div>
+              <div className="md:col-span-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={quoteData.owner.email}
+                  onChange={(e) => handleOwnerChange("email", e.target.value)}
+                  className="h-11"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  value={quoteData.owner.phone}
+                  onChange={(e) => handleOwnerChange("phone", e.target.value)}
+                  className="h-11"
+                  required
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Used only to deliver your quote — no spam.
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="state">State</Label>
+                <Select value={quoteData.owner.state} onValueChange={(value) => handleOwnerChange("state", value)} required>
+                  <SelectTrigger id="state" className="h-11">
+                    <SelectValue placeholder="Select state" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {US_STATES.map((state) => (
+                      <SelectItem key={state.value} value={state.value}>
+                        {state.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <Label htmlFor="firstName">First name</Label>
-              <Input
-                id="firstName"
-                value={quoteData.owner.firstName}
-                onChange={(e) => handleOwnerChange("firstName", e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="lastName">Last name</Label>
-              <Input
-                id="lastName"
-                value={quoteData.owner.lastName}
-                onChange={(e) => handleOwnerChange("lastName", e.target.value)}
-                required
-              />
-            </div>
-            <div className="md:col-span-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={quoteData.owner.email}
-                onChange={(e) => handleOwnerChange("email", e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone</Label>
-              <Input
-                id="phone"
-                type="tel"
-                value={quoteData.owner.phone}
-                onChange={(e) => handleOwnerChange("phone", e.target.value)}
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="state">State</Label>
-              <Select value={quoteData.owner.state} onValueChange={(value) => handleOwnerChange("state", value)} required>
-                <SelectTrigger id="state">
-                  <SelectValue placeholder="Select state" />
-                </SelectTrigger>
-                <SelectContent>
-                  {US_STATES.map((state) => (
-                    <SelectItem key={state.value} value={state.value}>
-                      {state.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
+        ) : null}
 
         <div
           ref={recaptchaContainerRef}
-          className="flex justify-center pt-4"
+          className={cn("flex justify-center", formStep === 2 ? "pt-2" : "hidden")}
           data-sitekey={recaptchaSiteKey}
         />
 
         <div className="flex flex-col gap-3 pt-2">
-          <Button type="submit" disabled={submitQuoteMutation.isPending} className="bg-accent px-8 hover:bg-green-600">
-            {submitQuoteMutation.isPending ? "Submitting..." : submitLabel}
-          </Button>
-          <p className="text-xs font-medium leading-relaxed text-gray-600">
-            By submitting this form I consent to BH Auto Protect contacting me about vehicle protection services using
-            automated calls, prerecorded voice messages, SMS/text messages, or email at the information provided above.
-            Message and data rates may apply and messaging frequency may vary. Reply STOP to unsubscribe. Consent is not
-            required to receive services and I may call BH Auto Protect directly at{" "}
-            <a href="tel:+18339400234" className="text-primary font-semibold">
-              (833) 940-0234
-            </a>
-            . I consent to BH Auto Protect's{" "}
-            <a href="/legal/terms" className="text-primary hover:underline">
-              mobile terms and conditions
-            </a>{" "}
-            and{" "}
-            <a href="/legal/privacy" className="text-primary hover:underline">
-              privacy statement
-            </a>
-            , and I agree to the{" "}
-            <a href="/legal/privacy" className="text-primary hover:underline">
-              Privacy Policy
-            </a>{" "}
-            and{" "}
-            <a href="/legal/terms" className="text-primary hover:underline">
-              Terms of Service
-            </a>
-            .
-          </p>
-          <p className="text-xs text-gray-500">
-            This site is protected by reCAPTCHA and the Google
-            {" "}
-            <a
-              href="https://policies.google.com/privacy"
-              className="text-primary hover:underline"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Privacy Policy
-            </a>
-            {" "}and{" "}
-            <a
-              href="https://policies.google.com/terms"
-              className="text-primary hover:underline"
-              rel="noopener noreferrer"
-              target="_blank"
-            >
-              Terms of Service
-            </a>
-            {" "}apply.
-          </p>
-          {recaptchaError && (
-            <p className="text-xs font-semibold text-destructive">
-              Verification failed. Please complete the reCAPTCHA challenge and try again.
-            </p>
+          {formStep === 1 ? (
+            <>
+              <Button type="submit" className="h-12 bg-accent px-8 text-base hover:bg-green-600">
+                Continue
+              </Button>
+              <p className="text-xs font-medium text-gray-600">
+                No obligation · No credit card required.
+              </p>
+            </>
+          ) : (
+            <>
+              <Button type="submit" disabled={submitQuoteMutation.isPending} className="h-12 bg-accent px-8 text-base hover:bg-green-600">
+                {submitQuoteMutation.isPending ? "Submitting..." : submitLabel}
+              </Button>
+              <p className="text-xs font-medium text-gray-600">
+                No obligation · No credit card required.
+              </p>
+              <p className="text-xs font-medium leading-relaxed text-gray-600">
+                By submitting this form I consent to BH Auto Protect contacting me about vehicle protection services using
+                automated calls, prerecorded voice messages, SMS/text messages, or email at the information provided above.
+                Message and data rates may apply and messaging frequency may vary. Reply STOP to unsubscribe.
+                <br />
+                <span className="font-semibold text-gray-700">Consent not required to purchase.</span> I may call BH Auto Protect directly at{" "}
+                <a href="tel:+18339400234" className="text-primary font-semibold">
+                  (833) 940-0234
+                </a>
+                .
+                <br />
+                I consent to BH Auto Protect&apos;s{" "}
+                <a href="/legal/terms" className="text-primary hover:underline">
+                  mobile terms and conditions
+                </a>{" "}
+                and{" "}
+                <a href="/legal/privacy" className="text-primary hover:underline">
+                  privacy statement
+                </a>
+                , and I agree to the{" "}
+                <a href="/legal/privacy" className="text-primary hover:underline">
+                  Privacy Policy
+                </a>{" "}
+                and{" "}
+                <a href="/legal/terms" className="text-primary hover:underline">
+                  Terms of Service
+                </a>
+                .
+              </p>
+              <p className="text-xs text-gray-500">
+                This site is protected by reCAPTCHA and the Google{" "}
+                <a
+                  href="https://policies.google.com/privacy"
+                  className="text-primary hover:underline"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Privacy Policy
+                </a>{" "}
+                and{" "}
+                <a
+                  href="https://policies.google.com/terms"
+                  className="text-primary hover:underline"
+                  rel="noopener noreferrer"
+                  target="_blank"
+                >
+                  Terms of Service
+                </a>{" "}
+                apply.
+              </p>
+              {recaptchaError && (
+                <p className="text-xs font-semibold text-destructive">
+                  Verification failed. Please complete the reCAPTCHA challenge and try again.
+                </p>
+              )}
+            </>
           )}
         </div>
       </form>
@@ -946,4 +1046,3 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 );
 
 QuoteForm.displayName = "QuoteForm";
-
