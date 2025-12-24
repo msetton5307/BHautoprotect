@@ -723,6 +723,14 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
               </button>
             ) : null}
           </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+            <div
+              className={cn(
+                "h-full rounded-full bg-primary transition-[width] duration-300 ease-out",
+                formStep === 2 ? "w-[70%]" : "w-[35%]",
+              )}
+            />
+          </div>
           <h2 className="text-2xl font-semibold text-gray-900">{title}</h2>
           <p className="text-sm text-gray-600">{description}</p>
         </div>
@@ -897,9 +905,21 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
         {formStep === 2 ? (
           <div className="space-y-5">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm text-gray-700">
+              <p className="font-semibold text-gray-900">Your quote is ready.</p>
+              <p className="mt-1 text-gray-700">
+                We just need the best contact to send your $700 discounted quote—no extra steps.
+              </p>
+            </div>
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-gray-900">Contact information</h3>
+              <p className="text-sm italic text-gray-700">
+                “BH Auto Protect covered my $2,300 transmission repair without any runaround.” — Lena M., CO
+              </p>
               <p className="text-sm text-gray-500">We'll deliver your quote and follow up with any questions.</p>
+              <p className="text-sm font-medium text-gray-600">
+                Your $700 credit typically trims monthly protection costs, so most drivers see lower payments right away.
+              </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div>
@@ -945,7 +965,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                   required
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  Used only to deliver your quote — no spam.
+                  No robocalls, ever. We only use this to deliver your quote and we never sell or share your number.
                 </p>
               </div>
               <div>
