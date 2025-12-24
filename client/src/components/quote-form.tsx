@@ -377,6 +377,13 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     const recaptchaSiteKey =
       import.meta.env.VITE_RECAPTCHA_SITE_KEY ??
       "6LdzavUrAAAAAG40FqY9lEYBl451R5eDUHTAeSZg";
+    const recaptchaSize =
+      (import.meta.env.VITE_RECAPTCHA_SIZE as
+        | "invisible"
+        | "compact"
+        | "normal"
+        | undefined) ?? "normal";
+    const isInvisibleRecaptcha = recaptchaSize === "invisible";
 
     useEffect(() => {
       if (formStep !== 2) {
@@ -406,8 +413,8 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             recaptchaContainerRef.current,
             {
               sitekey: recaptchaSiteKey,
-              size: "invisible",
-              badge: "bottomright",
+              size: recaptchaSize,
+              badge: isInvisibleRecaptcha ? "bottomright" : undefined,
               callback: (token: string) => {
                 setRecaptchaToken(token);
                 setRecaptchaError(false);
@@ -592,6 +599,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
       if (!recaptchaToken) {
         if (
+          isInvisibleRecaptcha &&
           typeof window !== "undefined" &&
           window.grecaptcha &&
           recaptchaWidgetIdRef.current !== null
@@ -604,7 +612,8 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         setRecaptchaError(true);
         toast({
           title: "Verification Required",
-          description: "Please complete the reCAPTCHA challenge before submitting.",
+          description:
+            "Please complete the reCAPTCHA checkbox before submitting your quote.",
           variant: "destructive",
         });
         return;
