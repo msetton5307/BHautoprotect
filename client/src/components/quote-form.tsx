@@ -785,267 +785,253 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                 : "Tell us about the car or truck you'd like to protect."}
             </p>
           </div>
-          <div className="relative min-h-[420px] overflow-hidden md:min-h-[520px]">
-            <div
-              className={cn(
-                "absolute inset-0 space-y-4 transition-opacity duration-300 ease-in-out",
-                formStage === "vehicle" ? "opacity-100" : "pointer-events-none opacity-0",
-              )}
-              aria-hidden={formStage !== "vehicle"}
-            >
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="year">Year</Label>
-                  <Input
-                    id="year"
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="e.g., 2020"
-                    value={quoteData.vehicle.year}
-                    onChange={(e) => handleVehicleChange("year", e.target.value)}
-                    className="h-11"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="make">Make</Label>
-                  {manualMake ? (
-                    <div className="space-y-2">
-                      <Input
-                        id="make"
-                        placeholder="Start typing your vehicle make"
-                        value={quoteData.vehicle.make}
-                        onChange={(e) => handleVehicleChange("make", e.target.value)}
-                        className="h-11"
-                        required
-                      />
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="h-auto px-0"
-                        onClick={() => {
-                          setManualMake(false);
-                          setManualModel(false);
-                          handleVehicleChange("make", "");
-                          handleVehicleChange("model", "");
-                        }}
-                      >
-                        Select make from list
-                      </Button>
-                      {vehicleMakesError ? (
-                        <p className="text-sm text-red-600">
-                          We couldn't load vehicle makes right now. Please enter your make manually.
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <SearchableSelect
-                        id="make"
-                        value={quoteData.vehicle.make || undefined}
-                        onSelect={handleMakeSelection}
-                        options={makeOptions}
-                        placeholder={
-                          vehicleMakesLoading && vehicleMakes.length === 0
-                            ? "Loading makes..."
-                            : "Search or select make"
-                        }
-                        emptyMessage="No vehicle makes found"
-                        searchPlaceholder="Search makes..."
-                        loading={vehicleMakesLoading && vehicleMakes.length === 0}
-                        loadingMessage="Loading vehicle makes..."
-                        triggerClassName="h-11"
-                      />
-                      <div className="min-h-[1.25rem]">
-                        {vehicleMakesError ? (
-                          <p className="text-sm text-red-600">
-                            We couldn't load vehicle makes. Please enter your make manually.
-                          </p>
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="model">Model</Label>
-                  {manualModel || manualMake ? (
-                    <div className="space-y-2">
-                      <Input
-                        id="model"
-                        placeholder="Start typing your vehicle model"
-                        value={quoteData.vehicle.model}
-                        onChange={(e) => handleVehicleChange("model", e.target.value)}
-                        className="h-11"
-                        required
-                      />
-                      {canShowModelSelectButton && (
+          <div className="space-y-6">
+            {formStage === "vehicle" && (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="year">Year</Label>
+                    <Input
+                      id="year"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="e.g., 2020"
+                      value={quoteData.vehicle.year}
+                      onChange={(e) => handleVehicleChange("year", e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="make">Make</Label>
+                    {manualMake ? (
+                      <div className="space-y-2">
+                        <Input
+                          id="make"
+                          placeholder="Start typing your vehicle make"
+                          value={quoteData.vehicle.make}
+                          onChange={(e) => handleVehicleChange("make", e.target.value)}
+                          className="h-11"
+                          required
+                        />
                         <Button
                           type="button"
                           variant="link"
                           className="h-auto px-0"
                           onClick={() => {
+                            setManualMake(false);
                             setManualModel(false);
+                            handleVehicleChange("make", "");
                             handleVehicleChange("model", "");
                           }}
                         >
-                          Select model from list
+                          Select make from list
                         </Button>
-                      )}
-                      {vehicleModelsError ? (
-                        <p className="text-sm text-red-600">
-                          We couldn't load vehicle models. Please enter your model manually.
-                        </p>
-                      ) : noModelsAvailable ? (
-                        <p className="text-sm text-muted-foreground">{noModelsHelperText}</p>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <SearchableSelect
-                        id="model"
-                        value={quoteData.vehicle.model || undefined}
-                        onSelect={handleModelSelection}
-                        options={modelOptions}
-                        placeholder={
-                          !isFourDigitYear || !selectedMake
-                            ? "Enter year to search models"
-                            : vehicleModelsLoading && vehicleModels.length === 0
-                              ? "Loading models..."
-                              : "Search or select model"
-                        }
-                        emptyMessage={modelEmptyMessage}
-                        searchPlaceholder="Search models..."
-                        loading={
-                          !disableModelCombobox && vehicleModelsLoading && vehicleModels.length === 0
-                        }
-                        loadingMessage="Loading vehicle models..."
-                        disabled={disableModelCombobox}
-                        triggerClassName="h-11"
-                      />
-                      <div className="min-h-[1.25rem]">
+                        {vehicleMakesError ? (
+                          <p className="text-sm text-red-600">
+                            We couldn't load vehicle makes right now. Please enter your make manually.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <SearchableSelect
+                          id="make"
+                          value={quoteData.vehicle.make || undefined}
+                          onSelect={handleMakeSelection}
+                          options={makeOptions}
+                          placeholder={
+                            vehicleMakesLoading && vehicleMakes.length === 0
+                              ? "Loading makes..."
+                              : "Search or select make"
+                          }
+                          emptyMessage="No vehicle makes found"
+                          searchPlaceholder="Search makes..."
+                          loading={vehicleMakesLoading && vehicleMakes.length === 0}
+                          loadingMessage="Loading vehicle makes..."
+                          triggerClassName="h-11"
+                        />
+                        <div className="min-h-[1.25rem]">
+                          {vehicleMakesError ? (
+                            <p className="text-sm text-red-600">
+                              We couldn't load vehicle makes. Please enter your make manually.
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="model">Model</Label>
+                    {manualModel || manualMake ? (
+                      <div className="space-y-2">
+                        <Input
+                          id="model"
+                          placeholder="Start typing your vehicle model"
+                          value={quoteData.vehicle.model}
+                          onChange={(e) => handleVehicleChange("model", e.target.value)}
+                          className="h-11"
+                          required
+                        />
+                        {canShowModelSelectButton && (
+                          <Button
+                            type="button"
+                            variant="link"
+                            className="h-auto px-0"
+                            onClick={() => {
+                              setManualModel(false);
+                              handleVehicleChange("model", "");
+                            }}
+                          >
+                            Select model from list
+                          </Button>
+                        )}
                         {vehicleModelsError ? (
                           <p className="text-sm text-red-600">
                             We couldn't load vehicle models. Please enter your model manually.
-                          </p>
-                        ) : disableModelCombobox ? (
-                          <p className="text-sm text-muted-foreground">
-                            {selectedMake
-                              ? "Enter your vehicle year to see models available in the United States or enter your model manually."
-                              : "Select a make to browse models or enter your model manually."}
                           </p>
                         ) : noModelsAvailable ? (
                           <p className="text-sm text-muted-foreground">{noModelsHelperText}</p>
                         ) : null}
                       </div>
-                    </div>
-                  )}
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="odometer">Odometer reading</Label>
-                  <Input
-                    id="odometer"
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="How many miles are on the dash?"
-                    value={quoteData.vehicle.odometer}
-                    onChange={(e) => handleVehicleChange("odometer", e.target.value)}
-                    className="h-11"
-                    required
-                  />
+                    ) : (
+                      <div className="space-y-2">
+                        <SearchableSelect
+                          id="model"
+                          value={quoteData.vehicle.model || undefined}
+                          onSelect={handleModelSelection}
+                          options={modelOptions}
+                          placeholder={
+                            !isFourDigitYear || !selectedMake
+                              ? "Enter year to search models"
+                              : vehicleModelsLoading && vehicleModels.length === 0
+                                ? "Loading models..."
+                                : "Search or select model"
+                          }
+                          emptyMessage={modelEmptyMessage}
+                          searchPlaceholder="Search models..."
+                          loading={
+                            !disableModelCombobox && vehicleModelsLoading && vehicleModels.length === 0
+                          }
+                          loadingMessage="Loading vehicle models..."
+                          disabled={disableModelCombobox}
+                          triggerClassName="h-11"
+                        />
+                        <div className="min-h-[1.25rem]">
+                          {vehicleModelsError ? (
+                            <p className="text-sm text-red-600">
+                              We couldn't load vehicle models. Please enter your model manually.
+                            </p>
+                          ) : disableModelCombobox ? (
+                            <p className="text-sm text-muted-foreground">
+                              {selectedMake
+                                ? "Enter your vehicle year to see models available in the United States or enter your model manually."
+                                : "Select a make to browse models or enter your model manually."}
+                            </p>
+                          ) : noModelsAvailable ? (
+                            <p className="text-sm text-muted-foreground">{noModelsHelperText}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="odometer">Odometer reading</Label>
+                    <Input
+                      id="odometer"
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="How many miles are on the dash?"
+                      value={quoteData.vehicle.odometer}
+                      onChange={(e) => handleVehicleChange("odometer", e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <div
-              className={cn(
-                "absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center transition-opacity duration-300 ease-in-out",
-                formStage === "loading"
-                  ? "opacity-100"
-                  : "pointer-events-none opacity-0",
-              )}
-              aria-live="polite"
-            >
-              <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-primary/30 bg-white shadow-inner">
-                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            {formStage === "loading" && (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
+                <div className="inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-primary/30 bg-white shadow-inner">
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-base font-semibold text-gray-900">Preparing your next step</p>
+                  <p className="text-sm text-gray-600">{loadingMessage}</p>
+                  <p className="text-xs text-gray-500">This takes just a moment.</p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <p className="text-base font-semibold text-gray-900">Preparing your next step</p>
-                <p className="text-sm text-gray-600">{loadingMessage}</p>
-                <p className="text-xs text-gray-500">This takes just a moment.</p>
-              </div>
-            </div>
+            )}
 
-            <div
-              className={cn(
-                "absolute inset-0 space-y-4 transition-opacity duration-300 ease-in-out",
-                formStage === "contact" ? "opacity-100" : "pointer-events-none opacity-0",
-              )}
-              aria-hidden={formStage !== "contact"}
-            >
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label htmlFor="firstName">First name</Label>
-                  <Input
-                    id="firstName"
-                    value={quoteData.owner.firstName}
-                    onChange={(e) => handleOwnerChange("firstName", e.target.value)}
-                    className="h-11"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lastName">Last name</Label>
-                  <Input
-                    id="lastName"
-                    value={quoteData.owner.lastName}
-                    onChange={(e) => handleOwnerChange("lastName", e.target.value)}
-                    className="h-11"
-                    required
-                  />
-                </div>
-                <div className="md:col-span-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={quoteData.owner.email}
-                    onChange={(e) => handleOwnerChange("email", e.target.value)}
-                    className="h-11"
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    inputMode="numeric"
-                    value={quoteData.owner.phone}
-                    onChange={(e) => handleOwnerChange("phone", e.target.value)}
-                    className="h-11"
-                    required
-                  />
-                  <p className="mt-2 text-xs text-gray-500">
-                    No robocalls, ever. We only use this to deliver your quote and we never sell or share your number.
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="state">State</Label>
-                  <Select value={quoteData.owner.state} onValueChange={(value) => handleOwnerChange("state", value)} required>
-                    <SelectTrigger id="state" className="h-11">
-                      <SelectValue placeholder="Select state" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {US_STATES.map((state) => (
-                        <SelectItem key={state.value} value={state.value}>
-                          {state.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            {formStage === "contact" && (
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">First name</Label>
+                    <Input
+                      id="firstName"
+                      value={quoteData.owner.firstName}
+                      onChange={(e) => handleOwnerChange("firstName", e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Last name</Label>
+                    <Input
+                      id="lastName"
+                      value={quoteData.owner.lastName}
+                      onChange={(e) => handleOwnerChange("lastName", e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={quoteData.owner.email}
+                      onChange={(e) => handleOwnerChange("email", e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      value={quoteData.owner.phone}
+                      onChange={(e) => handleOwnerChange("phone", e.target.value)}
+                      className="h-11"
+                      required
+                    />
+                    <p className="text-xs text-gray-500">
+                      No robocalls, ever. We only use this to deliver your quote and we never sell or share your number.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="state">State</Label>
+                    <Select value={quoteData.owner.state} onValueChange={(value) => handleOwnerChange("state", value)} required>
+                      <SelectTrigger id="state" className="h-11">
+                        <SelectValue placeholder="Select state" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {US_STATES.map((state) => (
+                          <SelectItem key={state.value} value={state.value}>
+                            {state.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
