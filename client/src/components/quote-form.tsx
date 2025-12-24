@@ -738,6 +738,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       <form
         ref={ref}
         onSubmit={handleSubmit}
+        noValidate
         className={cn(
           "space-y-6 rounded-2xl border border-gray-100 bg-white/95 p-6 text-slate-900 shadow-lg backdrop-blur",
           className,
@@ -784,7 +785,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                 : "Tell us about the car or truck you'd like to protect."}
             </p>
           </div>
-          <div className="relative min-h-[520px] overflow-hidden">
+          <div className="relative min-h-[420px] overflow-hidden md:min-h-[520px]">
             <div
               className={cn(
                 "absolute inset-0 space-y-4 transition-opacity duration-300 ease-in-out",
