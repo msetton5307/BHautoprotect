@@ -106,7 +106,7 @@ export default function PromoPage() {
                 ref={formRef}
                 title="Start your 2-step quote"
                 description="Step 1 takes under a minute. Step 2 confirms where to send your $700 discount quote."
-                submitLabel="Get My $700 Discount Quote"
+                submitLabel="Send My $700 Discounted Quote"
                 leadSource="BWF-Promo"
               />
               <div className="rounded-2xl border border-white/15 bg-white/10 p-5 text-sm text-blue-50">
@@ -128,7 +128,7 @@ export default function PromoPage() {
           </div>
         </section>
 
-        <section id="perks" className="grid gap-10 lg:grid-cols-3">
+        <section id="perks" className="hidden grid-cols-3 gap-10 lg:grid">
           {perks.map((perk) => (
             <div
               key={perk.title}
@@ -150,7 +150,82 @@ export default function PromoPage() {
           ))}
         </section>
 
-        <section className="grid gap-12 lg:grid-cols-[1.1fr,1fr] lg:items-start">
+        <div className="space-y-4 lg:hidden">
+          <details className="rounded-2xl border border-white/10 bg-white/5 p-4 text-blue-50">
+            <summary className="cursor-pointer text-sm font-semibold text-white">See what the promo includes</summary>
+            <div className="mt-3 space-y-3 text-sm text-blue-100">
+              {perks.map((perk) => (
+                <div key={perk.title} className="space-y-1">
+                  <p className="font-semibold text-white">{perk.title}</p>
+                  <ul className="space-y-1">
+                    {perk.bullets.map((bullet) => (
+                      <li key={bullet} className="flex items-start gap-2">
+                        <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-yellow-200" />
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </details>
+          <details className="rounded-2xl border border-white/10 bg-white/5 p-4 text-blue-50">
+            <summary className="cursor-pointer text-sm font-semibold text-white">How the two steps work</summary>
+            <div className="mt-3 space-y-3 text-sm text-blue-100">
+              <p className="font-semibold text-white">Secure your discounted quote in two minutes</p>
+              <ul className="space-y-2">
+                <li className="flex items-start gap-3">
+                  <Check className="mt-0.5 h-4 w-4 text-emerald-300" />
+                  <span>Only the details needed to tailor coverage to your car.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="mt-0.5 h-4 w-4 text-emerald-300" />
+                  <span>Secure submission with your $700 credit held for 72 hours.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="mt-0.5 h-4 w-4 text-emerald-300" />
+                  <span>No obligation and no payment until you approve your plan.</span>
+                </li>
+              </ul>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-blue-100">
+                <p className="font-semibold text-white">Here&apos;s what happens next:</p>
+                <ol className="mt-3 space-y-2">
+                  <li className="flex gap-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/40 text-sm font-semibold text-white">1</span>
+                    <span>Share your vehicle details in step one.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/40 text-sm font-semibold text-white">2</span>
+                    <span>Confirm where we should send your discounted quote.</span>
+                  </li>
+                  <li className="flex gap-3">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/40 text-sm font-semibold text-white">3</span>
+                    <span>A licensed specialist reviews your options with the $700 credit applied.</span>
+                  </li>
+                </ol>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm text-blue-100">
+                <p className="text-sm font-semibold uppercase tracking-[0.3em] text-white/80">Every plan includes</p>
+                <ul className="mt-3 space-y-2">
+                  <li className="flex items-start gap-3">
+                    <Check className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-300" />
+                    <span>Roadside assistance, towing, and rental coverage</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-300" />
+                    <span>Fast claims with live specialist support</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="mt-1 h-4 w-4 flex-shrink-0 text-emerald-300" />
+                    <span>Flexible deductibles that match your budget</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </details>
+        </div>
+
+        <section className="hidden gap-12 lg:grid lg:grid-cols-[1.1fr,1fr] lg:items-start">
           <div className="space-y-6">
             <h2 className="text-3xl font-bold text-white sm:text-4xl">Secure your discounted quote in two minutes</h2>
             <ul className="space-y-3 text-sm text-blue-100">
