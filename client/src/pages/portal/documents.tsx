@@ -414,8 +414,8 @@ export default function CustomerPortalDocuments({ session }: Props) {
         <div className="border-t border-slate-200 bg-white px-6 py-5 text-sm text-slate-600">
           <p>
             Covered vehicles on file: <span className="font-medium text-slate-900">{totalPolicies}</span>. Need help? Email{' '}
-            <a className="font-medium text-primary" href="mailto:support@bhautoprotect.com">
-              support@bhautoprotect.com
+            <a className="font-medium text-primary" href="mailto:info@bhautoprotect.com">
+              info@bhautoprotect.com
             </a>
             .
           </p>
