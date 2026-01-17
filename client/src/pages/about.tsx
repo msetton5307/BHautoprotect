@@ -122,7 +122,7 @@ export default function About() {
             <ul className="space-y-4 text-sm text-slate-600">
               <li>
                 <span className="block text-xs uppercase tracking-wide text-primary">Headquarters</span>
-                Austin, Texas
+                Delaware
               </li>
               <li>
                 <span className="block text-xs uppercase tracking-wide text-primary">Founded</span>
@@ -157,7 +157,7 @@ export default function About() {
               </p>
               <p className="flex items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 p-4">
                 <Mail className="h-5 w-5 text-primary" />
-                <span>Support: support@bhautoprotect.com</span>
+                <span>Support: info@bhautoprotect.com</span>
               </p>
             </div>
           </div>
@@ -184,4 +184,3 @@ export default function About() {
     </div>
   );
 }
-

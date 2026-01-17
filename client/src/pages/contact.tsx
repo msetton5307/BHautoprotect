@@ -9,8 +9,8 @@ export default function Contact() {
         <p className="text-lg text-gray-700">
           Need assistance? We're here to help. Email us at
           {' '}
-          <a href="mailto:support@bhautoprotect.com" className="text-primary underline">
-            support@bhautoprotect.com
+          <a href="mailto:info@bhautoprotect.com" className="text-primary underline">
+            info@bhautoprotect.com
           </a>
           {' '}and our team will be happy to assist you.
         </p>
