@@ -39,8 +39,6 @@ const DISPLAY_PLANS: readonly DisplayPlan[] = [
   },
   {
     name: "PREMIUM",
-    highlighted: true,
-    description: "Most Comprehensive!",
     features: [
       "Engine",
       "Transmission",
@@ -71,6 +69,8 @@ const DISPLAY_PLANS: readonly DisplayPlan[] = [
   },
   {
     name: "EXCLUSIONARY",
+    highlighted: true,
+    description: "Most Comprehensive!",
     features: [
       "Engine",
       "Transmission",
