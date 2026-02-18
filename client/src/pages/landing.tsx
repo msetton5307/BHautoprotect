@@ -18,7 +18,132 @@ import {
 } from "lucide-react";
 import Navigation from "@/components/navigation";
 import QuoteModal from "@/components/quote-modal";
-import { COVERAGE_PLANS } from "@/lib/constants";
+
+type DisplayPlan = {
+  name: string;
+  features: readonly string[];
+  description?: string;
+  highlighted?: boolean;
+};
+
+const DISPLAY_PLANS: readonly DisplayPlan[] = [
+  {
+    name: "ESSENTIAL",
+    features: [
+      "Engine",
+      "Transmission",
+      "Drive Axle(s)",
+      "AWD/4X4",
+      "Cooling",
+      "Brakes",
+      "Dead Battery",
+      "Out of Gas",
+      "Parts & Labor",
+      "Towing",
+      "Locksmith",
+      "Rental Car",
+      "24/7 Roadside",
+      "Steering (Manual or Power)",
+      "Turbo / Supercharger",
+      "Air Conditioning",
+      "Fuel System",
+      "Seals & Gaskets",
+      "Electrical",
+    ],
+  },
+  {
+    name: "PREMIUM",
+    highlighted: true,
+    description: "Most Comprehensive!",
+    features: [
+      "Engine",
+      "Transmission",
+      "Drive Axle(s)",
+      "AWD/4X4",
+      "Cooling",
+      "Brakes",
+      "Dead Battery",
+      "Out of Gas",
+      "Parts & Labor",
+      "Towing",
+      "Locksmith",
+      "Rental Car",
+      "24/7 Roadside",
+      "Steering (Manual or Power)",
+      "Turbo / Supercharger",
+      "Air Conditioning",
+      "Fuel System",
+      "Seals & Gaskets",
+      "Electrical",
+      "Anti-Lock Brakes (ABS)",
+      "Heating",
+      "Hi Tech Electronics",
+      "Rear Suspension",
+      "Front Suspension",
+      "Hybrid",
+    ],
+  },
+  {
+    name: "EXCLUSIONARY",
+    features: [
+      "Engine",
+      "Transmission",
+      "Brakes",
+      "Drive Axle(s)",
+      "AWD / 4x4",
+      "Dead Battery",
+      "Cooling system",
+      "Out of Gas",
+      "Parts & Labor",
+      "Towing",
+      "Locksmith",
+      "Rental Car",
+      "24/7 Roadside",
+      "Steering (Manual or Power)",
+      "Turbo / Supercharger",
+      "Air Conditioning",
+      "Fuel System",
+      "Seals & Gaskets",
+      "Electrical",
+      "Anti-Lock Brakes (ABS)",
+      "Heating",
+      "Hi Tech Electronics",
+      "Rear Suspension",
+      "Front Suspension",
+      "Hybrid",
+      "Many More",
+    ],
+  },
+  {
+    name: "EV EXCLUSIONARY",
+    features: [
+      "Electric Motor",
+      "Transaxles",
+      "Charger",
+      "Battery Control Module",
+      "Auxiliary Heater",
+      "Brakes",
+      "Drive Axle(s)",
+      "AWD / 4x4",
+      "Cooling system",
+      "Parts & Labor",
+      "Towing",
+      "Locksmith",
+      "Rental Car",
+      "24/7 Roadside",
+      "Steering",
+      "Turbo / Supercharger",
+      "Air Conditioning",
+      "Electrical",
+      "Anti-Lock Brakes (ABS)",
+      "Heating",
+      "Hi Tech Electronics",
+      "Rear Suspension",
+      "Front Suspension",
+      "Many More",
+    ],
+  },
+] as const;
 
 const heroStats = [
   { label: "Drivers Protected", value: "100K+" },
@@ -342,14 +467,13 @@ export default function Landing() {
             <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-4">Choose Your Protection Level</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">Comprehensive coverage options for every budget</p>
           </div>
-          <div className="grid lg:grid-cols-3 gap-8">
-            {["basic", "gold", "silver"].map((tier, index) => {
-              const plan = COVERAGE_PLANS[tier as keyof typeof COVERAGE_PLANS];
-              const highlight = tier === "gold";
+          <div className="grid xl:grid-cols-4 md:grid-cols-2 gap-8">
+            {DISPLAY_PLANS.map((plan, index) => {
+              const highlight = !!plan.highlighted;
 
               return (
                 <motion.div
-                  key={tier}
+                  key={plan.name}
                   initial={{ opacity: 0, y: 40 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -480,8 +604,8 @@ export default function Landing() {
               </AccordionTrigger>
               <AccordionContent className="text-gray-600 leading-relaxed">
                 Our extended warranties cover major mechanical breakdowns including engine, transmission, electrical systems, air
-                conditioning, and more. Coverage varies by plan—Basic covers essential systems, Silver adds steering, suspension,
-                and high-tech components, and Gold extends coverage to seals, gaskets, and hybrid/EV components.
+                conditioning, and more. Coverage varies by plan—Essential protects the core systems, Premium expands into
+                high-tech and suspension components, and our Exclusionary and EV Exclusionary options offer our broadest coverage.
               </AccordionContent>
             </AccordionItem>
 
