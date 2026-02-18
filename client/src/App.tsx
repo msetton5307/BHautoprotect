@@ -29,7 +29,6 @@ import Claims from "@/pages/claims";
 import Plans from "@/pages/plans";
 import Contact from "@/pages/contact";
 import ThankYou from "@/pages/thank-you";
-import CustomerPortal from "@/pages/portal";
 import PolicyOverview from "@/pages/policy";
 
 function Router() {
@@ -61,8 +60,6 @@ function Router() {
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/settings" component={AdminSettings} />
       <Route path="/admin" component={AdminDashboard} />
-      <Route path="/portal" component={CustomerPortal} />
-      <Route path="/portal/:rest*" component={CustomerPortal} />
       <Route component={NotFound} />
     </Switch>
   );
