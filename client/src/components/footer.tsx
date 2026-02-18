@@ -59,7 +59,6 @@ export default function Footer() {
               <li><a href="/claims" className="hover:text-white">File a Claim</a></li>
               <li><a href="/contact" className="hover:text-white">Customer Support</a></li>
               <li><a href="/faq" className="hover:text-white">FAQ</a></li>
-              <li><a href="/portal" className="hover:text-white">Customer Portal</a></li>
             </ul>
           </div>
           <div>
@@ -67,16 +66,6 @@ export default function Footer() {
             <ul className="space-y-2 text-gray-400">
               <li><a href="/about" className="hover:text-white">About Us</a></li>
               <li><a href="/contact" className="hover:text-white">Contact</a></li>
-              <li>
-                <a
-                  href="/api/site/sample-contract/pdf"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white"
-                >
-                  Sample Contract
-                </a>
-              </li>
             </ul>
           </div>
         </div>

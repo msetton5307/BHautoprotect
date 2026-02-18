@@ -172,45 +172,6 @@ export default function PolicyOverview() {
           </Card>
         </section>
 
-        <section id="policy-snapshot" className="rounded-3xl bg-white border border-blue-100 shadow-xl p-10">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary">Sample contract preview</p>
-              <h2 className="mt-3 text-3xl font-bold text-gray-900">Download the latest BH Auto Protect policy</h2>
-              <p className="mt-3 text-gray-600 leading-relaxed">
-                Review the full terms, including waiting periods, transfer options, cancellation policy, and state-specific endorsements.
-                The sample mirrors what you'll receive digitally after purchase.
-              </p>
-            </div>
-            <Button
-              asChild
-              className="bg-gradient-to-r from-primary via-secondary to-primary text-white px-8 py-6 text-base"
-              size="lg"
-            >
-              <a href="/legal/terms">
-                Review full policy terms
-              </a>
-            </Button>
-          </div>
-          <div className="mt-8 grid md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm text-gray-600">
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-              <p className="font-semibold text-primary">State compliance</p>
-              <p className="mt-1 text-gray-600">Fully compliant in all 50 states with required disclosures.</p>
-            </div>
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-              <p className="font-semibold text-primary">Transfer friendly</p>
-              <p className="mt-1 text-gray-600">Sell your car? Transfer coverage to the next owner in minutes.</p>
-            </div>
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-              <p className="font-semibold text-primary">Flexible billing</p>
-              <p className="mt-1 text-gray-600">Monthly, semi-annual, or paid-in-full options with autopay reminders.</p>
-            </div>
-            <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
-              <p className="font-semibold text-primary">Money-back guarantee</p>
-              <p className="mt-1 text-gray-600">30-day review period with a full refund if you change your mind.</p>
-            </div>
-          </div>
-        </section>
 
         <section className="text-center bg-gradient-to-r from-primary via-secondary to-primary text-white rounded-3xl px-8 py-16 shadow-lg">
           <h2 className="text-3xl font-bold">Ready to protect your next repair bill?</h2>
