@@ -454,13 +454,9 @@ export default function Landing() {
       </motion.section>
 
       {/* Plan Comparison */}
-      <motion.section
+      <section
         id="plans"
         className="bg-white py-20"
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, amount: 0.3 }}
-        variants={fadeIn(0.1)}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
@@ -527,7 +523,7 @@ export default function Landing() {
             })}
           </div>
         </div>
-      </motion.section>
+      </section>
 
       {/* Customer Reviews */}
       <motion.section
