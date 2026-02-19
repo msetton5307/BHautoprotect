@@ -58,6 +58,7 @@ export default function AdvertisingLanding() {
               submitLabel="Get my quote"
               leadSource="landing-page"
               includeVinField
+              includeZipField
             />
           </div>
         </section>

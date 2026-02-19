@@ -37,6 +37,7 @@ interface QuoteFormProps {
   onSubmitted?: () => void;
   leadSource?: string;
   includeVinField?: boolean;
+  includeZipField?: boolean;
 }
 
 interface QuoteData {
@@ -54,6 +55,7 @@ interface QuoteData {
     email: string;
     phone: string;
     state: string;
+    zip: string;
   };
   consent: {
     agreement: boolean;
@@ -91,6 +93,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       onSubmitted,
       leadSource = "web",
       includeVinField = false,
+      includeZipField = false,
     },
     ref,
   ) => {
@@ -109,6 +112,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         email: "",
         phone: "",
         state: "",
+        zip: "",
       },
       consent: {
         agreement: true,
@@ -177,6 +181,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         assignOwnerField("lastName", params.get("last_name"));
         assignOwnerField("email", params.get("email"));
         assignOwnerField("phone", params.get("phone"));
+        assignOwnerField("zip", params.get("zip") ?? params.get("zipcode"));
 
         const stateParam = params.get("state");
         if (stateParam?.trim()) {
@@ -494,6 +499,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             email: data.owner.email,
             phone: data.owner.phone,
             state: data.owner.state,
+            zip: includeZipField ? data.owner.zip : undefined,
             consentTCPA: data.consent.agreement,
             source: leadSource,
           },
@@ -558,6 +564,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           email: "",
           phone: "",
           state: "",
+          zip: "",
         },
         consent: {
           agreement: true,
@@ -694,9 +701,9 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     };
 
     const validateContactFields = () => {
-      const { firstName, lastName, email, phone, state } = quoteData.owner;
+      const { firstName, lastName, email, phone, state, zip } = quoteData.owner;
 
-      if (!firstName || !lastName || !email || !phone || !state) {
+      if (!firstName || !lastName || !email || !phone || !state || (includeZipField && !zip)) {
         toast({
           title: "Missing Contact Information",
           description: "Please complete all required contact fields.",
@@ -1048,6 +1055,20 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                       </SelectContent>
                     </Select>
                   </div>
+                  {includeZipField ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="zip">ZIP code</Label>
+                      <Input
+                        id="zip"
+                        inputMode="numeric"
+                        autoComplete="postal-code"
+                        value={quoteData.owner.zip}
+                        onChange={(e) => handleOwnerChange("zip", e.target.value)}
+                        className="h-11"
+                        required
+                      />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             )}
