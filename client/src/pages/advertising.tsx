@@ -57,6 +57,7 @@ export default function AdvertisingLanding() {
               description="We use these details to match you with the right level of coverage."
               submitLabel="Get my quote"
               leadSource="landing-page"
+              includeVinField
             />
           </div>
         </section>

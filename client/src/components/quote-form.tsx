@@ -36,6 +36,7 @@ interface QuoteFormProps {
   submitLabel?: string;
   onSubmitted?: () => void;
   leadSource?: string;
+  includeVinField?: boolean;
 }
 
 interface QuoteData {
@@ -43,6 +44,7 @@ interface QuoteData {
     year: string;
     make: string;
     model: string;
+    vin: string;
     odometer: string;
     usage: string;
   };
@@ -88,6 +90,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       submitLabel = "Get My $700 Discount Quote",
       onSubmitted,
       leadSource = "web",
+      includeVinField = false,
     },
     ref,
   ) => {
@@ -96,6 +99,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         year: "",
         make: "",
         model: "",
+        vin: "",
         odometer: "",
         usage: "personal",
       },
@@ -166,6 +170,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         assignVehicleField("year", params.get("year"));
         assignVehicleField("make", params.get("make"));
         assignVehicleField("model", params.get("model"));
+        assignVehicleField("vin", params.get("vin"));
         assignVehicleField("odometer", params.get("mileage"));
 
         assignOwnerField("firstName", params.get("first_name"));
@@ -496,6 +501,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
             year: parseInt(data.vehicle.year),
             make: data.vehicle.make,
             model: data.vehicle.model,
+            vin: data.vehicle.vin || undefined,
             odometer: parseInt(data.vehicle.odometer),
             usage: data.vehicle.usage,
           },
@@ -542,6 +548,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           year: "",
           make: "",
           model: "",
+          vin: "",
           odometer: "",
           usage: "personal",
         },
@@ -935,6 +942,18 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                       </div>
                     )}
                   </div>
+                  {includeVinField ? (
+                    <div className="space-y-2 md:col-span-2">
+                      <Label htmlFor="vin">VIN (optional)</Label>
+                      <Input
+                        id="vin"
+                        placeholder="17-character VIN"
+                        value={quoteData.vehicle.vin}
+                        onChange={(e) => handleVehicleChange("vin", e.target.value)}
+                        className="h-11"
+                      />
+                    </div>
+                  ) : null}
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="odometer">Odometer reading</Label>
                     <Input
