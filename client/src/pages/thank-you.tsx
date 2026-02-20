@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Navigation from "@/components/navigation";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
@@ -10,8 +10,24 @@ declare global {
 }
 
 export default function ThankYou() {
+  const [isCampaignConversion, setIsCampaignConversion] = useState(false);
+
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const lastSubmission = window.sessionStorage.getItem("lastLeadSubmission");
+
+      if (lastSubmission) {
+        try {
+          const parsedSubmission = JSON.parse(lastSubmission) as {
+            source?: string;
+          };
+
+          setIsCampaignConversion(parsedSubmission.source === "landing-page");
+        } catch {
+          setIsCampaignConversion(false);
+        }
+      }
+
       window.gtag?.("event", "conversion", {
         send_to: "AW-17574702052/SJKBCLvojrAbEOTXorxB",
       });
@@ -50,6 +66,15 @@ export default function ThankYou() {
             <Button asChild className="px-8 py-6 text-lg">
               <a href="/">Return to Home</a>
             </Button>
+            {isCampaignConversion && (
+              <img
+                src="https://castlemoats.com/p.ashx?o=4085&e=979&f=pb&r=#s3#&t="
+                alt=""
+                width={1}
+                height={1}
+                className="hidden"
+              />
+            )}
           </div>
         </div>
       </main>
