@@ -208,12 +208,12 @@ export default function FAQ() {
                         <ArrowUpRight className="h-4 w-4" aria-hidden />
                       </a>
                       <a
-                        href="mailto:hello@bhautoprotect.com"
+                        href="mailto:info@bhautoprotect.com"
                         className="flex items-center justify-between gap-3 rounded-2xl border border-white/20 bg-white/5 px-5 py-4 text-left text-base font-semibold text-white transition hover:bg-white/10"
                       >
                         <span className="flex items-center gap-3">
                           <MessageCircle className="h-5 w-5" aria-hidden />
-                          Email hello@bhautoprotect.com
+                          Email info@bhautoprotect.com
                         </span>
                         <ArrowUpRight className="h-4 w-4" aria-hidden />
                       </a>
