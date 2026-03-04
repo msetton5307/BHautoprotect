@@ -28,7 +28,7 @@ type DisplayPlan = {
 
 const DISPLAY_PLANS: readonly DisplayPlan[] = [
   {
-    name: "ESSENTIAL",
+    name: "FIRST CUSTOMER",
     features: [
       "Engine",
       "Transmission",
@@ -52,7 +52,7 @@ const DISPLAY_PLANS: readonly DisplayPlan[] = [
     ],
   },
   {
-    name: "PREMIUM",
+    name: "ADVANCED ENHANCED",
     features: [
       "Engine",
       "Transmission",
@@ -600,7 +600,7 @@ export default function Landing() {
               </AccordionTrigger>
               <AccordionContent className="text-gray-600 leading-relaxed">
                 Our extended warranties cover major mechanical breakdowns including engine, transmission, electrical systems, air
-                conditioning, and more. Coverage varies by plan—Essential protects the core systems, Premium expands into
+                conditioning, and more. Coverage varies by plan—First Customer protects the core systems, Advanced Enhanced expands into
                 high-tech and suspension components, and our Exclusionary and EV Exclusionary options offer our broadest coverage.
               </AccordionContent>
             </AccordionItem>
