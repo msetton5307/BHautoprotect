@@ -14,7 +14,7 @@ type DisplayPlan = {
 
 const DISPLAY_PLANS: readonly DisplayPlan[] = [
   {
-    name: "ESSENTIAL",
+    name: "FIRST CUSTOMER",
     features: [
       "Engine",
       "Transmission",
@@ -38,7 +38,7 @@ const DISPLAY_PLANS: readonly DisplayPlan[] = [
     ],
   },
   {
-    name: "PREMIUM",
+    name: "ADVANCED ENHANCED",
     features: [
       "Engine",
       "Transmission",
