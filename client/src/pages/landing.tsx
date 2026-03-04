@@ -484,11 +484,11 @@ export default function Landing() {
                     } transition-transform duration-500 hover:-translate-y-2`}
                   >
                     {highlight && (
-                      <div className="absolute top-6 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-primary via-secondary to-primary px-6 py-1.5 text-xs font-semibold uppercase tracking-[0.25em] text-white shadow-lg">
+                      <div className="absolute left-1/2 top-6 inline-flex -translate-x-1/2 items-center justify-center whitespace-nowrap rounded-full bg-gradient-to-r from-primary via-secondary to-primary px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white shadow-[0_14px_32px_-16px_rgba(37,99,235,0.85)] ring-1 ring-white/30">
                         Most Popular
                       </div>
                     )}
-                    <CardContent className={`p-10 ${highlight ? "pt-16" : ""}`}>
+                    <CardContent className={`p-10 ${highlight ? "pt-20" : ""}`}>
                       <div className="text-center mb-8">
                         <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
                         {plan.description && (
