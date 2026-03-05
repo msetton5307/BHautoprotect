@@ -38,6 +38,7 @@ interface QuoteFormProps {
   leadSource?: string;
   includeVinField?: boolean;
   includeZipField?: boolean;
+  excludedStates?: string[];
 }
 
 interface QuoteData {
@@ -94,6 +95,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       leadSource = "web",
       includeVinField = false,
       includeZipField = false,
+      excludedStates = [],
     },
     ref,
   ) => {
@@ -128,6 +130,18 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     );
     const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [pendingRecaptchaSubmit, setPendingRecaptchaSubmit] = useState(false);
+
+    const availableStates = useMemo(() => {
+      if (excludedStates.length === 0) {
+        return US_STATES;
+      }
+
+      const excludedStateSet = new Set(
+        excludedStates.map((state) => state.trim().toUpperCase()),
+      );
+
+      return US_STATES.filter((state) => !excludedStateSet.has(state.value));
+    }, [excludedStates]);
 
     useEffect(() => {
       if (typeof window === "undefined") {
@@ -186,7 +200,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
         const stateParam = params.get("state");
         if (stateParam?.trim()) {
           const normalizedState = stateParam.trim().toLowerCase();
-          const matchedState = US_STATES.find(
+          const matchedState = availableStates.find(
             (state) =>
               state.value.toLowerCase() === normalizedState ||
               state.label.toLowerCase() === normalizedState,
@@ -199,7 +213,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
         return updated ? next : prev;
       });
-    }, []);
+    }, [availableStates]);
 
     const {
       data: fetchedVehicleMakes,
@@ -1047,7 +1061,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
                       <SelectContent>
-                        {US_STATES.map((state) => (
+                        {availableStates.map((state) => (
                           <SelectItem key={state.value} value={state.value}>
                             {state.label}
                           </SelectItem>
