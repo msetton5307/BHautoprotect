@@ -59,6 +59,7 @@ export default function AdvertisingLanding() {
               leadSource="landing-page"
               includeVinField
               includeZipField
+              excludedStates={["FL", "WA"]}
             />
           </div>
         </section>
