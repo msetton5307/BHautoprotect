@@ -1860,6 +1860,108 @@ const buildLeadNotificationEmail = ({
   return { subject, html, text };
 };
 
+const customerInquiryPhone = process.env.CUSTOMER_SUPPORT_PHONE?.trim() || '(833) 940-0234';
+const customerInquiryPhoneHref = process.env.CUSTOMER_SUPPORT_PHONE_HREF?.trim() || '+18339400234';
+const customerInquiryEmail = process.env.CUSTOMER_SUPPORT_EMAIL?.trim() || 'info@bhautoprotect.com';
+
+const buildLeadAcknowledgementEmail = ({
+  lead,
+  vehicle,
+}: {
+  lead: Lead;
+  vehicle?: Vehicle | null;
+}) => {
+  const displayName = getLeadDisplayName(lead);
+  const vehicleSummary = getVehicleSummary(vehicle);
+  const hasVehicleSummary = vehicleSummary !== 'your vehicle';
+  const subject = 'Thank you for your BH Auto Protect inquiry';
+  const html = `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>${escapeHtml(subject)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f8fafc;font-family:'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="640" style="width:640px;max-width:94%;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 22px 48px rgba(15,23,42,0.08);">
+            <tr>
+              <td style="background:linear-gradient(135deg,#0f172a,#1e40af);padding:32px;color:#e2e8f0;">
+                ${renderEmailLogo({ textColor: '#bae6fd' })}
+                <div style="font-size:12px;letter-spacing:0.24em;text-transform:uppercase;color:#38bdf8;">Thank you</div>
+                <div style="font-size:26px;font-weight:700;margin-top:12px;color:#f8fafc;">We received your inquiry</div>
+                <div style="margin-top:8px;font-size:14px;color:#bae6fd;">A BH Auto Protect specialist will be in touch shortly.</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:32px;">
+                <p style="margin:0 0 18px;font-size:16px;line-height:1.7;color:#0f172a;">Hi ${escapeHtml(displayName)},</p>
+                <p style="margin:0 0 18px;font-size:15px;line-height:1.7;color:#334155;">Thank you for requesting a quote with <strong>BH Auto Protect</strong>${hasVehicleSummary ? ` for ${escapeHtml(vehicleSummary)}` : ''}. We’ve received your information, and a member of our team will review it and contact you shortly.</p>
+                <div style="background:#f8fafc;border:1px solid #dbeafe;border-radius:16px;padding:24px;margin:0 0 24px;">
+                  <div style="font-size:12px;text-transform:uppercase;letter-spacing:0.16em;color:#2563eb;font-weight:700;margin-bottom:10px;">Need faster service?</div>
+                  <p style="margin:0 0 14px;font-size:15px;line-height:1.7;color:#0f172a;">For quicker assistance, call or email us directly and our team will be happy to help.</p>
+                  <div style="font-size:15px;line-height:1.8;color:#0f172a;">
+                    <div><strong>Call:</strong> <a href="tel:${escapeHtml(customerInquiryPhoneHref)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(customerInquiryPhone)}</a></div>
+                    <div><strong>Email:</strong> <a href="mailto:${escapeHtml(customerInquiryEmail)}" style="color:#2563eb;text-decoration:none;">${escapeHtml(customerInquiryEmail)}</a></div>
+                  </div>
+                </div>
+                <p style="margin:0 0 18px;font-size:15px;line-height:1.7;color:#334155;">We appreciate the opportunity to help you protect your vehicle and look forward to speaking with you.</p>
+                <p style="margin:0;font-size:15px;line-height:1.7;color:#0f172a;">Warm regards,<br /><strong>The BH Auto Protect Team</strong></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+  const text = [
+    `Hi ${displayName},`,
+    '',
+    `Thank you for requesting a quote with BH Auto Protect${hasVehicleSummary ? ` for ${vehicleSummary}` : ''}.`,
+    'We received your inquiry and a member of our team will be in touch shortly.',
+    '',
+    'For quicker service, contact us directly:',
+    `Call: ${customerInquiryPhone}`,
+    `Email: ${customerInquiryEmail}`,
+    '',
+    'Warm regards,',
+    'The BH Auto Protect Team',
+  ].join('\n');
+
+  return { subject, html, text };
+};
+
+const sendLeadAcknowledgementEmail = async ({
+  lead,
+  vehicle,
+}: {
+  lead: Lead;
+  vehicle?: Vehicle | null;
+}): Promise<void> => {
+  const recipient = typeof lead.email === 'string' ? lead.email.trim() : '';
+  if (!recipient) {
+    return;
+  }
+
+  const message = buildLeadAcknowledgementEmail({ lead, vehicle });
+
+  try {
+    await sendBrandedMail({
+      from: customerInquiryEmail,
+      to: recipient,
+      replyTo: customerInquiryEmail,
+      subject: message.subject,
+      html: message.html,
+      text: message.text,
+    });
+  } catch (error) {
+    console.error('Error sending lead acknowledgement email:', error);
+  }
+};
+
 const sendNewLeadNotification = async ({
   lead,
   vehicle,
@@ -6458,7 +6560,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       syncLeadMetaWithLead(lead);
 
-      void sendNewLeadNotification({ lead, vehicle });
+      void Promise.allSettled([
+        sendNewLeadNotification({ lead, vehicle }),
+        sendLeadAcknowledgementEmail({ lead, vehicle }),
+      ]);
 
       res.status(201).json({ ok: true, id: lead.id });
     } catch (error) {
@@ -6528,7 +6633,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Initialize metadata so newly created leads are visible in admin views
       syncLeadMetaWithLead(lead);
 
-      void sendNewLeadNotification({ lead, vehicle });
+      void Promise.allSettled([
+        sendNewLeadNotification({ lead, vehicle }),
+        sendLeadAcknowledgementEmail({ lead, vehicle }),
+      ]);
 
       res.status(201).json({
         data: lead,
