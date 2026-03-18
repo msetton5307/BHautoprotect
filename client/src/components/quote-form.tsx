@@ -95,7 +95,6 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
       leadSource = "web",
       includeVinField = false,
       includeZipField = false,
-      excludedStates = [],
     },
     ref,
   ) => {
@@ -131,17 +130,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
     const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [pendingRecaptchaSubmit, setPendingRecaptchaSubmit] = useState(false);
 
-    const availableStates = useMemo(() => {
-      if (excludedStates.length === 0) {
-        return US_STATES;
-      }
-
-      const excludedStateSet = new Set(
-        excludedStates.map((state) => state.trim().toUpperCase()),
-      );
-
-      return US_STATES.filter((state) => !excludedStateSet.has(state.value));
-    }, [excludedStates]);
+    const availableStates = useMemo(() => US_STATES, []);
 
     useEffect(() => {
       if (typeof window === "undefined") {
