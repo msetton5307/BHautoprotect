@@ -29,6 +29,7 @@ import Claims from "@/pages/claims";
 import Plans from "@/pages/plans";
 import Contact from "@/pages/contact";
 import ThankYou from "@/pages/thank-you";
+import UncoveredVehicle from "@/pages/uncovered-vehicle";
 import PolicyOverview from "@/pages/policy";
 
 function Router() {
@@ -42,6 +43,7 @@ function Router() {
       <Route path="/plans" component={Plans} />
       <Route path="/contact" component={Contact} />
       <Route path="/thank-you" component={ThankYou} />
+      <Route path="/not-covered" component={UncoveredVehicle} />
       <Route path="/campaign" component={AdvertisingLanding} />
       <Route path="/promo" component={PromoPage} />
       <Route path="/legal/privacy" component={PrivacyPage} />
