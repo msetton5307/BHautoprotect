@@ -112,9 +112,17 @@ const normalizeSubId = (value: unknown): string | null => {
 };
 
 const DEFAULT_VEHICLE_ELIGIBILITY_SETTINGS: VehicleEligibilitySettings = {
-  excludedVehicles: [],
-  excludedStates: [],
-  maximumMiles: null,
+  excludedVehicles: [
+    { make: 'Bentley', model: null },
+    { make: 'Land Rover', model: null },
+    { make: 'BMW', model: 'M3' },
+    { make: 'BMW', model: 'M4' },
+    { make: 'BMW', model: 'M5' },
+    { make: 'Mercedes-Benz', model: 'G Wagon AMG' },
+    { make: 'Nissan', model: 'Altima' },
+  ],
+  excludedStates: ['FL', 'WA', 'MO', 'CA'],
+  maximumMiles: 199000,
 };
 
 const normalizeEligibilityString = (value: string | null | undefined): string =>
@@ -122,19 +130,45 @@ const normalizeEligibilityString = (value: string | null | undefined): string =>
 
 const formatEligibilitySettings = (
   settings: VehicleEligibilitySettings,
-): VehicleEligibilitySettings => ({
-  excludedVehicles: settings.excludedVehicles.map((rule) => ({
-    make: rule.make.trim(),
-    model: rule.model?.trim() ? rule.model.trim() : null,
-  })),
-  excludedStates: settings.excludedStates
-    .map((state) => state.trim().toUpperCase())
-    .filter((state, index, values) => state.length === 2 && values.indexOf(state) === index),
-  maximumMiles:
-    typeof settings.maximumMiles === 'number' && Number.isFinite(settings.maximumMiles)
-      ? settings.maximumMiles
-      : null,
-});
+): VehicleEligibilitySettings => {
+  const excludedVehicleMap = new Map<string, { make: string; model: string | null }>();
+
+  [...DEFAULT_VEHICLE_ELIGIBILITY_SETTINGS.excludedVehicles, ...settings.excludedVehicles].forEach((rule) => {
+    const make = rule.make.trim();
+    const model = rule.model?.trim() ? rule.model.trim() : null;
+
+    if (!make) {
+      return;
+    }
+
+    excludedVehicleMap.set(`${make.toLowerCase()}|${(model ?? '').toLowerCase()}`, {
+      make,
+      model,
+    });
+  });
+
+  const excludedStates = Array.from(
+    new Set(
+      [
+        ...DEFAULT_VEHICLE_ELIGIBILITY_SETTINGS.excludedStates,
+        ...settings.excludedStates,
+      ]
+        .map((state) => state.trim().toUpperCase())
+        .filter((state) => state.length === 2),
+    ),
+  );
+
+  const maximumMilesCandidates = [
+    DEFAULT_VEHICLE_ELIGIBILITY_SETTINGS.maximumMiles,
+    settings.maximumMiles,
+  ].filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
+
+  return {
+    excludedVehicles: Array.from(excludedVehicleMap.values()),
+    excludedStates,
+    maximumMiles: maximumMilesCandidates.length > 0 ? Math.min(...maximumMilesCandidates) : null,
+  };
+};
 
 const loadVehicleEligibilitySettings = async (): Promise<VehicleEligibilitySettings> => {
   const setting = await storage.getSiteSetting(VEHICLE_ELIGIBILITY_SETTING_KEY);
