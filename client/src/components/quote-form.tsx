@@ -506,7 +506,7 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
 
     const submitQuoteMutation = useMutation({
       mutationFn: async (data: QuoteData) => {
-        return apiRequest("POST", "/api/leads", {
+        const response = await apiRequest("POST", "/api/leads", {
           lead: {
             firstName: data.owner.firstName,
             lastName: data.owner.lastName,
@@ -527,19 +527,25 @@ export const QuoteForm = forwardRef<HTMLFormElement, QuoteFormProps>(
           },
           recaptchaToken,
         });
+        return response.json() as Promise<{
+          eligibility?: {
+            covered?: boolean;
+          };
+        }>;
       },
-      onSuccess: () => {
+      onSuccess: (response) => {
         if (typeof window !== "undefined") {
           window.sessionStorage.setItem(
             "lastLeadSubmission",
             JSON.stringify({
               source: leadSource,
               submittedAt: new Date().toISOString(),
+              covered: response?.eligibility?.covered !== false,
             }),
           );
         }
 
-        navigate("/thank-you");
+        navigate(response?.eligibility?.covered === false ? "/not-covered" : "/thank-you");
         onSubmitted?.();
         resetForm();
       },

@@ -81,6 +81,26 @@ const CONVERTED_LEADS_FILE_PATH = path.join(
 const CONVERTED_STATUS_VALUES: LeadStatus[] = ['converted', 'sold'];
 const QUOTED_STATUS_VALUES: LeadStatus[] = ['quoted', 'callback'];
 const POLICY_ACTIVATION_EMAILS_ENABLED = process.env.SEND_POLICY_ACTIVATION_EMAILS === 'true';
+const VEHICLE_ELIGIBILITY_SETTING_KEY = 'vehicleEligibility.rules';
+
+const vehicleExclusionRuleSchema = z.object({
+  make: z.string().trim().min(1, 'Make is required').max(80, 'Make is too long'),
+  model: z.string().trim().max(80, 'Model is too long').optional().nullable(),
+});
+
+const vehicleEligibilitySettingsSchema = z.object({
+  excludedVehicles: z.array(vehicleExclusionRuleSchema).max(500).default([]),
+  excludedStates: z.array(z.string().trim().length(2)).max(60).default([]),
+  maximumMiles: z.number().int().min(0).max(1000000).nullable().default(null),
+});
+
+type VehicleEligibilitySettings = z.infer<typeof vehicleEligibilitySettingsSchema>;
+
+type VehicleEligibilityDecision = {
+  covered: boolean;
+  reason: 'excluded_make_model' | 'excluded_state' | 'maximum_miles' | null;
+  message: string | null;
+};
 
 const normalizeSubId = (value: unknown): string | null => {
   if (typeof value !== 'string') {
@@ -89,6 +109,100 @@ const normalizeSubId = (value: unknown): string | null => {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+};
+
+const DEFAULT_VEHICLE_ELIGIBILITY_SETTINGS: VehicleEligibilitySettings = {
+  excludedVehicles: [],
+  excludedStates: [],
+  maximumMiles: null,
+};
+
+const normalizeEligibilityString = (value: string | null | undefined): string =>
+  (value ?? '').trim().toLowerCase();
+
+const formatEligibilitySettings = (
+  settings: VehicleEligibilitySettings,
+): VehicleEligibilitySettings => ({
+  excludedVehicles: settings.excludedVehicles.map((rule) => ({
+    make: rule.make.trim(),
+    model: rule.model?.trim() ? rule.model.trim() : null,
+  })),
+  excludedStates: settings.excludedStates
+    .map((state) => state.trim().toUpperCase())
+    .filter((state, index, values) => state.length === 2 && values.indexOf(state) === index),
+  maximumMiles:
+    typeof settings.maximumMiles === 'number' && Number.isFinite(settings.maximumMiles)
+      ? settings.maximumMiles
+      : null,
+});
+
+const loadVehicleEligibilitySettings = async (): Promise<VehicleEligibilitySettings> => {
+  const setting = await storage.getSiteSetting(VEHICLE_ELIGIBILITY_SETTING_KEY);
+  if (!setting?.value) {
+    return DEFAULT_VEHICLE_ELIGIBILITY_SETTINGS;
+  }
+
+  try {
+    const parsed = JSON.parse(setting.value);
+    return formatEligibilitySettings(vehicleEligibilitySettingsSchema.parse(parsed));
+  } catch (error) {
+    console.error('Failed to parse vehicle eligibility settings:', error);
+    return DEFAULT_VEHICLE_ELIGIBILITY_SETTINGS;
+  }
+};
+
+const evaluateVehicleEligibility = (
+  lead: Pick<InsertLead, 'state'>,
+  vehicle: Pick<InsertVehicle, 'make' | 'model' | 'odometer'>,
+  settings: VehicleEligibilitySettings,
+): VehicleEligibilityDecision => {
+  const normalizedState = normalizeEligibilityString(lead.state).toUpperCase();
+  if (normalizedState && settings.excludedStates.includes(normalizedState)) {
+    return {
+      covered: false,
+      reason: 'excluded_state',
+      message: `Vehicles registered in ${normalizedState} are currently not eligible for coverage.`,
+    };
+  }
+
+  const normalizedMake = normalizeEligibilityString(vehicle.make);
+  const normalizedModel = normalizeEligibilityString(vehicle.model);
+  const matchingVehicleRule = settings.excludedVehicles.find((rule) => {
+    if (normalizeEligibilityString(rule.make) !== normalizedMake) {
+      return false;
+    }
+    const normalizedRuleModel = normalizeEligibilityString(rule.model ?? '');
+    return normalizedRuleModel.length === 0 || normalizedRuleModel === normalizedModel;
+  });
+
+  if (matchingVehicleRule) {
+    return {
+      covered: false,
+      reason: 'excluded_make_model',
+      message: matchingVehicleRule.model
+        ? `${matchingVehicleRule.make} ${matchingVehicleRule.model} vehicles are currently not eligible for coverage.`
+        : `${matchingVehicleRule.make} vehicles are currently not eligible for coverage.`,
+    };
+  }
+
+  if (
+    typeof settings.maximumMiles === 'number' &&
+    Number.isFinite(settings.maximumMiles) &&
+    typeof vehicle.odometer === 'number' &&
+    vehicle.odometer > settings.maximumMiles
+  ) {
+    return {
+      covered: false,
+      reason: 'maximum_miles',
+      message: `Vehicles with more than ${settings.maximumMiles.toLocaleString('en-US')} miles are currently not eligible for coverage.`,
+    };
+  }
+
+  return {
+    covered: true,
+    reason: null,
+    message: null,
+  };
 };
 
 const ensureFileDirectory = async (filePath: string): Promise<void> => {
@@ -5917,6 +6031,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get('/api/admin/vehicle-eligibility', async (_req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const settings = await loadVehicleEligibilitySettings();
+      res.json({
+        data: settings,
+        message: 'Vehicle eligibility settings retrieved successfully',
+      });
+    } catch (error) {
+      console.error('Error loading vehicle eligibility settings:', error);
+      res.status(500).json({ message: 'Failed to load vehicle eligibility settings' });
+    }
+  });
+
+  app.post('/api/admin/vehicle-eligibility', async (req, res) => {
+    if (!ensureAdminUser(res)) {
+      return;
+    }
+
+    try {
+      const payload = formatEligibilitySettings(vehicleEligibilitySettingsSchema.parse(req.body ?? {}));
+      const saved = await storage.upsertSiteSetting({
+        key: VEHICLE_ELIGIBILITY_SETTING_KEY,
+        value: JSON.stringify(payload),
+      });
+
+      res.json({
+        data: {
+          ...payload,
+          updatedAt: toIsoString(saved.updatedAt ?? null),
+        },
+        message: 'Vehicle eligibility settings updated successfully',
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        const message = error.issues.at(0)?.message ?? 'Invalid vehicle eligibility settings';
+        res.status(400).json({ message });
+        return;
+      }
+      console.error('Error updating vehicle eligibility settings:', error);
+      res.status(500).json({ message: 'Failed to update vehicle eligibility settings' });
+    }
+  });
+
   app.get('/api/admin/sample-contract', async (_req, res) => {
     if (!ensureAdminUser(res)) {
       return;
@@ -6309,6 +6470,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         delete sanitizedPayload.recaptchaToken;
       }
 
+      const eligibilitySettings = await loadVehicleEligibilitySettings();
+      const eligibilityDecision = evaluateVehicleEligibility(leadData, vehicleData, eligibilitySettings);
+
       // Create lead
       const lead = await storage.createLead(
         {
@@ -6334,6 +6498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json({
         data: lead,
+        eligibility: eligibilityDecision,
         message: 'Lead created successfully',
       });
     } catch (error) {

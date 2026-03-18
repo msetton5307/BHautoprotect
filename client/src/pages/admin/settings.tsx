@@ -63,6 +63,15 @@ type SampleContractResponse = {
   };
 };
 
+type VehicleEligibilityResponse = {
+  data?: {
+    excludedVehicles: Array<{ make: string; model?: string | null }>;
+    excludedStates: string[];
+    maximumMiles: number | null;
+    updatedAt?: string | null;
+  };
+};
+
 async function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -104,6 +113,11 @@ export default function AdminSettings() {
   const [quoteInstructions, setQuoteInstructions] = useState<string>(DEFAULT_INSTRUCTIONS_FALLBACK);
   const [instructionsError, setInstructionsError] = useState<string | null>(null);
   const [instructionsSuccess, setInstructionsSuccess] = useState<string | null>(null);
+  const [eligibilityVehiclesText, setEligibilityVehiclesText] = useState<string>("");
+  const [eligibilityStatesText, setEligibilityStatesText] = useState<string>("");
+  const [maximumMiles, setMaximumMiles] = useState<string>("");
+  const [eligibilityError, setEligibilityError] = useState<string | null>(null);
+  const [eligibilitySuccess, setEligibilitySuccess] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const queriesEnabled = authenticated && !checking;
@@ -189,6 +203,37 @@ export default function AdminSettings() {
     enabled: queriesEnabled,
     staleTime: 0,
   });
+
+  const vehicleEligibilityQuery = useQuery<VehicleEligibilityResponse>({
+    queryKey: ["/api/admin/vehicle-eligibility"],
+    queryFn: async () => {
+      const response = await fetchWithAuth("/api/admin/vehicle-eligibility");
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+      if (!response.ok) {
+        throw new Error("Failed to load vehicle eligibility settings");
+      }
+      return response.json();
+    },
+    enabled: queriesEnabled,
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    const data = vehicleEligibilityQuery.data?.data;
+    if (!data) {
+      return;
+    }
+
+    setEligibilityVehiclesText(
+      (data.excludedVehicles ?? []).map((rule) => [rule.make, rule.model].filter(Boolean).join("|")).join("\n"),
+    );
+    setEligibilityStatesText((data.excludedStates ?? []).join(", "));
+    setMaximumMiles(data.maximumMiles == null ? "" : String(data.maximumMiles));
+  }, [vehicleEligibilityQuery.data]);
 
   const uploadMutation = useMutation<BrandingUploadResponse, Error, File>({
     mutationFn: async (file: File) => {
@@ -385,6 +430,67 @@ export default function AdminSettings() {
     onError: (error) => {
       setInstructionsError(error.message);
       setInstructionsSuccess(null);
+    },
+  });
+
+
+  const saveEligibilityMutation = useMutation<VehicleEligibilityResponse, Error, void>({
+    mutationFn: async () => {
+      const excludedVehicles = eligibilityVehiclesText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const [make, model] = line.split("|").map((part) => part.trim());
+          if (!make) {
+            throw new Error("Each excluded vehicle must include a make. Use one entry per line as Make or Make|Model.");
+          }
+          return { make, model: model || null };
+        });
+
+      const excludedStates = eligibilityStatesText
+        .split(",")
+        .map((state) => state.trim().toUpperCase())
+        .filter(Boolean);
+
+      const normalizedMaximumMiles = maximumMiles.trim();
+      const parsedMaximumMiles = normalizedMaximumMiles ? Number(normalizedMaximumMiles.replace(/,/g, "")) : null;
+
+      if (parsedMaximumMiles !== null && (!Number.isFinite(parsedMaximumMiles) || parsedMaximumMiles < 0)) {
+        throw new Error("Maximum miles must be a valid non-negative number.");
+      }
+
+      const response = await fetchWithAuth("/api/admin/vehicle-eligibility", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          excludedVehicles,
+          excludedStates,
+          maximumMiles: parsedMaximumMiles,
+        }),
+      });
+
+      if (response.status === 401) {
+        clearCredentials();
+        markLoggedOut();
+        throw new Error("Unauthorized");
+      }
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const message = typeof payload?.message === "string" ? payload.message : "Failed to update vehicle eligibility settings";
+        throw new Error(message);
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/vehicle-eligibility"] });
+      setEligibilityError(null);
+      setEligibilitySuccess("Vehicle eligibility rules updated.");
+    },
+    onError: (error) => {
+      setEligibilityError(error.message);
+      setEligibilitySuccess(null);
     },
   });
 
@@ -956,6 +1062,91 @@ export default function AdminSettings() {
                   </form>
                 </>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                Vehicle Eligibility Rules
+              </CardTitle>
+              <CardDescription>
+                Configure the makes, models, states, and mileage limits that should redirect shoppers to the not-covered page.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="excluded-vehicles">Excluded makes and models</Label>
+                <Textarea
+                  id="excluded-vehicles"
+                  rows={7}
+                  value={eligibilityVehiclesText}
+                  onChange={(event) => {
+                    setEligibilityVehiclesText(event.target.value);
+                    setEligibilityError(null);
+                    setEligibilitySuccess(null);
+                  }}
+                  placeholder={"Bentley\nLand Rover|Range Rover"}
+                  disabled={saveEligibilityMutation.isPending}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Enter one rule per line. Use <span className="font-medium">Make</span> to exclude an entire make or <span className="font-medium">Make|Model</span> to exclude a specific model.
+                </p>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="excluded-states">Excluded states</Label>
+                  <Input
+                    id="excluded-states"
+                    value={eligibilityStatesText}
+                    onChange={(event) => {
+                      setEligibilityStatesText(event.target.value);
+                      setEligibilityError(null);
+                      setEligibilitySuccess(null);
+                    }}
+                    placeholder="AK, HI, WA"
+                    disabled={saveEligibilityMutation.isPending}
+                  />
+                  <p className="text-xs text-muted-foreground">Use 2-letter abbreviations separated by commas.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="maximum-miles">Maximum miles</Label>
+                  <Input
+                    id="maximum-miles"
+                    inputMode="numeric"
+                    value={maximumMiles}
+                    onChange={(event) => {
+                      setMaximumMiles(event.target.value);
+                      setEligibilityError(null);
+                      setEligibilitySuccess(null);
+                    }}
+                    placeholder="150000"
+                    disabled={saveEligibilityMutation.isPending}
+                  />
+                  <p className="text-xs text-muted-foreground">Leave blank if mileage should not affect eligibility.</p>
+                </div>
+              </div>
+
+              {eligibilityError && (
+                <Alert variant="destructive">
+                  <AlertTitle>Save failed</AlertTitle>
+                  <AlertDescription>{eligibilityError}</AlertDescription>
+                </Alert>
+              )}
+
+              {eligibilitySuccess && (
+                <Alert>
+                  <AlertTitle>Eligibility rules updated</AlertTitle>
+                  <AlertDescription>{eligibilitySuccess}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button type="button" onClick={() => saveEligibilityMutation.mutate()} disabled={saveEligibilityMutation.isPending || vehicleEligibilityQuery.isLoading}>
+                {saveEligibilityMutation.isPending ? "Saving…" : "Save eligibility rules"}
+              </Button>
             </CardContent>
           </Card>
 
