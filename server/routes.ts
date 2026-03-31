@@ -113,6 +113,7 @@ const normalizeSubId = (value: unknown): string | null => {
 
 const DEFAULT_VEHICLE_ELIGIBILITY_SETTINGS: VehicleEligibilitySettings = {
   excludedVehicles: [
+    { make: 'Audi', model: null },
     { make: 'Bentley', model: null },
     { make: 'Land Rover', model: null },
     { make: 'BMW', model: 'M3' },
