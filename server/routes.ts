@@ -1228,6 +1228,19 @@ const verifyRecaptchaToken = async (
 
 const leadWebhookPayloadSchema = z
   .object({
+    lsid: z.union([z.string(), z.number()]).optional(),
+    lcid: z.union([z.string(), z.number()]).optional(),
+    key: z.string().optional(),
+    subid1: z.string().optional(),
+    subid2: z.string().optional(),
+    subid3: z.string().optional(),
+    fname: z.string().optional(),
+    lname: z.string().optional(),
+    homephone: z.string().optional(),
+    model_year: z.union([z.string(), z.number()]).optional(),
+    xxTrustedFormCertUrl: z.string().optional(),
+    source_url: z.string().optional(),
+    universal_leadid: z.string().optional(),
     first_name: z.string().optional(),
     last_name: z.string().optional(),
     email: z.string().optional(),
@@ -6472,8 +6485,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const payload = leadWebhookPayloadSchema.parse(req.body ?? {});
 
+      const partnerPayloadDetected =
+        payload.lsid !== undefined ||
+        payload.lcid !== undefined ||
+        payload.key !== undefined ||
+        payload.universal_leadid !== undefined;
+
+      if (partnerPayloadDetected) {
+        const lsid = normalizeInteger(payload.lsid);
+        const lcid = normalizeInteger(payload.lcid);
+        const accessKey = normalizeString(payload.key);
+        const trustedFormUrl = normalizeString(payload.xxTrustedFormCertUrl);
+        const universalLeadId = normalizeString(payload.universal_leadid);
+        const firstName = normalizeString(payload.fname ?? payload.first_name);
+        const lastName = normalizeString(payload.lname ?? payload.last_name);
+        const partnerEmail = normalizeEmail(payload.email);
+        const partnerZip = normalizeString(payload.zip);
+        const partnerPhone = normalizeString(payload.homephone ?? payload.phone);
+        const partnerModelYear = normalizeInteger(payload.model_year ?? payload.year);
+        const partnerMake = normalizeString(payload.make);
+        const partnerMileage = normalizeInteger(payload.mileage);
+        const partnerSourceUrl = normalizeString(payload.source_url);
+        const partnerIp = normalizeString(payload.ip ?? payload.consent_ip);
+
+        if (lsid !== 2959 || lcid !== 11564 || accessKey !== "UL8F3w61Igfm") {
+          return res.status(400).json({
+            ok: false,
+            error: "Invalid partner credentials",
+          });
+        }
+
+        if (!trustedFormUrl) {
+          return res.status(400).json({
+            ok: false,
+            error: "xxTrustedFormCertUrl is required",
+          });
+        }
+
+        if (!universalLeadId) {
+          return res.status(400).json({
+            ok: false,
+            error: "universal_leadid is required",
+          });
+        }
+
+        if (
+          !partnerEmail ||
+          !firstName ||
+          !lastName ||
+          !partnerZip ||
+          !partnerPhone ||
+          partnerModelYear === undefined ||
+          !partnerMake ||
+          partnerMileage === undefined ||
+          !partnerIp ||
+          !partnerSourceUrl
+        ) {
+          return res.status(400).json({
+            ok: false,
+            error:
+              "Missing required partner fields: email, fname, lname, zip, homephone, model_year, make, mileage, ip, source_url",
+          });
+        }
+      }
+
       const email = normalizeEmail(payload.email);
-      const phone = normalizeString(payload.phone);
+      const phone = normalizeString(payload.phone ?? payload.homephone);
       if (!email && !phone) {
         console.error("Lead webhook rejected: email or phone required.");
         return res.status(400).json({ ok: false, error: "email or phone required" });
@@ -6500,11 +6577,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         normalizeString(payload.consent_user_agent ?? payload.user_agent) ??
         normalizeString(req.get("User-Agent"));
 
-      const subId = normalizeString(payload.sub_id);
+      const subId = normalizeString(
+        payload.sub_id ?? payload.subid1 ?? payload.universal_leadid,
+      );
 
       const leadInput: Partial<InsertLead> = {
-        firstName: normalizeString(payload.first_name),
-        lastName: normalizeString(payload.last_name),
+        firstName: normalizeString(payload.first_name ?? payload.fname),
+        lastName: normalizeString(payload.last_name ?? payload.lname),
         email,
         phone,
         zip: normalizeString(payload.zip),
@@ -6513,7 +6592,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         consentTimestamp,
         consentIP,
         consentUserAgent,
-        source: normalizeString(payload.source ?? payload.lead_source),
+        source: normalizeString(
+          payload.source ?? payload.lead_source ?? payload.source_url,
+        ),
         utmSource: normalizeString(payload.utm_source),
         utmMedium: normalizeString(payload.utm_medium),
         utmCampaign: normalizeString(payload.utm_campaign),
@@ -6523,7 +6604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         leadInput.subId = subId;
       }
 
-      const vehicleYear = normalizeInteger(payload.year);
+      const vehicleYear = normalizeInteger(payload.year ?? payload.model_year);
       const vehicleMake = normalizeString(payload.make);
       const vehicleModel = normalizeString(payload.model);
       const vehicleOdometer = normalizeInteger(payload.mileage);
